@@ -558,7 +558,7 @@ namespace tbx::gpu
 
     //// FRAME CONTEXT (shared between the builtin passes of one frame) ////
 
-    static void refresh_lighting(RendererState& state, Sandbox& sandbox)
+    static void refresh_lighting(RendererState& state, ecs::Sandbox& sandbox)
     {
         FrameContext& frame = state.frame;
         auto& registry = sandbox.get_registry();
@@ -567,7 +567,7 @@ namespace tbx::gpu
         frame.light_intensity = 1.0f;
         for (const auto [entity, light] : registry.view<DirectionalLight>().each())
         {
-            const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
+            const Mat4 world = sandbox.get_world_matrix(ecs::Toy(sandbox, entity));
             frame.light_direction = math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
             frame.light_color = light.color;
             frame.light_intensity = light.intensity;
@@ -593,7 +593,7 @@ namespace tbx::gpu
         if (!ready)
             return;
         RendererState& state = ready->get();
-        Sandbox& sandbox = context.sandbox;
+        ecs::Sandbox& sandbox = context.sandbox;
         auto& registry = sandbox.get_registry();
         refresh_lighting(state, sandbox);
 
@@ -608,12 +608,12 @@ namespace tbx::gpu
             state.frame.light_view_projection);
         for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
-            if (!registry.get<ToyHandle>(entity).is_enabled)
+            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;
             set_uniform(
                 *state.depth_shader,
                 "u_model",
-                sandbox.get_world_matrix(Toy(sandbox, entity)));
+                sandbox.get_world_matrix(ecs::Toy(sandbox, entity)));
             draw(resolve_mesh(context, state, renderer).mesh);
         }
         end_render_pass();
@@ -625,7 +625,7 @@ namespace tbx::gpu
     static void draw_scene(RenderContext& context, RendererState& state)
     {
         FrameContext& frame = state.frame;
-        Sandbox& sandbox = context.sandbox;
+        ecs::Sandbox& sandbox = context.sandbox;
         auto& registry = sandbox.get_registry();
 
         // Sky: the first Sky block paints the background along the view ray.
@@ -652,7 +652,7 @@ namespace tbx::gpu
         // failure mode's loud unlit fallback instead (docs/RenderFailures.md).
         for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
-            if (!registry.get<ToyHandle>(entity).is_enabled)
+            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;
             const ResolvedMesh mesh = resolve_mesh(context, state, renderer);
             auto surface = resolve_surface(context, state, renderer);
@@ -666,7 +666,7 @@ namespace tbx::gpu
                 const Shader& fallback = *state.fallback_shader;
                 set_pipeline(*state.fallback_pipeline);
                 set_uniform(fallback, "u_view_projection", frame.view_projection);
-                set_uniform(fallback, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
+                set_uniform(fallback, "u_model", sandbox.get_world_matrix(ecs::Toy(sandbox, entity)));
                 set_uniform(fallback, "u_tint", FAILURE_COLORS[static_cast<size>(surface.failure)]);
                 set_uniform(fallback, "u_albedo", 0);
                 const Mesh& fallback_mesh = surface.failure == RenderFailure::MISSING_MESH
@@ -693,7 +693,7 @@ namespace tbx::gpu
             set_uniform(shader, "u_normal_map", 2);
             set_uniform(shader, "u_metallic_map", 3);
             set_uniform(shader, "u_roughness_map", 4);
-            set_uniform(shader, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
+            set_uniform(shader, "u_model", sandbox.get_world_matrix(ecs::Toy(sandbox, entity)));
             set_uniform(shader, "u_tint", surface.tint);
             set_uniform(shader, "u_metallic", surface.metallic);
             set_uniform(shader, "u_roughness", surface.roughness);
@@ -728,7 +728,7 @@ namespace tbx::gpu
             return;
         RendererState& state = ready->get();
         FrameContext& frame = state.frame;
-        Sandbox& sandbox = context.sandbox;
+        ecs::Sandbox& sandbox = context.sandbox;
         auto& registry = sandbox.get_registry();
         refresh_lighting(state, sandbox);
         frame.post_chain.clear();
@@ -742,7 +742,7 @@ namespace tbx::gpu
         bool has_any_camera = false;
         for (const auto [entity, camera] : registry.view<Camera>().each())
         {
-            if (registry.get<ToyHandle>(entity).is_enabled && camera_matches_window(camera))
+            if (registry.get<ecs::ToyHandle>(entity).is_enabled && camera_matches_window(camera))
             {
                 has_any_camera = true;
                 break;
@@ -784,7 +784,7 @@ namespace tbx::gpu
         // Every matching camera renders the scene into its normalized viewport rect.
         for (const auto [entity, camera] : registry.view<Camera>().each())
         {
-            if (!registry.get<ToyHandle>(entity).is_enabled || !camera_matches_window(camera))
+            if (!registry.get<ecs::ToyHandle>(entity).is_enabled || !camera_matches_window(camera))
                 continue;
             const int x = static_cast<int>(camera.viewport.x * context.window.width);
             const int y = static_cast<int>(camera.viewport.y * context.window.height);
@@ -794,7 +794,7 @@ namespace tbx::gpu
                 continue;
             set_viewport(x, y, width, height);
 
-            const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
+            const Mat4 world = sandbox.get_world_matrix(ecs::Toy(sandbox, entity));
             frame.camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
             const Mat4 projection = math::perspective(
                 math::radians(camera.fov_degrees),
@@ -914,7 +914,7 @@ namespace tbx::gpu
         if (!ready)
             return;
         RendererState& state = ready->get();
-        Sandbox& sandbox = context.sandbox;
+        ecs::Sandbox& sandbox = context.sandbox;
         const int width = context.window.width;
         const int height = context.window.height;
         if (!state.ui_layer_targets.empty())
@@ -943,7 +943,7 @@ namespace tbx::gpu
         auto& registry = sandbox.get_registry();
         for (const auto [entity, ui_block] : registry.view<Ui>().each())
         {
-            if (!ui_block.document.is_set() || !registry.get<ToyHandle>(entity).is_enabled)
+            if (!ui_block.document.is_set() || !registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;
             const auto document =
                 assets::load_now(context.assets, context.events, ui_block.document);
@@ -962,7 +962,7 @@ namespace tbx::gpu
                 // Project the toy (nudged toward the floor) into screen space and feed its
                 // label's anchor slot; behind the camera the label hides.
                 auto world_position = Vec3(
-                    sandbox.get_world_matrix(Toy(sandbox, entity)) * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                    sandbox.get_world_matrix(ecs::Toy(sandbox, entity)) * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
                 world_position.y -= 1.2f;
                 const Vec4 clip = state.frame.view_projection * Vec4(world_position, 1.0f);
                 // Both states spell out display: RmlUi's style attribute only SETS the
@@ -979,7 +979,7 @@ namespace tbx::gpu
                         static_cast<int>(screen_x) - 80,
                         static_cast<int>(screen_y));
                 }
-                context.ui.bindings["anchor_" + registry.get<ToyHandle>(entity).name] = style;
+                context.ui.bindings["anchor_" + registry.get<ecs::ToyHandle>(entity).name] = style;
             }
 
             auto vertex_source = std::string();

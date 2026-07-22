@@ -81,7 +81,7 @@ namespace tbx::reflection
     /// Purpose: Fluent registration builder:
     /// tbx::reflection::register_type<Player>("Player").version(2, &migrate).field("hp",
     /// &Player::hp).method("heal", &Player::heal)... builds the TypeInfo at startup — no
-    /// codegen. Facets stamp automatically from the type's bases: deriving tbx::Block adds
+    /// codegen. Facets stamp automatically from the type's bases: deriving tbx::ecs::Block adds
     /// the ecs accessors, deriving tbx::Asset adds the asset decode (register asset types
     /// where their assets::load<T> specialization is declared, e.g. in the app's registration
     /// calls next to the type includes).
@@ -184,7 +184,7 @@ namespace tbx::reflection
         }
 
         /// @brief
-        /// Purpose: Registers a list-of-registered-type member (e.g. Box::kits); serialized
+        /// Purpose: Registers a list-of-registered-type member (e.g. ecs::Box::kits); serialized
         /// as an array of the element type's objects.
         template <typename TElement>
             requires(!IsAssetHandle<TElement>::value && std::is_class_v<TElement>)
@@ -348,26 +348,26 @@ namespace tbx::reflection
                     return serialization::Json::object();
                 return serialization::json_write(type->get(), *typed);
             };
-            if constexpr (std::derived_from<T, Block>)
+            if constexpr (std::derived_from<T, ecs::Block>)
             {
-                info.add_block = [](Registry& registry, const ToyId entity) -> std::byte*
+                info.add_block = [](ecs::Registry& registry, const ecs::ToyId entity) -> std::byte*
                 {
                     return reinterpret_cast<std::byte*>(&registry.get_or_emplace<T>(entity));
                 };
-                info.get_block = [](Registry& registry, const ToyId entity) -> std::byte*
+                info.get_block = [](ecs::Registry& registry, const ecs::ToyId entity) -> std::byte*
                 {
                     return reinterpret_cast<std::byte*>(registry.try_get<T>(entity));
                 };
-                info.has_block = [](Registry& registry, const ToyId entity)
+                info.has_block = [](ecs::Registry& registry, const ecs::ToyId entity)
                 {
                     return registry.all_of<T>(entity);
                 };
-                info.remove_block = [](Registry& registry, const ToyId entity)
+                info.remove_block = [](ecs::Registry& registry, const ecs::ToyId entity)
                 {
                     registry.remove<T>(entity);
                 };
                 info.assign_block =
-                    [](Registry& registry, const ToyId entity, const std::any& value)
+                    [](ecs::Registry& registry, const ecs::ToyId entity, const std::any& value)
                 {
                     const T* typed = std::any_cast<T>(&value);
                     if (!typed)
@@ -375,7 +375,7 @@ namespace tbx::reflection
                     registry.emplace_or_replace<T>(entity, *typed);
                     return true;
                 };
-                info.copy_block = [](Registry& registry, const ToyId entity) -> std::any
+                info.copy_block = [](ecs::Registry& registry, const ecs::ToyId entity) -> std::any
                 {
                     const T* block = registry.try_get<T>(entity);
                     if (!block)

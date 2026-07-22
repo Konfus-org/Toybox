@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace tbx
+namespace tbx::ecs
 {
     //// JSON BOUNDARY ////
     // The only place kit JSON exists: load<Kit>/to_json translate between the .kit file
@@ -334,13 +334,13 @@ namespace tbx
 namespace tbx::assets
 {
     template <>
-    Result<Kit> load<Kit>(const std::filesystem::path& path)
+    Result<ecs::Kit> load<ecs::Kit>(const std::filesystem::path& path)
     {
         const auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
         if (!serialization::Json::accept(*text))
             return fail("'{}' is not a kit (JSON expected)", path.string());
-        return from_json(serialization::Json::parse(*text, nullptr, false));
+        return ecs::from_json(serialization::Json::parse(*text, nullptr, false));
     }
 }

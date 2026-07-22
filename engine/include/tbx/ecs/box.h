@@ -8,7 +8,7 @@
 #include "tbx/utils/typedefs.h"
 #include <vector>
 
-namespace tbx
+namespace tbx::ecs
 {
     /// @brief
     /// Purpose: How a box-level kit entry loads — set ONLY at the box level; nested kit

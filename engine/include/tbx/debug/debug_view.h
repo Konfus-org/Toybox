@@ -35,7 +35,7 @@ namespace tbx::debug::view
     TBX_API void update(
         DebugState& state,
         const input::InputState& input,
-        const Sandbox& sandbox,
+        const ecs::Sandbox& sandbox,
         const assets::AssetsState& assets,
         const windows::WindowsState& windows,
         ui::UiState& ui,

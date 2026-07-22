@@ -6,7 +6,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: The ears: sounds spatialize relative to the first enabled listener's Transform.
-    struct TBX_API AudioListener : Block
+    struct TBX_API AudioListener : ecs::Block
     {
         float volume = 1.0f;
     };

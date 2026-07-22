@@ -129,7 +129,7 @@ namespace tbx::scripts
     /// glue hands it to the owning backend. Called by tbx::run() every frame.
     TBX_API void update(
         ScriptsState& state,
-        Sandbox& sandbox,
+        ecs::Sandbox& sandbox,
         assets::AssetsState& assets,
         events::EventsState& events,
         float delta_time);

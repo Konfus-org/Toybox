@@ -15,21 +15,21 @@ namespace tbx
     static constexpr const char* BLOCK_METATABLE = "tbx.Block";
 
     /// @brief
-    /// Purpose: Payload of a Toy userdata. Raw pointer is deliberate at the C boundary; the
-    /// Sandbox outlives the VM (Scripts is constructed after it and destroyed first).
+    /// Purpose: Payload of a ecs::Toy userdata. Raw pointer is deliberate at the C boundary; the
+    /// ecs::Sandbox outlives the VM (Scripts is constructed after it and destroyed first).
     struct ToyUserdata
     {
-        Sandbox* sandbox = nullptr;
-        ToyId entity = NULL_TOY;
+        ecs::Sandbox* sandbox = nullptr;
+        ecs::ToyId entity = ecs::NULL_TOY;
     };
 
     /// @brief
-    /// Purpose: Payload of a Block userdata: enough to re-fetch the live block every access, so
+    /// Purpose: Payload of a ecs::Block userdata: enough to re-fetch the live block every access, so
     /// stale pointers cannot exist.
     struct BlockUserdata
     {
-        Sandbox* sandbox = nullptr;
-        ToyId entity = NULL_TOY;
+        ecs::Sandbox* sandbox = nullptr;
+        ecs::ToyId entity = ecs::NULL_TOY;
         uint64 type_hash = 0;
     };
 
@@ -354,21 +354,21 @@ namespace tbx
     static int toy_get_name(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushstring(lua, Toy(*data.sandbox, data.entity).get_name().c_str());
+        lua_pushstring(lua, ecs::Toy(*data.sandbox, data.entity).get_name().c_str());
         return 1;
     }
 
     static int toy_set_name(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
+        ecs::Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
         return 0;
     }
 
     static int toy_sticker(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).sticker(luaL_checkstring(lua, 2));
+        ecs::Toy(*data.sandbox, data.entity).sticker(luaL_checkstring(lua, 2));
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -376,14 +376,14 @@ namespace tbx
     static int toy_has_sticker(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(lua, Toy(*data.sandbox, data.entity).has_sticker(luaL_checkstring(lua, 2)));
+        lua_pushboolean(lua, ecs::Toy(*data.sandbox, data.entity).has_sticker(luaL_checkstring(lua, 2)));
         return 1;
     }
 
     static int toy_remove_sticker(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).remove_sticker(luaL_checkstring(lua, 2));
+        ecs::Toy(*data.sandbox, data.entity).remove_sticker(luaL_checkstring(lua, 2));
         return 0;
     }
 
@@ -405,15 +405,15 @@ namespace tbx
 
     static int sandbox_spawn(lua_State* lua)
     {
-        Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const Toy toy = sandbox.spawn(luaL_checkstring(lua, 1));
+        ecs::Sandbox& sandbox = bound_runtime(lua).sandbox;
+        const ecs::Toy toy = sandbox.spawn(luaL_checkstring(lua, 1));
         push_toy(lua, sandbox, toy.get_id());
         return 1;
     }
 
     static int sandbox_find(lua_State* lua)
     {
-        Sandbox& sandbox = bound_runtime(lua).sandbox;
+        ecs::Sandbox& sandbox = bound_runtime(lua).sandbox;
         const auto toy = sandbox.find(std::string_view(luaL_checkstring(lua, 1)));
         if (!toy)
         {
@@ -427,7 +427,7 @@ namespace tbx
     static int sandbox_despawn(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        data.sandbox->despawn(Toy(*data.sandbox, data.entity));
+        data.sandbox->despawn(ecs::Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -445,7 +445,7 @@ namespace tbx
         const char* reference = luaL_checkstring(lua, 1);
         const Vec3 position = lua_istable(lua, 2) ? check_vector3(lua, 2) : Vec3(0.0f, 0.0f, 0.0f);
         const auto spawned =
-            state.sandbox.spawn(state.assets, state.events, assets::AssetHandle<Kit>(reference), position);
+            state.sandbox.spawn(state.assets, state.events, assets::AssetHandle<ecs::Kit>(reference), position);
         if (!spawned)
         {
             luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());
@@ -457,8 +457,8 @@ namespace tbx
 
     static int sandbox_despawn_kit(lua_State* lua)
     {
-        Sandbox& sandbox = bound_runtime(lua).sandbox;
-        sandbox.despawn(KitInstance {.id = static_cast<uint64>(luaL_checknumber(lua, 1))});
+        ecs::Sandbox& sandbox = bound_runtime(lua).sandbox;
+        sandbox.despawn(ecs::KitInstance {.id = static_cast<uint64>(luaL_checknumber(lua, 1))});
         return 0;
     }
 
@@ -788,7 +788,7 @@ namespace tbx
 
     //// OPEN ////
 
-    void push_toy(lua_State* lua, Sandbox& sandbox, const ToyId entity)
+    void push_toy(lua_State* lua, ecs::Sandbox& sandbox, const ecs::ToyId entity)
     {
         auto* data = static_cast<ToyUserdata*>(lua_newuserdata(lua, sizeof(ToyUserdata)));
         *data = ToyUserdata {.sandbox = &sandbox, .entity = entity};
@@ -813,7 +813,7 @@ namespace tbx
 
     void open_tbx_bindings(lua_State* lua, RuntimeState& runtime)
     {
-        // Toy metatable: __index is a closure over the method table so unknown keys fall
+        // ecs::Toy metatable: __index is a closure over the method table so unknown keys fall
         // through to typed block lookup; __newindex is add-and-populate.
         luaL_newmetatable(lua, TOY_METATABLE);
         lua_createtable(lua, 0, 8);
@@ -832,7 +832,7 @@ namespace tbx
         lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
-        // Block metatable: field access straight through reflection::TypeInfo.
+        // ecs::Block metatable: field access straight through reflection::TypeInfo.
         luaL_newmetatable(lua, BLOCK_METATABLE);
         lua_pushcfunction(lua, block_index, "block_index");
         lua_setfield(lua, -2, "__index");

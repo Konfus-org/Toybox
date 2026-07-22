@@ -6,7 +6,7 @@
 #include "tbx/debug/log.h"
 #include "tbx/reflection/reflection.h"
 
-namespace tbx
+namespace tbx::ecs
 {
     //// SANDBOX: TOYS ////
 

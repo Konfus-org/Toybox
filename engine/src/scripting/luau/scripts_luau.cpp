@@ -112,7 +112,7 @@ namespace tbx::scripts
             auto& registry = _runtime.get().sandbox.get_registry();
             for (const auto [entity, script] : registry.view<Script>().each())
             {
-                if (!registry.get<ToyHandle>(entity).is_enabled)
+                if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
                     continue;
                 const Uuid id = script.source.id;
                 const auto found = _scripts_by_id.find(id);
@@ -197,7 +197,7 @@ namespace tbx::scripts
         void call_script_function(
             const int table_ref,
             const char* function_name,
-            const ToyId entity,
+            const ecs::ToyId entity,
             const std::optional<float> delta_time)
         {
             lua_getref(_lua, table_ref);
@@ -226,7 +226,7 @@ namespace tbx::scripts
         std::reference_wrapper<RuntimeState> _runtime;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
         std::unordered_map<Uuid, CompiledScript> _scripts_by_id;
-        std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
+        std::unordered_map<uint32, LuauInstance> _instances; // keyed by ecs::ToyId value
     };
 
 

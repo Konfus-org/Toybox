@@ -30,7 +30,7 @@ namespace tbx::reflection
     /// Purpose: Registers every builtin block type. Idempotent.
     static void register_blocks()
     {
-        // Deriving tbx::Block is what makes these blocks — register_type stamps the ecs
+        // Deriving tbx::ecs::Block is what makes these blocks — register_type stamps the ecs
         // facet from the base automatically.
         register_type<Transform>("Transform")
             .field("position", &Transform::position)
@@ -76,7 +76,7 @@ namespace tbx::reflection
     /// Purpose: Registers every builtin asset type — deriving tbx::Asset is what makes them
     /// assets; register_type stamps the load/hot-reload facet from the base automatically.
     /// Types with real decoders (stb, assimp, raw text...) keep a load<T> specialization;
-    /// plain data types (Material, Box) decode generically through their fields. Idempotent.
+    /// plain data types (Material, ecs::Box) decode generically through their fields. Idempotent.
     static void register_builtin_assets()
     {
         register_type<Texture>("Texture");
@@ -86,7 +86,7 @@ namespace tbx::reflection
         register_type<ScriptSource>("ScriptSource");
         register_type<UiDocument>("UiDocument");
         register_type<Font>("Font");
-        register_type<Kit>("Kit");
+        register_type<ecs::Kit>("Kit");
         register_type<Material>("Material")
             .field("vertex", &Material::vertex)
             .field("fragment", &Material::fragment)
@@ -99,11 +99,11 @@ namespace tbx::reflection
             .field("metallic", &Material::metallic)
             .field("roughness", &Material::roughness)
             .field("uv_scale", &Material::uv_scale);
-        register_type<BoxEntry>("BoxEntry")
-            .field("reference", &BoxEntry::kit)
-            .field("mode", &BoxEntry::mode)
-            .field("position", &BoxEntry::position);
-        register_type<Box>("Box").field("kits", &Box::kits);
+        register_type<ecs::BoxEntry>("BoxEntry")
+            .field("reference", &ecs::BoxEntry::kit)
+            .field("mode", &ecs::BoxEntry::mode)
+            .field("position", &ecs::BoxEntry::position);
+        register_type<ecs::Box>("Box").field("kits", &ecs::Box::kits);
     }
 
     /// @brief

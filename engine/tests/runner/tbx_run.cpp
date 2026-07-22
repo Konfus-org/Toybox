@@ -69,7 +69,7 @@ static int run_scene_selftest()
     bool cube_is_red = false;
     bool ui_panel_visible = false;
     bool reflection_works = false;
-    tbx::Toy camera = {};
+    tbx::ecs::Toy camera = {};
     auto stats = SelftestStats {};
     tbx::ui::bind(runtime.state->ui, stats.frames, "scene_frames");
 

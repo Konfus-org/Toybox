@@ -79,7 +79,7 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::string title = "Toybox";
-        assets::AssetHandle<Box> sandbox = {}; // the .box the boot opens
+        assets::AssetHandle<ecs::Box> sandbox = {}; // the .box the boot opens
         assets::AssetHandle<Texture> icon = {}; // the window/taskbar icon
 
         // Derived, never serialized: where assets live — the host sets it (usually the

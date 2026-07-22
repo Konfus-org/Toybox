@@ -1,7 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 
-namespace tbx
+namespace tbx::ecs
 {
     // The one ECS-storage seam: nothing outside this header names entt. Swapping the registry
     // library means re-pointing these aliases and keeping their semantics.

@@ -78,7 +78,7 @@ namespace tbx::audio
         IPLAudioBuffer mono = {};
         IPLAudioBuffer stereo = {};
         std::mutex voices_mutex;
-        std::unordered_map<uint32, Voice> voices; // keyed by ToyId value
+        std::unordered_map<uint32, Voice> voices; // keyed by ecs::ToyId value
         std::unordered_map<Uuid, std::shared_ptr<const AudioClip>> clips;
         float listener_volume = 1.0f;
         std::vector<float> interleaved;
@@ -226,7 +226,7 @@ namespace tbx::audio
 
     void update(
         AudioState& audio,
-        Sandbox& sandbox,
+        ecs::Sandbox& sandbox,
         assets::AssetsState& assets,
         events::EventsState& events,
         const float)
@@ -242,9 +242,9 @@ namespace tbx::audio
         bool has_listener = false;
         for (const auto [entity, listener] : registry.view<AudioListener>().each())
         {
-            if (!registry.get<ToyHandle>(entity).is_enabled)
+            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;
-            listener_inverse = math::inverse(sandbox.get_world_matrix(Toy(sandbox, entity)));
+            listener_inverse = math::inverse(sandbox.get_world_matrix(ecs::Toy(sandbox, entity)));
             state.listener_volume = listener.volume;
             has_listener = true;
             break;
@@ -256,7 +256,7 @@ namespace tbx::audio
         for (const auto [entity, source] : registry.view<AudioSource>().each())
         {
             const auto key = static_cast<uint32>(entity);
-            const bool wants_voice = has_listener && registry.get<ToyHandle>(entity).is_enabled
+            const bool wants_voice = has_listener && registry.get<ecs::ToyHandle>(entity).is_enabled
                                      && source.is_playing && source.clip.is_valid();
             auto existing = state.voices.find(key);
 
@@ -298,7 +298,7 @@ namespace tbx::audio
                 continue;
             }
 
-            const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
+            const Mat4 world = sandbox.get_world_matrix(ecs::Toy(sandbox, entity));
             const Vec3 local = Vec3(listener_inverse * world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
             const float distance = math::length(local);
             const Vec3 direction =
@@ -335,7 +335,7 @@ namespace tbx::audio
         // effects until shutdown (mirrors the physics body sweep).
         for (auto it = state.voices.begin(); it != state.voices.end();)
         {
-            const auto entity = static_cast<ToyId>(it->first);
+            const auto entity = static_cast<ecs::ToyId>(it->first);
             const bool is_stale = !registry.valid(entity) || !registry.all_of<AudioSource>(entity);
             it = is_stale ? state.voices.erase(it) : std::next(it);
         }

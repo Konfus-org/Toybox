@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx
+namespace tbx::ecs
 {
     class Sandbox;
     struct TBX_API Kit;
@@ -106,5 +106,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a .kit file — the deserialize half of the kit's JSON boundary.
     template <>
-    TBX_API Result<Kit> load<Kit>(const std::filesystem::path& path);
+    TBX_API Result<ecs::Kit> load<ecs::Kit>(const std::filesystem::path& path);
 }

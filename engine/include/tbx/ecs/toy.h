@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx
+namespace tbx::ecs
 {
     class Sandbox; // defined in sandbox.h, which completes Toy's inline methods
 

@@ -202,8 +202,8 @@ namespace tbx::physics
     static JPH::ShapeRefC make_mesh_shape(
         assets::AssetsState& assets,
         events::EventsState& events,
-        Registry& registry,
-        const ToyId entity,
+        ecs::Registry& registry,
+        const ecs::ToyId entity,
         const Vec3& scale)
     {
         const auto* renderer = registry.try_get<Renderer>(entity);
@@ -259,8 +259,8 @@ namespace tbx::physics
         assets::AssetsState& assets,
         events::EventsState& events,
         const Collider& collider,
-        Registry& registry,
-        const ToyId entity,
+        ecs::Registry& registry,
+        const ecs::ToyId entity,
         const Vec3& scale)
     {
         switch (collider.shape)
@@ -281,7 +281,7 @@ namespace tbx::physics
 
     void update(
         PhysicsState& state,
-        Sandbox& sandbox,
+        ecs::Sandbox& sandbox,
         assets::AssetsState& assets,
         events::EventsState& events,
         const float fixed_delta_time)
@@ -296,7 +296,7 @@ namespace tbx::physics
         // Mirror collider toys into the simulation (created on first sight).
         for (const auto [entity, collider] : registry.view<Collider>().each())
         {
-            if (!registry.get<ToyHandle>(entity).is_enabled)
+            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;
             const auto key = static_cast<uint32>(entity);
             const auto* rigid_body = registry.try_get<RigidBody>(entity);
@@ -336,7 +336,7 @@ namespace tbx::physics
         // Bodies whose toys despawned leave the simulation.
         for (auto it = physics.bodies_by_toy.begin(); it != physics.bodies_by_toy.end();)
         {
-            if (!registry.valid(static_cast<ToyId>(it->first)))
+            if (!registry.valid(static_cast<ecs::ToyId>(it->first)))
             {
                 bodies.RemoveBody(it->second);
                 bodies.DestroyBody(it->second);
@@ -353,7 +353,7 @@ namespace tbx::physics
         {
             if (bodies.GetMotionType(body_id) != JPH::EMotionType::Dynamic)
                 continue;
-            auto& transform = registry.get<Transform>(static_cast<ToyId>(key));
+            auto& transform = registry.get<Transform>(static_cast<ecs::ToyId>(key));
             JPH::RVec3 position = {};
             JPH::Quat rotation = {};
             bodies.GetPositionAndRotation(body_id, position, rotation);
@@ -381,7 +381,7 @@ namespace tbx::physics
             return {};
         const float distance = hit.mFraction * max_distance;
         const auto toy =
-            static_cast<ToyId>(physics.system.GetBodyInterface().GetUserData(hit.mBodyID));
+            static_cast<ecs::ToyId>(physics.system.GetBodyInterface().GetUserData(hit.mBodyID));
         return RaycastHit {
             .toy = toy,
             .position = origin + normalized * distance,

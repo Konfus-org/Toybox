@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::ecs
 {
     /// @brief
     /// Purpose: Base of every block type (data attachable to toys). Deriving from it is what

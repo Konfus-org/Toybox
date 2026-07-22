@@ -123,7 +123,7 @@ namespace tbx::scripts
 
     void update(
         ScriptsState& state,
-        Sandbox& sandbox,
+        ecs::Sandbox& sandbox,
         assets::AssetsState& assets,
         events::EventsState& events,
         const float delta_time)

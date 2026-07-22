@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace tbx
+namespace tbx::ecs
 {
 
     /// @brief

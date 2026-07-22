@@ -1,7 +1,7 @@
 #pragma once
 // Toy method bodies — included by sandbox.h once Sandbox is complete.
 
-namespace tbx
+namespace tbx::ecs
 {
     inline Toy::Toy(Sandbox& sandbox, const ToyId id)
         : _sandbox(sandbox)

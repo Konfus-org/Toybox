@@ -44,7 +44,7 @@ namespace tbx::serialization
 
     /// @brief
     /// Purpose: Serializes any registered type (reflection::register_type) to JSON. The
-    /// Sandbox/Toy kit saves live next to Kit (ecs/kit.h) as plain overloads.
+    /// ecs::Sandbox/ecs::Toy kit saves live next to ecs::Kit (ecs/kit.h) as plain overloads.
     template <typename T>
         requires(!std::is_pointer_v<T>)
     Result<Json> save(const T& object)

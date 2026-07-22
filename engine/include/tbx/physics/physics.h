@@ -17,7 +17,7 @@ namespace tbx::physics
     /// Purpose: What a raycast hit: the toy, where, and how far along the ray.
     struct TBX_API RaycastHit
     {
-        ToyId toy = NULL_TOY;
+        ecs::ToyId toy = ecs::NULL_TOY;
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
         float distance = 0.0f;
     };
@@ -54,7 +54,7 @@ namespace tbx::physics
     /// to Transforms, and emits collision events (delivered at the next pump drain).
     TBX_API void update(
         PhysicsState& physics,
-        Sandbox& sandbox,
+        ecs::Sandbox& sandbox,
         assets::AssetsState& assets,
         events::EventsState& events,
         float fixed_delta_time);

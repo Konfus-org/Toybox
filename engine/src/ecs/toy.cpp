@@ -2,7 +2,7 @@
 #include "tbx/utils/hash.h"
 #include "tbx/ecs/sandbox.h"
 
-namespace tbx
+namespace tbx::ecs
 {
     //// TOY ////
 
