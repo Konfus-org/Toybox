@@ -20,7 +20,7 @@ namespace tbx::debug::view
     {
         ++state.frame;
         // The overlay owns its own hotkey.
-        if (input::is_pressed(input, Key::F3))
+        if (input::is_pressed(input, input::Key::F3))
             state.is_open = !state.is_open;
         if (!state.is_open)
             return;

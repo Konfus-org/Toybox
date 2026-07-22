@@ -6,7 +6,7 @@
 #include <thread>
 #include <unordered_map>
 
-namespace tbx
+namespace tbx::files
 {
     /// @brief
     /// Purpose: Watches a directory tree and reports changed/added files by polling mtimes —

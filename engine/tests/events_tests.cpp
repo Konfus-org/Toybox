@@ -78,7 +78,7 @@ namespace tbx::tests
 
         // Act
         events.key.unsubscribe_owner(&owner_tag);
-        events.key.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
+        events.key.emit({.key = input::Key::SPACE, .is_down = true, .is_repeat = false});
         events::update(events);
 
         // Assert
@@ -93,12 +93,12 @@ namespace tbx::tests
         auto first_calls = 0;
         auto second_calls = 0;
         auto tag = 0;
-        const Token first = events.key.subscribe(&tag, [&](const events::KeyEvent&) { ++first_calls; });
+        const events::Token first = events.key.subscribe(&tag, [&](const events::KeyEvent&) { ++first_calls; });
         events.key.subscribe(&tag, [&](const events::KeyEvent&) { ++second_calls; });
 
         // Act
         events.key.unsubscribe(first);
-        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.key.emit({.key = input::Key::A, .is_down = true, .is_repeat = false});
         events::update(events);
 
         // Assert
@@ -116,7 +116,7 @@ namespace tbx::tests
 
         // Act
         events.window_resized.emit({.width = 1, .height = 1});
-        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.key.emit({.key = input::Key::A, .is_down = true, .is_repeat = false});
         events.window_resized.emit({.width = 2, .height = 2});
         events::update(events);
 

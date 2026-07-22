@@ -5,7 +5,7 @@
 #include <mutex>
 #include <vector>
 
-namespace tbx
+namespace tbx::events
 {
     using Token = uint64;
 

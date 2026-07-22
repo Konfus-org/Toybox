@@ -56,7 +56,7 @@ namespace tbx::assets
         std::unordered_map<Uuid, LoadedAsset> loaded_assets;
         float idle_lifetime_seconds = 60.0f;
         std::chrono::steady_clock::time_point last_purge = std::chrono::steady_clock::now();
-        std::optional<FileWatcher> watcher;
+        std::optional<files::FileWatcher> watcher;
     };
 
     /// @brief
@@ -82,7 +82,7 @@ namespace tbx::assets
     /// Purpose: The asset a handle references, loading it asynchronously when it is not
     /// resident: bytes read + decoded on a worker, stored on the main thread.
     template <typename TAsset>
-    Task<Result<std::reference_wrapper<TAsset>>> load(
+    jobs::Task<Result<std::reference_wrapper<TAsset>>> load(
         AssetsState& state,
         events::EventsState& events,
         jobs::JobsState& jobs,

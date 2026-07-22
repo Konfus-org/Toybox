@@ -684,10 +684,10 @@ namespace tbx
     struct KeyEntry
     {
         const char* name;
-        Key key;
+        input::Key key;
     };
 
-#define TBX_KEY_ENTRY(name) KeyEntry {#name, Key::name}
+#define TBX_KEY_ENTRY(name) KeyEntry {#name, input::Key::name}
     static constexpr KeyEntry KEY_TABLE[] = {
         TBX_KEY_ENTRY(A), TBX_KEY_ENTRY(B), TBX_KEY_ENTRY(C), TBX_KEY_ENTRY(D),
         TBX_KEY_ENTRY(E), TBX_KEY_ENTRY(F), TBX_KEY_ENTRY(G), TBX_KEY_ENTRY(H),
@@ -719,20 +719,20 @@ namespace tbx
 
     /// @brief
     /// Purpose: Input takes tbx.Key/tbx.MouseButton enum values — strongly typed, no strings.
-    static Key check_key(lua_State* lua, const int index)
+    static input::Key check_key(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value <= 0 || value >= static_cast<int>(Key::COUNT))
+        if (value <= 0 || value >= static_cast<int>(input::Key::COUNT))
             luaL_error(lua, "expected a tbx.Key value");
-        return static_cast<Key>(value);
+        return static_cast<input::Key>(value);
     }
 
-    static MouseButton check_mouse_button(lua_State* lua, const int index)
+    static input::MouseButton check_mouse_button(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(MouseButton::COUNT))
+        if (value < 0 || value >= static_cast<int>(input::MouseButton::COUNT))
             luaL_error(lua, "expected a tbx.MouseButton value");
-        return static_cast<MouseButton>(value);
+        return static_cast<input::MouseButton>(value);
     }
 
     static int input_is_down(lua_State* lua)
@@ -766,12 +766,12 @@ namespace tbx
         return 1;
     }
 
-    static CursorMode check_cursor_mode(lua_State* lua, const int index)
+    static input::CursorMode check_cursor_mode(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(CursorMode::COUNT))
+        if (value < 0 || value >= static_cast<int>(input::CursorMode::COUNT))
             luaL_error(lua, "expected a tbx.CursorMode value");
-        return static_cast<CursorMode>(value);
+        return static_cast<input::CursorMode>(value);
     }
 
     static int input_get_cursor_mode(lua_State* lua)
@@ -888,20 +888,20 @@ namespace tbx
         lua_setfield(lua, -2, "Key");
 
         lua_createtable(lua, 0, 3);
-        lua_pushinteger(lua, static_cast<int>(MouseButton::LEFT));
+        lua_pushinteger(lua, static_cast<int>(input::MouseButton::LEFT));
         lua_setfield(lua, -2, "LEFT");
-        lua_pushinteger(lua, static_cast<int>(MouseButton::RIGHT));
+        lua_pushinteger(lua, static_cast<int>(input::MouseButton::RIGHT));
         lua_setfield(lua, -2, "RIGHT");
-        lua_pushinteger(lua, static_cast<int>(MouseButton::MIDDLE));
+        lua_pushinteger(lua, static_cast<int>(input::MouseButton::MIDDLE));
         lua_setfield(lua, -2, "MIDDLE");
         lua_setfield(lua, -2, "MouseButton");
 
         lua_createtable(lua, 0, 3);
-        lua_pushinteger(lua, static_cast<int>(CursorMode::NORMAL));
+        lua_pushinteger(lua, static_cast<int>(input::CursorMode::NORMAL));
         lua_setfield(lua, -2, "NORMAL");
-        lua_pushinteger(lua, static_cast<int>(CursorMode::HIDDEN));
+        lua_pushinteger(lua, static_cast<int>(input::CursorMode::HIDDEN));
         lua_setfield(lua, -2, "HIDDEN");
-        lua_pushinteger(lua, static_cast<int>(CursorMode::LOCKED));
+        lua_pushinteger(lua, static_cast<int>(input::CursorMode::LOCKED));
         lua_setfield(lua, -2, "LOCKED");
         lua_setfield(lua, -2, "CursorMode");
 

@@ -228,7 +228,7 @@ namespace tbx
                        jobs::JobsState& jobs,
                        Sandbox& sandbox,
                        size index,
-                       AssetHandle<Kit> kit) -> Task<void>
+                       AssetHandle<Kit> kit) -> jobs::Task<void>
                     {
                         co_await jobs::on_worker(jobs);
                         auto loaded = assets::load_now(assets, events, kit);

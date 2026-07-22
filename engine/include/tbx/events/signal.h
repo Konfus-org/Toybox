@@ -2,7 +2,7 @@
 #include "tbx/events/event_queue.h"
 #include <functional>
 
-namespace tbx
+namespace tbx::events
 {
     /// @brief
     /// Purpose: One subscriber slot on a Signal; a null fn is a tombstone swept after dispatch.

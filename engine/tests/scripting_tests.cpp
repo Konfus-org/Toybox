@@ -244,9 +244,9 @@ end
 
         // Assert
         const Vec3 position = toy.get_block<Transform>().position;
-        EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(Key::W)));
-        EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(Key::ESCAPE)));
-        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(MouseButton::LEFT)));
+        EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(input::Key::W)));
+        EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(input::Key::ESCAPE)));
+        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(input::MouseButton::LEFT)));
     }
 
     TEST(Scripts, DisabledToysDoNotRunScripts)

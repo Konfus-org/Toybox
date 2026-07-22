@@ -47,109 +47,109 @@ namespace tbx::windows
         // Identity of the applied icon pixels: a re-set icon arrives as a freshly allocated
         // vector, so the data pointer changing is a cheap change check.
         const void* applied_icon = nullptr;
-        CursorMode applied_cursor_mode = CursorMode::NORMAL;
+        input::CursorMode applied_cursor_mode = input::CursorMode::NORMAL;
         bool is_first_frame = true;
     };
 
     //// TRANSLATION ////
 
-    static Key translate_key(const SDL_Scancode scancode)
+    static input::Key translate_key(const SDL_Scancode scancode)
     {
-        // Contiguous SDL ranges map onto contiguous Key ranges.
+        // Contiguous SDL ranges map onto contiguous input::Key ranges.
         if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z)
-            return static_cast<Key>(static_cast<int>(Key::A) + (scancode - SDL_SCANCODE_A));
+            return static_cast<input::Key>(static_cast<int>(input::Key::A) + (scancode - SDL_SCANCODE_A));
         if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9)
-            return static_cast<Key>(static_cast<int>(Key::NUM_1) + (scancode - SDL_SCANCODE_1));
+            return static_cast<input::Key>(static_cast<int>(input::Key::NUM_1) + (scancode - SDL_SCANCODE_1));
         if (scancode == SDL_SCANCODE_0)
-            return Key::NUM_0;
+            return input::Key::NUM_0;
         if (scancode >= SDL_SCANCODE_F1 && scancode <= SDL_SCANCODE_F12)
-            return static_cast<Key>(static_cast<int>(Key::F1) + (scancode - SDL_SCANCODE_F1));
+            return static_cast<input::Key>(static_cast<int>(input::Key::F1) + (scancode - SDL_SCANCODE_F1));
 
         switch (scancode)
         {
             case SDL_SCANCODE_ESCAPE:
-                return Key::ESCAPE;
+                return input::Key::ESCAPE;
             case SDL_SCANCODE_TAB:
-                return Key::TAB;
+                return input::Key::TAB;
             case SDL_SCANCODE_CAPSLOCK:
-                return Key::CAPS_LOCK;
+                return input::Key::CAPS_LOCK;
             case SDL_SCANCODE_SPACE:
-                return Key::SPACE;
+                return input::Key::SPACE;
             case SDL_SCANCODE_RETURN:
-                return Key::ENTER;
+                return input::Key::ENTER;
             case SDL_SCANCODE_BACKSPACE:
-                return Key::BACKSPACE;
+                return input::Key::BACKSPACE;
             case SDL_SCANCODE_DELETE:
-                return Key::DEL;
+                return input::Key::DEL;
             case SDL_SCANCODE_INSERT:
-                return Key::INSERT;
+                return input::Key::INSERT;
             case SDL_SCANCODE_HOME:
-                return Key::HOME;
+                return input::Key::HOME;
             case SDL_SCANCODE_END:
-                return Key::END;
+                return input::Key::END;
             case SDL_SCANCODE_PAGEUP:
-                return Key::PAGE_UP;
+                return input::Key::PAGE_UP;
             case SDL_SCANCODE_PAGEDOWN:
-                return Key::PAGE_DOWN;
+                return input::Key::PAGE_DOWN;
             case SDL_SCANCODE_LEFT:
-                return Key::LEFT;
+                return input::Key::LEFT;
             case SDL_SCANCODE_RIGHT:
-                return Key::RIGHT;
+                return input::Key::RIGHT;
             case SDL_SCANCODE_UP:
-                return Key::UP;
+                return input::Key::UP;
             case SDL_SCANCODE_DOWN:
-                return Key::DOWN;
+                return input::Key::DOWN;
             case SDL_SCANCODE_LSHIFT:
-                return Key::LEFT_SHIFT;
+                return input::Key::LEFT_SHIFT;
             case SDL_SCANCODE_RSHIFT:
-                return Key::RIGHT_SHIFT;
+                return input::Key::RIGHT_SHIFT;
             case SDL_SCANCODE_LCTRL:
-                return Key::LEFT_CTRL;
+                return input::Key::LEFT_CTRL;
             case SDL_SCANCODE_RCTRL:
-                return Key::RIGHT_CTRL;
+                return input::Key::RIGHT_CTRL;
             case SDL_SCANCODE_LALT:
-                return Key::LEFT_ALT;
+                return input::Key::LEFT_ALT;
             case SDL_SCANCODE_RALT:
-                return Key::RIGHT_ALT;
+                return input::Key::RIGHT_ALT;
             case SDL_SCANCODE_MINUS:
-                return Key::MINUS;
+                return input::Key::MINUS;
             case SDL_SCANCODE_EQUALS:
-                return Key::EQUALS;
+                return input::Key::EQUALS;
             case SDL_SCANCODE_LEFTBRACKET:
-                return Key::LEFT_BRACKET;
+                return input::Key::LEFT_BRACKET;
             case SDL_SCANCODE_RIGHTBRACKET:
-                return Key::RIGHT_BRACKET;
+                return input::Key::RIGHT_BRACKET;
             case SDL_SCANCODE_BACKSLASH:
-                return Key::BACKSLASH;
+                return input::Key::BACKSLASH;
             case SDL_SCANCODE_SEMICOLON:
-                return Key::SEMICOLON;
+                return input::Key::SEMICOLON;
             case SDL_SCANCODE_APOSTROPHE:
-                return Key::APOSTROPHE;
+                return input::Key::APOSTROPHE;
             case SDL_SCANCODE_GRAVE:
-                return Key::GRAVE;
+                return input::Key::GRAVE;
             case SDL_SCANCODE_COMMA:
-                return Key::COMMA;
+                return input::Key::COMMA;
             case SDL_SCANCODE_PERIOD:
-                return Key::PERIOD;
+                return input::Key::PERIOD;
             case SDL_SCANCODE_SLASH:
-                return Key::SLASH;
+                return input::Key::SLASH;
             default:
-                return Key::UNKNOWN;
+                return input::Key::UNKNOWN;
         }
     }
 
-    static MouseButton translate_mouse_button(const Uint8 button)
+    static input::MouseButton translate_mouse_button(const Uint8 button)
     {
         switch (button)
         {
             case SDL_BUTTON_LEFT:
-                return MouseButton::LEFT;
+                return input::MouseButton::LEFT;
             case SDL_BUTTON_RIGHT:
-                return MouseButton::RIGHT;
+                return input::MouseButton::RIGHT;
             case SDL_BUTTON_MIDDLE:
-                return MouseButton::MIDDLE;
+                return input::MouseButton::MIDDLE;
             default:
-                return MouseButton::COUNT;
+                return input::MouseButton::COUNT;
         }
     }
 
@@ -301,13 +301,13 @@ namespace tbx::windows
         // purely as deltas.
         if (Window& main = state.windows.front(); main.backend)
         {
-            const CursorMode cursor_mode = input.cursor_mode;
+            const input::CursorMode cursor_mode = input.cursor_mode;
             if (cursor_mode != main.backend->applied_cursor_mode)
             {
                 SDL_SetWindowRelativeMouseMode(
                     main.backend->window,
-                    cursor_mode == CursorMode::LOCKED);
-                if (cursor_mode == CursorMode::NORMAL)
+                    cursor_mode == input::CursorMode::LOCKED);
+                if (cursor_mode == input::CursorMode::NORMAL)
                     SDL_ShowCursor();
                 else
                     SDL_HideCursor();
@@ -332,8 +332,8 @@ namespace tbx::windows
                 case SDL_EVENT_KEY_DOWN:
                 case SDL_EVENT_KEY_UP:
                 {
-                    const Key key = translate_key(event.key.scancode);
-                    if (key == Key::UNKNOWN)
+                    const input::Key key = translate_key(event.key.scancode);
+                    if (key == input::Key::UNKNOWN)
                         break;
                     if (!event.key.repeat)
                         input::feed_key(input, key, event.key.down);
@@ -350,8 +350,8 @@ namespace tbx::windows
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 case SDL_EVENT_MOUSE_BUTTON_UP:
                 {
-                    const MouseButton button = translate_mouse_button(event.button.button);
-                    if (button != MouseButton::COUNT)
+                    const input::MouseButton button = translate_mouse_button(event.button.button);
+                    if (button != input::MouseButton::COUNT)
                         input::feed_mouse_button(input, button, event.button.down);
                     break;
                 }

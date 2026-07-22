@@ -24,7 +24,7 @@ namespace tbx::events
     /// Purpose: Key transition for text/UI-style consumers; gameplay polls Input instead.
     struct TBX_API KeyEvent
     {
-        Key key = Key::UNKNOWN;
+        input::Key key = input::Key::UNKNOWN;
         bool is_down = false;
         bool is_repeat = false;
     };

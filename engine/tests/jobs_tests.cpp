@@ -22,7 +22,7 @@ namespace tbx::tests
     {
         // Arrange
         auto pool = jobs::JobsState();
-        auto throwing = [&]() -> Task<void>
+        auto throwing = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);
             throw std::runtime_error("boom");
@@ -49,12 +49,12 @@ namespace tbx::tests
     {
         // Arrange
         auto pool = jobs::JobsState();
-        auto inner = [&]() -> Task<int>
+        auto inner = [&]() -> jobs::Task<int>
         {
             co_await jobs::on_worker(pool);
             co_return 10;
         };
-        auto outer = [&]() -> Task<int>
+        auto outer = [&]() -> jobs::Task<int>
         {
             const int a = co_await inner();
             const int b = co_await inner();
@@ -72,7 +72,7 @@ namespace tbx::tests
     {
         // Arrange
         auto pool = jobs::JobsState();
-        auto make = [&]() -> Task<std::unique_ptr<int>>
+        auto make = [&]() -> jobs::Task<std::unique_ptr<int>>
         {
             co_await jobs::on_worker(pool);
             co_return std::make_unique<int>(7);
@@ -91,7 +91,7 @@ namespace tbx::tests
         // Arrange
         auto pool = jobs::JobsState();
         auto hopped = std::atomic<bool>(false);
-        auto task = [&]() -> Task<void>
+        auto task = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);
             co_await jobs::on_main(pool);
@@ -115,7 +115,7 @@ namespace tbx::tests
         // Arrange
         auto pool = jobs::JobsState();
         auto ran = std::atomic<bool>(false);
-        auto task = [&]() -> Task<void>
+        auto task = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);
             co_await jobs::on_main(pool);
@@ -163,7 +163,7 @@ namespace tbx::tests
     {
         // Arrange
         auto pool = jobs::JobsState();
-        auto nested = [&]() -> Task<size>
+        auto nested = [&]() -> jobs::Task<size>
         {
             co_await jobs::on_worker(pool);
             auto sum = std::atomic<size>(0);
@@ -182,7 +182,7 @@ namespace tbx::tests
     {
         // Arrange
         auto pool = jobs::JobsState();
-        auto throwing = [&]() -> Task<void>
+        auto throwing = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);
             throw std::runtime_error("detached boom");
