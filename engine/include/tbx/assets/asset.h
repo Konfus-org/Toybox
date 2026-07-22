@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 #include "tbx/utils/uuid.h"
 #include <string>
 
@@ -14,4 +14,10 @@ namespace tbx::assets
         Uuid id = {};
         std::string path = {};
     };
+}
+
+namespace tbx
+{
+    // Spelled at the tbx level like Handle — deriving `: Asset` reads clean everywhere.
+    using assets::Asset;
 }

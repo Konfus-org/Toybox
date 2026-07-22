@@ -3,86 +3,197 @@
 #include "tbx/debug/log.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/files/files.h"
-#include "tbx/math/transform.h"
-#include "tbx/reflection/type_registry.h"
-#include "tbx/serialization/json.h"
 #include "tbx/utils/hash.h"
-#include <unordered_map>
+#include "tbx/math/transform.h"
+#include "tbx/serialization/json.h"
+#include "tbx/serialization/read_write.h"
+#include <filesystem>
 #include <vector>
 
 namespace tbx::ecs
 {
     //// JSON BOUNDARY ////
-    // The only place kit JSON exists: load<Kit>/to_json translate between the .kit file
-    // schema ({toys, kits, bounds}) and the strongly-typed in-memory Kit.
+    // The toy graph itself serializes through ToyContainer::serialize_toys/deserialize_toys
+    // (shared by Kit and Sandbox). Here we add the kit's own fields (bounds) and the legacy
+    // nested-kit array, and translate the .kit file <-> a Kit.
 
-    /// @brief
-    /// Purpose: Reads a kit-file uuid string (dashes tolerated; malformed reads as nil).
-    static Uuid parse_kit_uuid(const serialization::Json& value)
+    static serialization::Json bounds_to_json(const Vec3& center, const float radius)
     {
-        if (!value.is_string())
-            return {};
-        auto text = value.get<std::string>();
-        std::erase(text, '-');
-        return Uuid::parse(text);
+        return serialization::Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
     }
 
-    static Result<Kit> from_json(const serialization::Json& body)
+    /// @brief
+    /// Purpose: Back-compat: an older .kit stored nested kits in a separate "kits" array of
+    /// {reference, position/rotation/scale}. Read each as a toy wearing a KitInstance block
+    /// positioned by its transform — the same shape serialize_kit now emits. Files migrate to the
+    /// new form on their next save.
+    static void read_legacy_references(Kit& kit, const serialization::Json& body)
     {
+        for (const serialization::Json& entry : body.value("kits", serialization::Json::array()))
+        {
+            Toy toy = kit.spawn("KitReference");
+            auto& transform = toy.get_transform();
+            if (entry.contains("position"))
+                transform.position = Vec3(
+                    entry["position"].at(0).get<float>(),
+                    entry["position"].at(1).get<float>(),
+                    entry["position"].at(2).get<float>());
+            if (entry.contains("rotation"))
+                transform.rotation = Quat(
+                    entry["rotation"].at(3).get<float>(), // w (stored [x, y, z, w])
+                    entry["rotation"].at(0).get<float>(),
+                    entry["rotation"].at(1).get<float>(),
+                    entry["rotation"].at(2).get<float>());
+            if (entry.contains("scale"))
+                transform.scale = Vec3(
+                    entry["scale"].at(0).get<float>(),
+                    entry["scale"].at(1).get<float>(),
+                    entry["scale"].at(2).get<float>());
+            auto text = entry.value("reference", std::string());
+            auto stripped = text;
+            std::erase(stripped, '-');
+            const Uuid uuid = Uuid::parse(stripped);
+            toy.with(KitInstance {
+                .kit = uuid.is_valid() ? assets::Handle<Kit>(uuid)
+                                       : assets::Handle<Kit>(std::move(text))});
+        }
+    }
+
+    //// INSTANTIATION ////
+
+    /// @brief
+    /// Purpose: The cycle-detection key for a kit handle (by path, else by id).
+    static uint64 handle_hash(const assets::Handle<Kit>& handle)
+    {
+        return handle.path.empty() ? handle.id.hi ^ ~handle.id.lo : hash(handle.path);
+    }
+
+    void Sandbox::register_streamed_kit(
+        assets::State& assets,
+        events::State& events,
+        Toy instance,
+        const assets::Handle<Kit>& kit)
+    {
+        const auto peeked = assets::load_now(assets, events, kit);
+        if (!peeked)
+        {
+            TBX_ERROR("streamed kit '{}': {}", kit.path, peeked.error());
+            return;
+        }
+        _streamed_kits.push_back(StreamedKit {
+            .instance = instance.get_id(),
+            .kit = kit,
+            .bounds_center = peeked->get().bounds_center,
+            .bounds_radius = peeked->get().bounds_radius});
+    }
+
+    Result<void> Sandbox::instantiate_under(
+        assets::State& assets,
+        events::State& events,
+        Toy parent,
+        const Kit& kit,
+        std::vector<uint64>& reference_stack,
+        std::vector<ToyId>& spawned)
+    {
+        const auto copied = copy_toys_from(kit, parent);
+        for (const Toy& toy : copied)
+            spawned.push_back(toy.get_id());
+
+        for (const Toy& toy : copied)
+        {
+            auto instance = toy;
+            const auto* kit_instance = instance.try_block<KitInstance>();
+            if (!kit_instance || !kit_instance->kit.is_set())
+                continue;
+
+            // Streamed nested kits defer to the streaming system; immediate ones expand now.
+            if (kit_instance->streamed)
+            {
+                register_streamed_kit(assets, events, instance, kit_instance->kit);
+                continue;
+            }
+
+            const uint64 reference = handle_hash(kit_instance->kit);
+            for (const uint64 seen : reference_stack)
+                if (seen == reference)
+                    return fail("kit reference cycle detected at '{}'", kit_instance->kit.path);
+
+            const auto nested = assets::load_now(assets, events, kit_instance->kit);
+            if (!nested)
+                return fail("kit '{}': {}", kit_instance->kit.path, nested.error());
+
+            reference_stack.push_back(reference);
+            auto expanded =
+                instantiate_under(assets, events, instance, nested->get(), reference_stack, spawned);
+            reference_stack.pop_back();
+            if (!expanded)
+                return expanded;
+        }
+        return {};
+    }
+
+    Result<Toy> Sandbox::spawn(
+        assets::State& assets,
+        events::State& events,
+        const Kit& kit,
+        const Vec3& position)
+    {
+        // The instance's root: a toy wearing a KitInstance block, positioned at `position`,
+        // whose children are the kit's toys.
+        const auto name =
+            kit.path.empty() ? std::string("Kit") : std::filesystem::path(kit.path).stem().string();
+        Toy root = ToyContainer::spawn(name);
+        root.get_transform().position = position;
+        root.with(KitInstance {.kit = assets::Handle<Kit>(kit.id, kit.path)});
+
+        auto reference_stack = std::vector<uint64>();
+        if (kit.id.is_valid() || !kit.path.empty())
+            reference_stack.push_back(handle_hash(assets::Handle<Kit>(kit.id, kit.path)));
+        auto spawned = std::vector<ToyId> {root.get_id()};
+        if (auto result = instantiate_under(assets, events, root, kit, reference_stack, spawned);
+            !result)
+        {
+            despawn_subtree(root);
+            return std::unexpected(result.error());
+        }
+        return root;
+    }
+
+    Result<Toy> Sandbox::spawn(
+        assets::State& assets,
+        events::State& events,
+        const assets::Handle<Kit>& kit,
+        const Vec3& position)
+    {
+        const auto loaded = assets::load_now(assets, events, kit);
+        if (!loaded)
+            return fail("kit '{}': {}", kit.path, loaded.error());
+        auto root = spawn(assets, events, loaded->get(), position);
+        if (root)
+            root->get_block<KitInstance>().kit = kit; // record the original handle
+        return root;
+    }
+
+    //// DISK BOUNDARY (the registered serializer functions) ////
+
+    Result<Kit> deserialize_kit(const std::filesystem::path& path)
+    {
+        const auto text = read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!serialization::Json::accept(*text))
+            return fail("'{}' is not a kit (JSON expected)", path.string());
+        const auto body = serialization::Json::parse(*text, nullptr, false);
         if (!body.is_object())
-            return fail("kit body is not a JSON object");
+            return fail("'{}' kit body is not a JSON object", path.string());
+
         auto kit = Kit();
         try
         {
-            for (const serialization::Json& toy_json :
-                 body.value("toys", serialization::Json::array()))
-            {
-                auto toy = KitToy();
-                if (toy_json.contains("uuid"))
-                    toy.uuid = parse_kit_uuid(toy_json["uuid"]);
-                toy.name = toy_json.value("name", std::string("Toy"));
-                toy.is_enabled = toy_json.value("is_enabled", true);
-                if (toy_json.contains("parent"))
-                    toy.parent = parse_kit_uuid(toy_json["parent"]);
-                for (const serialization::Json& sticker :
-                     toy_json.value("stickers", serialization::Json::array()))
-                    toy.stickers.push_back(sticker.get<std::string>());
-                for (const serialization::Json& block_json :
-                     toy_json.value("blocks", serialization::Json::array()))
-                {
-                    const auto type_name = block_json.value("type", std::string());
-                    const uint64 hashed = hash(type_name);
-                    const auto type = reflection::describe(hashed);
-                    if (!type || !type->get().read_any)
-                    {
-                        TBX_WARN("kit references unknown block type '{}'; skipped", type_name);
-                        continue;
-                    }
-                    auto value = type->get().read_any(block_json);
-                    if (!value.has_value())
-                        return fail("kit block '{}' failed to read", type_name);
-                    toy.blocks.push_back(KitBlock {.type = hashed, .value = std::move(value)});
-                }
-                kit.toys.push_back(std::move(toy));
-            }
-            for (const serialization::Json& entry :
-                 body.value("kits", serialization::Json::array()))
-            {
-                auto reference = KitReference();
-                // A reference is path-or-uuid, like every asset reference.
-                auto text = entry.value("reference", std::string());
-                auto stripped = text;
-                std::erase(stripped, '-');
-                const Uuid id = Uuid::parse(stripped);
-                reference.kit =
-                    id.is_valid() ? assets::AssetHandle<Kit>(id) : assets::AssetHandle<Kit>(std::move(text));
-                if (entry.contains("position"))
-                    reference.position = Vec3(
-                        entry["position"].at(0).get<float>(),
-                        entry["position"].at(1).get<float>(),
-                        entry["position"].at(2).get<float>());
-                kit.kits.push_back(std::move(reference));
-            }
+            if (auto toys = deserialize_toys(kit, body.value("toys", serialization::Json::array()));
+                !toys)
+                return std::unexpected(toys.error());
+            read_legacy_references(kit, body); // older .kit "kits" array, if any
             const auto bounds = body.value("bounds", serialization::Json::object());
             if (bounds.contains("center"))
                 kit.bounds_center = Vec3(
@@ -98,249 +209,29 @@ namespace tbx::ecs
         return ok(std::move(kit));
     }
 
-    serialization::Json to_json(const Kit& kit)
+    Result<void> serialize_kit(const Kit& kit, const std::filesystem::path& path)
     {
         auto body = serialization::Json::object();
-        auto toys = serialization::Json::array();
-        for (const KitToy& toy : kit.toys)
-        {
-            auto toy_json = serialization::Json::object();
-            toy_json["uuid"] = toy.uuid.to_string();
-            toy_json["name"] = toy.name;
-            if (!toy.is_enabled)
-                toy_json["is_enabled"] = false;
-            if (toy.parent.is_valid())
-                toy_json["parent"] = toy.parent.to_string();
-            if (!toy.stickers.empty())
-                toy_json["stickers"] = toy.stickers;
-            auto blocks = serialization::Json::array();
-            for (const KitBlock& block : toy.blocks)
-            {
-                const auto type = reflection::describe(block.type);
-                if (!type || !type->get().write_any)
-                    continue;
-                blocks.push_back(type->get().write_any(block.value));
-            }
-            toy_json["blocks"] = std::move(blocks);
-            toys.push_back(std::move(toy_json));
-        }
-        body["toys"] = std::move(toys);
-        if (!kit.kits.empty())
-        {
-            auto references = serialization::Json::array();
-            for (const KitReference& reference : kit.kits)
-            {
-                auto entry = serialization::Json::object();
-                entry["reference"] = reference.kit.id.is_valid() ? reference.kit.id.to_string()
-                                                                 : reference.kit.path;
-                entry["position"] = {
-                    reference.position.x,
-                    reference.position.y,
-                    reference.position.z};
-                references.push_back(std::move(entry));
-            }
-            body["kits"] = std::move(references);
-        }
-        body["bounds"] = serialization::Json {
-            {"center", {kit.bounds_center.x, kit.bounds_center.y, kit.bounds_center.z}},
-            {"radius", kit.bounds_radius}};
-        return body;
+        body["toys"] = serialize_toys(kit);
+        body["bounds"] = bounds_to_json(kit.bounds_center, kit.bounds_radius);
+        return write_text(path.string(), body.dump(4));
     }
 
-    //// SAVE / LOAD ////
-    // The kit serialization pair. Sandbox grants load() friendship for instance bookkeeping;
-    // everything else goes through the public surface.
-
-    Kit save(Sandbox& sandbox, std::span<const Toy> toys)
+    Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path)
     {
-        Registry& registry = sandbox.get_registry();
-        auto kit = Kit();
-        auto bounds_min = Vec3(0.0f);
-        auto bounds_max = Vec3(0.0f);
-        bool has_bounds = false;
-
-        for (const Toy& toy : toys)
-        {
-            const ToyId id = toy.get_id();
-            const auto& identity = registry.get<ToyHandle>(id);
-            auto kit_toy = KitToy();
-            kit_toy.uuid = identity.uuid;
-            kit_toy.name = identity.name;
-            kit_toy.is_enabled = identity.is_enabled;
-
-            if (const auto* link = registry.try_get<ParentLink>(id);
-                link && registry.valid(link->parent))
-                kit_toy.parent = registry.get<ToyHandle>(link->parent).uuid;
-
-            if (const auto* stickers = registry.try_get<StickerSet>(id))
-                kit_toy.stickers = stickers->names;
-
-            for (const reflection::TypeInfo& type : reflection::get_type_registry().get_all())
-            {
-                if (!type.has_block || !type.has_block(registry, id))
-                    continue;
-                kit_toy.blocks.push_back(
-                    KitBlock {.type = type.name_hash, .value = type.copy_block(registry, id)});
-            }
-            kit.toys.push_back(std::move(kit_toy));
-
-            if (const auto* transform = registry.try_get<Transform>(id))
-            {
-                bounds_min = has_bounds ? math::min(bounds_min, transform->position)
-                                        : transform->position;
-                bounds_max = has_bounds ? math::max(bounds_max, transform->position)
-                                        : transform->position;
-                has_bounds = true;
-            }
-        }
-
-        kit.bounds_center = has_bounds ? (bounds_min + bounds_max) * 0.5f : Vec3(0.0f);
-        kit.bounds_radius = has_bounds ? math::length(bounds_max - kit.bounds_center) : 0.0f;
-        return kit;
+        auto level = deserialize_kit(path);
+        if (!level)
+            return std::unexpected(level.error());
+        auto sandbox = Sandbox();
+        sandbox.open(std::move(*level));
+        return ok(std::move(sandbox));
     }
 
-    Result<Kit> save(Sandbox& sandbox)
+    Result<void> serialize_sandbox(const Sandbox& sandbox, const std::filesystem::path& path)
     {
-        auto toys = std::vector<Toy>();
-        toys.reserve(sandbox.get_toy_count());
-        for (const auto [entity, handle] : sandbox.get_registry().view<ToyHandle>().each())
-            toys.emplace_back(sandbox, entity);
-        return ok(save(sandbox, std::span<const Toy>(toys)));
-    }
-
-    Result<Kit> save(const Toy& toy)
-    {
-        if (!toy.is_alive())
-            return fail("cannot save: the toy is not alive");
-        auto copy = toy;
-        return ok(save(copy.get_sandbox(), std::span<const Toy>(&copy, 1)));
-    }
-
-    /// @brief
-    /// Purpose: Recursive instantiation of one kit: spawns its toys, links parents, applies
-    /// the root offset, and follows nested kit references through assets. The outermost
-    /// load() mints the instance and rolls back on failure.
-    static Result<void> load_kit_body(
-        Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const Kit& kit,
-        const Vec3& root_position,
-        std::vector<uint64>& reference_stack,
-        std::vector<ToyId>& spawned)
-    {
-        Registry& registry = sandbox.get_registry();
-        const size first_spawned = spawned.size();
-        auto by_kit_uuid = std::unordered_map<Uuid, ToyId>();
-
-        // Pass 1: spawn every toy with identity, stickers, and blocks.
-        for (const KitToy& kit_toy : kit.toys)
-        {
-            Toy toy = sandbox.spawn(kit_toy.name);
-            toy.set_enabled(kit_toy.is_enabled);
-            spawned.push_back(toy.get_id());
-            if (kit_toy.uuid.is_valid())
-                by_kit_uuid[kit_toy.uuid] = toy.get_id();
-
-            for (const std::string& sticker : kit_toy.stickers)
-                toy.sticker(sticker);
-
-            for (const KitBlock& block : kit_toy.blocks)
-            {
-                const auto type = reflection::describe(block.type);
-                if (!type || !type->get().assign_block
-                    || !type->get().assign_block(registry, toy.get_id(), block.value))
-                    TBX_WARN("kit block (type hash {}) is unknown or empty; skipped", block.type);
-            }
-        }
-
-        // Pass 2: link parents by the kit's uuids (fresh uuids were assigned live).
-        for (const KitToy& kit_toy : kit.toys)
-        {
-            if (!kit_toy.uuid.is_valid() || !kit_toy.parent.is_valid())
-                continue;
-            const auto child = by_kit_uuid.find(kit_toy.uuid);
-            const auto parent = by_kit_uuid.find(kit_toy.parent);
-            if (child != by_kit_uuid.end() && parent != by_kit_uuid.end())
-                registry.emplace_or_replace<ParentLink>(
-                    child->second,
-                    ParentLink {.parent = parent->second});
-        }
-
-        // Root offset applies to this body's parentless toys only.
-        for (size i = first_spawned; i < spawned.size(); ++i)
-        {
-            const ToyId id = spawned[i];
-            if (!registry.all_of<ParentLink>(id))
-                registry.get<Transform>(id).position += root_position;
-        }
-
-        // Recurse into nested kit references (a kit can reference a kit...) — references
-        // are ordinary kit assets, resolved through the asset system like everything else.
-        for (const KitReference& entry : kit.kits)
-        {
-            const uint64 reference_hash = entry.kit.path.empty()
-                ? entry.kit.id.hi ^ ~entry.kit.id.lo
-                : hash(entry.kit.path);
-            for (const uint64 seen : reference_stack)
-                if (seen == reference_hash)
-                    return fail("kit reference cycle detected at '{}'", entry.kit.path);
-
-            const auto nested_kit = assets::load_now(assets, events, entry.kit);
-            if (!nested_kit)
-                return fail("kit '{}': {}", entry.kit.path, nested_kit.error());
-
-            reference_stack.push_back(reference_hash);
-            auto nested = load_kit_body(
-                sandbox,
-                assets,
-                events,
-                nested_kit->get(),
-                root_position + entry.position,
-                reference_stack,
-                spawned);
-            reference_stack.pop_back();
-            if (!nested)
-                return nested;
-        }
-        return {};
-    }
-
-    Result<KitInstance> load(
-        Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const Kit& kit,
-        const Vec3& root_position)
-    {
-        auto reference_stack = std::vector<uint64>();
-        auto spawned = std::vector<ToyId>();
-        const auto result =
-            load_kit_body(sandbox, assets, events, kit, root_position, reference_stack, spawned);
-        if (!result)
-        {
-            Registry& registry = sandbox.get_registry();
-            for (const ToyId id : spawned)
-                if (registry.valid(id))
-                    registry.destroy(id);
-            return std::unexpected(result.error());
-        }
-        const auto instance = KitInstance {.id = sandbox._next_kit_instance_id++};
-        sandbox._kit_instances[instance.id] = spawned;
-        return instance;
-    }
-}
-
-namespace tbx::assets
-{
-    template <>
-    Result<ecs::Kit> load<ecs::Kit>(const std::filesystem::path& path)
-    {
-        const auto text = files::read_text(path);
-        if (!text)
-            return std::unexpected(text.error());
-        if (!serialization::Json::accept(*text))
-            return fail("'{}' is not a kit (JSON expected)", path.string());
-        return ecs::from_json(serialization::Json::parse(*text, nullptr, false));
+        auto body = serialization::Json::object();
+        body["toys"] = serialize_toys(sandbox);
+        body["bounds"] = bounds_to_json(Vec3(0.0f), 0.0f);
+        return write_text(path.string(), body.dump(4));
     }
 }

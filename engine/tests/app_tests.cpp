@@ -1,5 +1,6 @@
 #include "tbx/app.h"
 #include "tbx/reflection/reflection.h"
+#include "tbx/serialization/read_write.h"
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -34,7 +35,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = assets::load<App>(tapp);
+        const auto loaded = serialization::deserialize<App>(tapp);
 
         // Assert: fields land, handles carry authoring paths.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -65,7 +66,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = assets::load<App>(tapp);
+        const auto loaded = serialization::deserialize<App>(tapp);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();

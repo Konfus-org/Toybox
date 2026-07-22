@@ -47,7 +47,7 @@ namespace tbx
         auto hi_result = std::from_chars(text.data(), text.data() + 16, id.hi, 16);
         auto lo_result = std::from_chars(text.data() + 16, text.data() + 32, id.lo, 16);
         bool parsed = hi_result.ec == std::errc {} && lo_result.ec == std::errc {}
-            && hi_result.ptr == text.data() + 16 && lo_result.ptr == text.data() + 32;
+                      && hi_result.ptr == text.data() + 16 && lo_result.ptr == text.data() + 32;
         if (!parsed)
             return {};
         return id;

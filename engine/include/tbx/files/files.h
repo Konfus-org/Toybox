@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 #include "tbx/utils/result.h"
 #include <cstddef>
 #include <filesystem>
@@ -8,7 +8,7 @@
 
 // Plain file IO — stateless, so it is a namespace, not a class. The FileWatcher (script/asset
 // hot-reload) arrives with the asset milestone.
-namespace tbx::files
+namespace tbx
 {
     /// @brief
     /// Purpose: Reads a whole file as raw bytes.
@@ -20,7 +20,9 @@ namespace tbx::files
 
     /// @brief
     /// Purpose: Writes raw bytes to a file, creating parent directories as needed.
-    TBX_API Result<void> write_bytes(const std::filesystem::path& path, std::span<const std::byte> bytes);
+    TBX_API Result<void> write_bytes(
+        const std::filesystem::path& path,
+        std::span<const std::byte> bytes);
 
     /// @brief
     /// Purpose: Writes text to a file, creating parent directories as needed.

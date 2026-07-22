@@ -1,12 +1,11 @@
 #pragma once
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 // The one math seam: the selected backend (cmake tbx_backend(MATH ...)) supplies the types via
 // its <tbx_math_backend.h> and implements the tbx::math functions declared here in its own
 // .cpp — swapped at link time like every other backend. Nothing else names the library.
 #include <tbx_math_backend.h>
 
-
-namespace tbx::math
+namespace tbx
 {
     /// @brief
     /// Purpose: A rotation of the given angle (radians) around an axis.

@@ -78,7 +78,7 @@ if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
     FetchContent_MakeAvailable(SDL)
 endif()
 
-if(TBX_GFX_BACKEND STREQUAL "gl")
+if(TBX_GPU_BACKEND STREQUAL "gl")
     add_subdirectory(glad)
 endif()
 

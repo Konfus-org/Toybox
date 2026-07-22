@@ -3,7 +3,7 @@
         "title": "Toom",
         "width": 1600,
         "height": 900,
-        "sandbox": "levels/arena.box",
+        "sandbox": "levels/arena.kit",
         "icon": "textures/ToomLogo.jpg"
     },
     "settings": {

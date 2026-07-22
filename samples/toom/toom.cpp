@@ -1,9 +1,10 @@
 #include "tbx/app.h"
+#include "tbx/utils/command_list.h"
 #include "tbx/debug/log.h"
-#include "tbx/gfx/gpu.h"
+#include "tbx/gpu/gpu.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/runtime.h"
-#include "tbx/utils/command_list.h"
+#include "tbx/serialization/read_write.h"
 #include <filesystem>
 
 // Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
@@ -21,7 +22,7 @@ int main(int argc, char** argv)
     // generically through the reflected App schema, so registration comes first.
     tbx::reflection::initialize();
     const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
-    auto loaded = tbx::assets::load<tbx::App>(tapp);
+    auto loaded = tbx::serialization::deserialize<tbx::App>(tapp);
     if (!loaded)
     {
         TBX_ERROR("Toom.tapp: {}", loaded.error());
@@ -51,7 +52,8 @@ int main(int argc, char** argv)
                     TBX_ERROR("levels/arena.box did not spawn a Player");
                     return 1;
                 }
-                player->sticker("selftest");
+                // Fluent handle: mutators return the toy, so tagging and enabling chain.
+                player->sticker("selftest").set_enabled(true);
             }
             if (auto player = sandbox.find("Player"); player && player->has_sticker("scored"))
                 scored = true;
@@ -60,7 +62,6 @@ int main(int argc, char** argv)
             if (frame >= 300)
                 tbx::quit(runtime);
         }
-
     }
 
     if (selftest)

@@ -1,4 +1,4 @@
-#include "tbx/gfx/shader_source.h"
+#include "tbx/gpu/shader_source.h"
 #include "tbx/serialization/json.h"
 #include "tbx/reflection/reflection.h"
 #include <gtest/gtest.h>
@@ -55,7 +55,7 @@ namespace tbx::tests
 
     struct TestChain
     {
-        std::vector<assets::AssetHandle<gfx::ShaderSource>> shaders = {};
+        std::vector<assets::Handle<gpu::ShaderSource>> shaders = {};
     };
 
     TEST(Reflect, RoundTripsAssetHandleLists)
@@ -64,8 +64,8 @@ namespace tbx::tests
         reflection::register_type<TestChain>("TestChain").field("shaders", &TestChain::shaders);
         const reflection::TypeInfo& type = reflection::get_type_registry().find("TestChain")->get();
         auto original = TestChain {};
-        original.shaders.push_back(assets::AssetHandle<gfx::ShaderSource>(Uuid::generate()));
-        original.shaders.push_back(assets::AssetHandle<gfx::ShaderSource>(Uuid::generate()));
+        original.shaders.push_back(assets::Handle<gpu::ShaderSource>(Uuid::generate()));
+        original.shaders.push_back(assets::Handle<gpu::ShaderSource>(Uuid::generate()));
 
         // Act
         const serialization::Json data = serialization::json_write(type, original);

@@ -1,12 +1,12 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/assets/asset.h"
-#include "tbx/assets/asset_handle.h"
-#include "tbx/assets/load.h"
+#include "tbx/assets/handle.h"
 #include "tbx/events/events.h"
 #include "tbx/files/watcher.h"
 #include "tbx/jobs/jobs.h"
-#include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
+#include "tbx/serialization/read_write.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
 #include <any>
@@ -18,7 +18,7 @@
 #include <string>
 #include <unordered_map>
 
-// Async-first asset loading over the static per-type decoder table (tbx::load<T>), with
+// Async-first asset loading over the serializer registry (serialization::deserialize<T>), with
 // .meta identity sidecars and watcher-driven hot reload. Paths resolve against the app's
 // asset root first, then the engine's resources folder (TBX_RESOURCES_PATH) — engine-shipped
 // models/textures/shaders are ordinary assets too. The state is runtime.assets, dropped
@@ -48,7 +48,7 @@ namespace tbx::assets
     /// glue around them: `assets` is the identity index (relative path -> uuid, filled from
     /// .meta sidecars) and `loaded_assets` is resident storage. The mutex guards both maps
     /// (loads run on workers); everything dies with the runtime, watcher included.
-    struct TBX_API AssetsState
+    struct TBX_API State
     {
         std::filesystem::path root = {};
         mutable std::mutex mutex;
@@ -56,58 +56,67 @@ namespace tbx::assets
         std::unordered_map<Uuid, LoadedAsset> loaded_assets;
         float idle_lifetime_seconds = 60.0f;
         std::chrono::steady_clock::time_point last_purge = std::chrono::steady_clock::now();
-        std::optional<files::FileWatcher> watcher;
+        std::optional<FileWatcher> watcher;
     };
+
+    /// @brief
+    /// Purpose: Stands the asset system up in one call, the way reflection::initialize stands
+    /// reflection up: registers every serializer, sets the root (and starts hot-reload
+    /// watching), then walks the root so every asset file's path and id populate the identity
+    /// map up front. Idempotent per state.
+    TBX_API void initialize(
+        State& state,
+        events::State& events,
+        jobs::State& jobs,
+        std::filesystem::path root);
 
     /// @brief
     /// Purpose: Sets the asset root and starts watching it for hot reload (change reports
     /// marshal through the jobs queue onto the main thread).
     TBX_API void set_root(
-        AssetsState& state,
-        events::EventsState& events,
-        jobs::JobsState& jobs,
+        State& state,
+        events::State& events,
+        jobs::State& jobs,
         std::filesystem::path root);
 
     /// @brief
     /// Purpose: Unloads assets that have not been referenced (loaded) for longer than
     /// state.idle_lifetime_seconds, announcing each via the asset_unloaded signal. tbx::run()
     /// calls this every frame; it self-throttles.
-    TBX_API void update(AssetsState& state, events::EventsState& events);
+    TBX_API void update(State& state, events::State& events);
 
     /// @brief
     /// Purpose: Number of resident (decoded) assets — debug/tooling.
-    TBX_API size get_loaded_count(const AssetsState& state);
+    TBX_API size get_loaded_count(const State& state);
 
     /// @brief
     /// Purpose: The asset a handle references, loading it asynchronously when it is not
     /// resident: bytes read + decoded on a worker, stored on the main thread.
     template <typename TAsset>
     jobs::Task<Result<std::reference_wrapper<TAsset>>> load(
-        AssetsState& state,
-        events::EventsState& events,
-        jobs::JobsState& jobs,
-        AssetHandle<TAsset> handle);
+        State& state,
+        events::State& events,
+        jobs::State& jobs,
+        Handle<TAsset> handle);
 
     /// @brief
     /// Purpose: The asset a handle references, decoded inline on the calling thread when it
     /// is not already resident — the renderer/material/startup resolution path.
     template <typename TAsset>
     Result<std::reference_wrapper<TAsset>> load_now(
-        AssetsState& state,
-        events::EventsState& events,
-        AssetHandle<TAsset> handle);
+        State& state,
+        events::State& events,
+        Handle<TAsset> handle);
 
     /// @brief
     /// Purpose: The resident asset for an id (empty when absent); refreshes its idle timer.
-    TBX_API std::optional<std::reference_wrapper<std::any>> find(
-        AssetsState& state,
-        const Uuid& id);
+    TBX_API std::optional<std::reference_wrapper<std::any>> find(State& state, const Uuid& id);
 
     /// @brief
     /// Purpose: Resolves a handle's identity: by id via the meta index, or by path (minting a
     /// .meta sidecar on first sight).
     TBX_API Result<ResolvedHandle> resolve_handle(
-        AssetsState& state,
+        State& state,
         const Uuid& id,
         const std::string& path);
 
@@ -115,14 +124,14 @@ namespace tbx::assets
     /// Purpose: A tracked relative path resolved to its on-disk location (app root first,
     /// engine resources second).
     TBX_API std::filesystem::path resolve_path(
-        const AssetsState& state,
+        const State& state,
         const std::string& relative_path);
 
     /// @brief
     /// Purpose: Stores a decoded asset and announces it (first loads announce too).
     TBX_API void store(
-        AssetsState& state,
-        events::EventsState& events,
+        State& state,
+        events::State& events,
         const Uuid& id,
         const std::string& relative_path,
         std::any asset);

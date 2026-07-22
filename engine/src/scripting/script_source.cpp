@@ -1,15 +1,14 @@
-#include "tbx/scripting/script_source.h"
+#include "tbx/scripting/source.h"
 #include "tbx/files/files.h"
 
-namespace tbx::assets
+namespace tbx::scripts
 {
-    template <>
-    Result<scripts::ScriptSource> load<scripts::ScriptSource>(const std::filesystem::path& path)
+    Result<Source> deserialize_script_source(const std::filesystem::path& path)
     {
-        auto text = files::read_text(path);
+        auto text = read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        auto source = scripts::ScriptSource();
+        auto source = Source();
         source.name = path.filename().string();
         source.source = std::move(*text);
         return ok(std::move(source));

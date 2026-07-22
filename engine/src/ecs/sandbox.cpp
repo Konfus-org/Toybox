@@ -1,265 +1,129 @@
 #include "tbx/ecs/sandbox.h"
-#include "tbx/utils/hash.h"
 #include "tbx/assets/assets.h"
-#include "tbx/math/transform.h"
-#include "tbx/app.h"
 #include "tbx/debug/log.h"
+#include "tbx/math/frustum.h"
 #include "tbx/reflection/reflection.h"
+#include <algorithm>
 
 namespace tbx::ecs
 {
-    //// SANDBOX: TOYS ////
-
     Sandbox::Sandbox()
     {
         reflection::initialize();
     }
 
-    Toy Sandbox::spawn(std::string name)
+    void Sandbox::open(Kit level)
     {
-        const ToyId id = _registry.create();
-        _registry.emplace<ToyHandle>(
-            id,
-            ToyHandle {.uuid = Uuid::generate(), .name = std::move(name)});
-        _registry.emplace<Transform>(id);
-        return Toy(*this, id);
+        _pending_level = std::move(level);
     }
-
-    void Sandbox::despawn(Toy toy)
-    {
-        const ToyId id = toy.get_id();
-        // Children are orphaned, not destroyed — despawning a parent never cascades. Collect
-        // first: removing the iterated component mid-view is not safe.
-        auto orphans = std::vector<ToyId>();
-        for (const auto [child, link] : _registry.view<ParentLink>().each())
-            if (link.parent == id)
-                orphans.push_back(child);
-        for (const ToyId child : orphans)
-            _registry.remove<ParentLink>(child);
-        _registry.destroy(id);
-    }
-
-    std::optional<Toy> Sandbox::find(const Uuid& uuid)
-    {
-        for (const auto [id, identity] : _registry.view<ToyHandle>().each())
-            if (identity.uuid == uuid)
-                return Toy(*this, id);
-        return {};
-    }
-
-    std::optional<Toy> Sandbox::find(std::string_view name)
-    {
-        for (const auto [id, identity] : _registry.view<ToyHandle>().each())
-            if (identity.name == name)
-                return Toy(*this, id);
-        return {};
-    }
-
-    void Sandbox::for_each_sticker(
-        std::string_view name,
-        const std::function<void(Toy)>& callback)
-    {
-        const uint64 wanted = hash(name);
-        for (const auto [id, stickers] : _registry.view<StickerSet>().each())
-            for (const std::string& sticker : stickers.names)
-                if (hash(sticker) == wanted)
-                {
-                    callback(Toy(*this, id));
-                    break;
-                }
-    }
-
-    size Sandbox::get_toy_count() const
-    {
-        return _registry.view<const ToyHandle>().size();
-    }
-
-    //// SANDBOX: HIERARCHY ////
-
-    void Sandbox::set_parent(Toy child, Toy parent)
-    {
-        if (parent.is_alive())
-            _registry.emplace_or_replace<ParentLink>(
-                child.get_id(),
-                ParentLink {.parent = parent.get_id()});
-        else
-            _registry.remove<ParentLink>(child.get_id());
-    }
-
-    std::optional<Toy> Sandbox::get_parent(Toy child)
-    {
-        const auto* link = _registry.try_get<ParentLink>(child.get_id());
-        if (!link || !_registry.valid(link->parent))
-            return {};
-        return Toy(*this, link->parent);
-    }
-
-    Mat4 Sandbox::get_world_matrix(Toy toy) const
-    {
-        // A pure read walking the ParentLink chain by id: every toy gets its Transform at
-        // spawn, so a missing one is a default, never an insertion.
-        auto world = Mat4(1.0f);
-        for (auto at = toy.get_id(); at != NULL_TOY && _registry.valid(at);)
-        {
-            const auto* transform = _registry.try_get<Transform>(at);
-            const auto local_transform = transform ? *transform : Transform {};
-            const Mat4 local = math::translate(Mat4(1.0f), local_transform.position)
-                * math::to_mat4(local_transform.rotation)
-                * math::scale(Mat4(1.0f), local_transform.scale);
-            world = local * world;
-            const auto* link = _registry.try_get<ParentLink>(at);
-            at = link ? link->parent : NULL_TOY;
-        }
-        return world;
-    }
-
-    //// SANDBOX: KITS ////
-
-    Result<KitInstance> Sandbox::spawn(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const assets::AssetHandle<Kit>& kit,
-        const Vec3& position)
-    {
-        const auto loaded = assets::load_now(assets, events, kit);
-        if (!loaded)
-            return fail("kit '{}': {}", kit.path, loaded.error());
-        return load(*this, assets, events, loaded->get(), position);
-    }
-
-    Result<KitInstance> Sandbox::spawn(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const Kit& kit,
-        const Vec3& position)
-    {
-        return load(*this, assets, events, kit, position);
-    }
-
-    void Sandbox::despawn(KitInstance instance)
-    {
-        const auto it = _kit_instances.find(instance.id);
-        if (it == _kit_instances.end())
-            return;
-        for (const ToyId id : it->second)
-            if (_registry.valid(id))
-                despawn(Toy(*this, id));
-        _kit_instances.erase(it);
-    }
-
-    //// SANDBOX: BOXES & STREAMING ////
 
     void Sandbox::close()
     {
-        _kit_instances.clear();
-        _streamed_entries.clear();
-        _has_stream_focus = false;
-        _registry.clear(); // every toy, kit-spawned or not
+        _streamed_kits.clear();
+        _pending_level.reset();
+        clear(); // every toy (ToyContainer)
     }
 
-    Result<void> Sandbox::open(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const Box& box)
+    void Sandbox::open_pending(assets::State& assets, events::State& events)
     {
-        for (const BoxEntry& entry : box.kits)
-        {
-            if (entry.mode == KitMode::ALWAYS)
-            {
-                auto loaded = spawn(assets, events, entry.kit, entry.position);
-                if (!loaded)
-                    return std::unexpected(loaded.error());
-                continue;
-            }
-
-            // Streamed: remember the entry + the bounds its kit saved; the kit itself
-            // reloads on demand (assets cache it in the meantime).
-            const auto kit = assets::load_now(assets, events, entry.kit);
-            if (!kit)
-                return fail("kit '{}': {}", entry.kit.path, kit.error());
-            auto streamed = StreamedEntry {};
-            streamed.kit = entry.kit;
-            streamed.position = entry.position;
-            streamed.bounds_center = kit->get().bounds_center;
-            streamed.bounds_radius = kit->get().bounds_radius;
-            _streamed_entries.push_back(std::move(streamed));
-        }
-        return {};
+        if (!_pending_level)
+            return;
+        const Kit level = std::move(*_pending_level);
+        _pending_level.reset();
+        if (auto opened = spawn(assets, events, level); !opened)
+            TBX_ERROR("opened level: {}", opened.error());
     }
 
     void Sandbox::stream(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        jobs::JobsState& jobs,
-        const Vec3& focus)
+        assets::State& assets,
+        events::State& events,
+        jobs::State& jobs,
+        const std::span<const Frustum> frustums)
     {
-        _stream_focus = focus;
-        _has_stream_focus = true;
-        process_streaming(assets, events, jobs);
-    }
+        // The pending level spawns here — the one place with the asset system in hand every
+        // frame — so read<Sandbox>/open() never need it.
+        open_pending(assets, events);
 
-    void Sandbox::process_streaming(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        jobs::JobsState& jobs)
-    {
-        if (!_has_stream_focus)
+        // No cameras (headless) = no streaming decisions; loaded kits stay put.
+        if (frustums.empty())
             return;
 
-        for (size i = 0; i < _streamed_entries.size(); ++i)
+        for (size i = 0; i < _streamed_kits.size(); ++i)
         {
-            StreamedEntry& entry = _streamed_entries[i];
-            const float distance =
-                math::length(_stream_focus - (entry.bounds_center + entry.position));
-            const bool is_loaded = entry.instance.has_value();
+            StreamedKit& entry = _streamed_kits[i];
+            auto instance = Toy(*this, entry.instance);
+            if (!instance.is_alive())
+                continue; // its toy went away (a parent collapsed); the entry is pruned below
 
-            if (!is_loaded && !entry.is_loading
-                && distance <= entry.bounds_radius + STREAM_LOAD_MARGIN)
+            const Vec3 sphere_center =
+                Vec3(instance.get_world_transform() * Vec4(0.0f, 0.0f, 0.0f, 1.0f))
+                + entry.bounds_center;
+            bool is_wanted = false; // in the tight (load) volume of any frustum
+            bool is_in_sight = false; // in the loose (unload) volume of any frustum
+            for (const Frustum& frustum : frustums)
+            {
+                is_wanted = is_wanted
+                    || intersects(
+                                frustum, sphere_center, entry.bounds_radius + STREAM_LOAD_MARGIN);
+                is_in_sight = is_in_sight
+                    || intersects(
+                                  frustum, sphere_center, entry.bounds_radius + STREAM_UNLOAD_MARGIN);
+            }
+
+            if (!entry.is_loaded && !entry.is_loading && is_wanted)
             {
                 entry.is_loading = true;
-                // Resolve (file IO/decode) on a worker through assets (its maps are
-                // mutex-guarded); splice on the main thread. The Sandbox is engine-owned and
-                // outlives in-flight streams. The handle is copied into the task — the
-                // worker never touches sandbox state, and the body is copied out so the
-                // asset cache may drop its copy at any time.
+                // Resolve (file IO/decode) on a worker through assets; splice on the main
+                // thread. The Sandbox is engine-owned and outlives in-flight streams; the
+                // handle is copied into the task and the body is copied out so the asset cache
+                // may drop its copy.
                 jobs::start(
-                    [](assets::AssetsState& assets,
-                       events::EventsState& events,
-                       jobs::JobsState& jobs,
+                    [](assets::State& assets,
+                       events::State& events,
+                       jobs::State& jobs,
                        Sandbox& sandbox,
                        size index,
-                       assets::AssetHandle<Kit> kit) -> jobs::Task<void>
+                       assets::Handle<Kit> kit) -> jobs::Task<void>
                     {
                         co_await jobs::on_worker(jobs);
                         auto loaded = assets::load_now(assets, events, kit);
-                        auto body = loaded
-                            ? Result<Kit>(loaded->get())
-                            : Result<Kit>(std::unexpected(loaded.error()));
+                        auto body = loaded ? Result<Kit>(loaded->get())
+                                           : Result<Kit>(std::unexpected(loaded.error()));
                         co_await jobs::on_main(jobs);
-                        StreamedEntry& target = sandbox._streamed_entries[index];
+                        StreamedKit& target = sandbox._streamed_kits[index];
                         target.is_loading = false;
-                        if (!body)
+                        auto instance = Toy(sandbox, target.instance);
+                        if (!body || !instance.is_alive())
                         {
-                            TBX_ERROR("streamed kit '{}': {}", target.kit.path, body.error());
+                            if (!body)
+                                TBX_ERROR("streamed kit '{}': {}", target.kit.path, body.error());
                             co_return;
                         }
-                        auto spawned = load(sandbox, assets, events, *body, target.position);
-                        if (!spawned)
+                        auto reference_stack = std::vector<uint64>();
+                        auto spawned = std::vector<ToyId>();
+                        if (auto expanded = sandbox.instantiate_under(
+                                assets, events, instance, *body, reference_stack, spawned);
+                            !expanded)
                         {
-                            TBX_ERROR(
-                                "streamed kit '{}': {}",
-                                target.kit.path,
-                                spawned.error());
+                            TBX_ERROR("streamed kit '{}': {}", target.kit.path, expanded.error());
+                            for (const ToyId id : spawned)
+                                sandbox.despawn(Toy(sandbox, id));
                             co_return;
                         }
-                        target.instance = *spawned;
+                        target.is_loaded = true;
                     }(assets, events, jobs, *this, i, entry.kit));
             }
-            else if (is_loaded && distance >= entry.bounds_radius + STREAM_UNLOAD_MARGIN)
+            else if (entry.is_loaded && !is_in_sight)
             {
-                despawn(*entry.instance);
-                entry.instance.reset();
+                despawn_children(instance); // keep the KitInstance toy, drop its contents
+                entry.is_loaded = false;
             }
         }
+
+        // Prune entries whose KitInstance toy is gone (a parent kit collapsed above it).
+        std::erase_if(
+            _streamed_kits,
+            [this](const StreamedKit& entry)
+            { return !Toy(*this, entry.instance).is_alive(); });
     }
 }

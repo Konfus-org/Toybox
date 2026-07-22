@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/events/event_queue.h"
+#include "tbx/events/queue.h"
 #include <functional>
 
 namespace tbx::events
@@ -26,7 +26,7 @@ namespace tbx::events
     class Signal final
     {
       public:
-        explicit Signal(EventQueue& queue)
+        explicit Signal(Queue& queue)
             : _queue(queue)
         {
         }
@@ -86,7 +86,7 @@ namespace tbx::events
         }
 
       private:
-        std::reference_wrapper<EventQueue> _queue;
+        std::reference_wrapper<Queue> _queue;
         std::vector<SignalSubscriber<TEvent>> _subscribers;
         Token _next_token = 1;
     };

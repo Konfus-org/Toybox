@@ -2,7 +2,7 @@
 
 namespace tbx::events
 {
-    void update(EventsState& state)
+    void update(State& state)
     {
         state.queue.drain();
     }

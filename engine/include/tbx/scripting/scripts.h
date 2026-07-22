@@ -1,15 +1,16 @@
 #pragma once
-#include "tbx/assets/asset_handle.h"
+#include "tbx/api.h"
+#include "tbx/assets/handle.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/scripting/script.h"
-#include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
+#include "tbx/scripting/script.h"
 #include "tbx/utils/typedefs.h"
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
+
 
 // The scripting coordinator: routes sources to the backend that owns their extension
 // (extensionless names go to the first backend) and fans update() out to all. The state is
@@ -22,10 +23,10 @@ namespace tbx::scripts
     /// (scripting/luau/, later csharp/...) implements it and claims sources by extension.
     /// @details
     /// Ownership: Owned by Scripts. Thread Safety: Main thread only.
-    class TBX_API ScriptBackend
+    class TBX_API Backend
     {
       public:
-        virtual ~ScriptBackend() = default;
+        virtual ~Backend() = default;
 
       public:
         /// @brief
@@ -38,7 +39,7 @@ namespace tbx::scripts
 
         /// @brief
         /// Purpose: Compiles and caches a source under its asset id (Script blocks reference
-        /// it by AssetHandle); the name is diagnostics/routing only.
+        /// it by Handle); the name is diagnostics/routing only.
         virtual Result<void> load_source(
             const Uuid& id,
             const std::string& name,
@@ -66,31 +67,31 @@ namespace tbx::scripts
     /// (VMs), built lazily against the runtime's sandbox, plus which script-source assets
     /// were acquired. Declared after the sandbox in RuntimeState, so the VMs die before
     /// their world.
-    struct TBX_API ScriptsState
+    struct TBX_API State
     {
-        ScriptsState() = default;
-        ~ScriptsState() = default;
+        State() = default;
+        ~State() = default;
 
-        ScriptsState(const ScriptsState&) = delete;
-        ScriptsState& operator=(const ScriptsState&) = delete;
+        State(const State&) = delete;
+        State& operator=(const State&) = delete;
 
-        std::vector<std::unique_ptr<ScriptBackend>> backends;
+        std::vector<std::unique_ptr<Backend>> backends;
         std::unordered_set<Uuid> acquired_sources;
     };
 
     /// @brief
     /// Purpose: Registers an additional backend (e.g. the game exe's own C++ "scripting").
-    TBX_API void add_backend(ScriptsState& state, std::unique_ptr<ScriptBackend> backend);
+    TBX_API void add_backend(State& state, std::unique_ptr<Backend> backend);
 
     /// @brief
     /// Purpose: Runs every backend's fixed-cadence hook; called from the fixed step alongside
     /// physics so scripts can do physics-rate work.
-    TBX_API void fixed_update(ScriptsState& state, float fixed_delta_time);
+    TBX_API void fixed_update(State& state, float fixed_delta_time);
 
     /// @brief
     /// Purpose: Registers a source under an explicit asset id (the asset pipeline path).
     TBX_API Result<void> load_source(
-        ScriptsState& state,
+        State& state,
         const Uuid& id,
         const std::string& name,
         std::string_view source);
@@ -98,20 +99,20 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Compiles a source under a deterministic id derived from its name and returns
     /// the handle Script blocks use — the manual/test path.
-    TBX_API Result<assets::AssetHandle<ScriptSource>> load_source(
-        ScriptsState& state,
+    TBX_API Result<assets::Handle<Source>> load_source(
+        State& state,
         const std::string& name,
         std::string_view source);
 
     /// @brief
     /// Purpose: True when some backend runs files with the given extension (".luau") —
     /// listeners use it to filter asset events down to script sources.
-    TBX_API bool owns(const ScriptsState& state, std::string_view extension);
+    TBX_API bool owns(const State& state, std::string_view extension);
 
     /// @brief
     /// Purpose: Hot reload under an explicit asset id.
     TBX_API Result<void> reload_source(
-        ScriptsState& state,
+        State& state,
         const Uuid& id,
         const std::string& name,
         std::string_view source);
@@ -119,7 +120,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Hot reload under the name-derived id (the manual/test path).
     TBX_API Result<void> reload_source(
-        ScriptsState& state,
+        State& state,
         const std::string& name,
         std::string_view source);
 
@@ -128,9 +129,9 @@ namespace tbx::scripts
     /// script-source asset a spawned toy references — the store announces it and the reload
     /// glue hands it to the owning backend. Called by tbx::run() every frame.
     TBX_API void update(
-        ScriptsState& state,
+        State& state,
         ecs::Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         float delta_time);
 }

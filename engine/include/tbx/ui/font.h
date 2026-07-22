@@ -1,8 +1,9 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/assets/asset.h"
-#include "tbx/assets/load.h"
-#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
 #include <cstddef>
+#include <filesystem>
 #include <vector>
 
 namespace tbx::ui
@@ -16,12 +17,8 @@ namespace tbx::ui
         std::vector<std::byte> data = {};
     };
 
-}
-
-namespace tbx::assets
-{
     /// @brief
-    /// Purpose: Loads a font file's bytes.
-    template <>
-    TBX_API Result<ui::Font> load<ui::Font>(const std::filesystem::path& path);
+    /// Purpose: Font's registered reader (the raw file bytes) — call it through
+    /// serialization::deserialize<Font>(path).
+    TBX_API Result<Font> deserialize_font(const std::filesystem::path& path);
 }

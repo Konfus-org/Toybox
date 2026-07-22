@@ -4,7 +4,7 @@
 namespace tbx::jobs
 {
     template <typename Fn>
-    auto run(JobsState& jobs, Fn fn) -> Task<std::invoke_result_t<Fn>>
+    auto run(State& jobs, Fn fn) -> Task<std::invoke_result_t<Fn>>
     {
         co_await on_worker(jobs);
         if constexpr (std::is_void_v<std::invoke_result_t<Fn>>)

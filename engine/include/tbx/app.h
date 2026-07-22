@@ -1,26 +1,26 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/assets/asset.h"
 #include "tbx/assets/assets.h"
-#include "tbx/audio/audio_listener.h"
-#include "tbx/audio/audio_source.h"
+#include "tbx/audio/listener.h"
+#include "tbx/audio/source.h"
+#include "tbx/utils/command_list.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/gfx/camera.h"
-#include "tbx/gfx/directional_light.h"
-#include "tbx/gfx/post_processing.h"
-#include "tbx/gfx/render_graph.h"
-#include "tbx/gfx/renderer.h"
-#include "tbx/gfx/sky.h"
+#include "tbx/gpu/camera.h"
+#include "tbx/gpu/directional_light.h"
+#include "tbx/gpu/post_processing.h"
+#include "tbx/gpu/render_graph.h"
+#include "tbx/gpu/renderer.h"
+#include "tbx/gpu/sky.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/rigid_body.h"
 #include "tbx/scripting/script.h"
 #include "tbx/scripting/scripts.h"
-#include "tbx/ui/ui_block.h"
-#include "tbx/utils/api.h"
-#include "tbx/utils/command_list.h"
 #include "tbx/utils/typedefs.h"
+#include "tbx/ui/ui_block.h"
 #include <filesystem>
 #include <string>
 
@@ -79,8 +79,8 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::string title = "Toybox";
-        assets::AssetHandle<ecs::Box> sandbox = {}; // the .box the boot opens
-        assets::AssetHandle<gfx::Texture> icon = {}; // the window/taskbar icon
+        assets::Handle<ecs::Kit> sandbox = {}; // the level kit the boot opens as the world
+        assets::Handle<gpu::Texture> icon = {}; // the window/taskbar icon
 
         // Derived, never serialized: where assets live — the host sets it (usually the
         // .tapp's folder) and the live value survives .tapp hot reloads. Boot requires it.
@@ -99,11 +99,11 @@ namespace tbx
 
     /// @brief
     /// Purpose: The application, as pure data: configuration in, per-frame data out. The
-    /// whole runtime is one loop — `while (tbx::run(app)) { gfx::begin_frame(); ... }` — and
+    /// whole runtime is one loop — `while (tbx::run(app)) { gpu::begin_frame(); ... }` — and
     /// run() fills state each iteration. The App is itself an asset: a .tapp file IS a
     /// serialized App (config + settings; state stays runtime-only), decoded generically
-    /// through its reflected fields — tbx::load<App>(path) after reflection::initialize()
-    /// — and re-applied live when the watched file changes.
+    /// through its reflected fields — serialization::deserialize<App>(path) after
+    /// reflection::initialize() — and re-applied live when the watched file changes.
     struct TBX_API App : assets::Asset
     {
         AppStatus status = AppStatus::CREATED;

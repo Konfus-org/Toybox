@@ -7,7 +7,7 @@ namespace tbx::tests
     TEST(Events, EmitDeliversOnDrain)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto received = std::vector<int>();
         events.window_resized.subscribe(
             &received,
@@ -25,7 +25,7 @@ namespace tbx::tests
     TEST(Events, EmitDoesNotDeliverBeforeDrain)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto received = 0;
         events.window_resized.subscribe(
             &received,
@@ -41,7 +41,7 @@ namespace tbx::tests
     TEST(Events, EmitDuringDrainLandsInNextFrame)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto deliveries = 0;
         events.window_resized.subscribe(
             &deliveries,
@@ -67,7 +67,7 @@ namespace tbx::tests
     TEST(Events, UnsubscribeOwnerRemovesAllOwnerHandlers)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto owner_calls = 0;
         auto other_calls = 0;
         auto owner_tag = 1;
@@ -89,7 +89,7 @@ namespace tbx::tests
     TEST(Events, UnsubscribeByTokenRemovesOnlyThatHandler)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto first_calls = 0;
         auto second_calls = 0;
         auto tag = 0;
@@ -109,7 +109,7 @@ namespace tbx::tests
     TEST(Events, MixedSignalsDrainInEmissionOrder)
     {
         // Arrange
-        auto events = events::EventsState();
+        auto events = events::State();
         auto order = std::vector<int>();
         events.window_resized.subscribe(&order, [&](const events::WindowResized&) { order.push_back(1); });
         events.key.subscribe(&order, [&](const events::KeyEvent&) { order.push_back(2); });

@@ -1,10 +1,12 @@
 #include "tbx/assets/assets.h"
-#include "tbx/reflection/type_registration.h"
+#include "tbx/files/files.h"
 #include "tbx/utils/hash.h"
+#include "tbx/math/frustum.h"
+#include "tbx/reflection/type_registration.h"
 #include "tbx/runtime.h"
 #include "tbx/serialization/json.h"
+#include "tbx/serialization/read_write.h"
 #include <filesystem>
-#include <fstream>
 #include <gtest/gtest.h>
 #include <thread>
 
@@ -29,8 +31,8 @@ namespace tbx::tests
     }
 
     /// @brief
-    /// Purpose: A temp asset root per test: kits written via write_kit() resolve through the
-    /// same asset system a shipped game uses — no in-memory shortcuts.
+    /// Purpose: A temp asset root per test: kits written via serialization::write resolve
+    /// through the same asset system a shipped game uses — no in-memory shortcuts.
     struct TestWorld
     {
         Runtime toybox = Runtime();
@@ -45,18 +47,29 @@ namespace tbx::tests
             std::filesystem::create_directories(root);
             assets::set_root(runtime.assets, runtime.events, runtime.jobs, root);
         }
+
+        /// @brief
+        /// Purpose: One stream tick with no cameras — flushes a pending open() without
+        /// making any streaming decisions.
+        void flush_open(ecs::Sandbox& sandbox)
+        {
+            sandbox.stream(runtime.assets, runtime.events, runtime.jobs, {});
+        }
     };
 
     /// @brief
-    /// Purpose: Writes one kit body into the world's asset root.
-    static void write_kit(const TestWorld& world, const std::string& name, const serialization::Json& body)
+    /// Purpose: The frustum of a camera at eye looking at a point — what a real camera
+    /// would hand to streaming.
+    static Frustum look(const Vec3& eye, const Vec3& at)
     {
-        auto file = std::ofstream(world.root / name);
-        file << body.dump();
+        const Mat4 view_projection =
+            perspective(radians(60.0f), 16.0f / 9.0f, 0.1f, 50.0f)
+            * look_at(eye, at, Vec3(0.0f, 1.0f, 0.0f));
+        return make_frustum(view_projection);
     }
 
     /// @brief
-    /// Purpose: Strips per-instantiation uuids so two saves of the same content compare equal.
+    /// Purpose: Strips per-instantiation uuids so two writes of the same content compare equal.
     static serialization::Json normalize_kit(serialization::Json kit)
     {
         auto ordinal_by_uuid = std::map<std::string, int>();
@@ -72,6 +85,14 @@ namespace tbx::tests
         return kit;
     }
 
+    /// @brief
+    /// Purpose: A written kit file parsed back, normalized for comparison.
+    static serialization::Json parse_kit_file(const std::filesystem::path& path)
+    {
+        const auto text = read_text(path);
+        return text ? serialization::Json::parse(*text, nullptr, false) : serialization::Json();
+    }
+
     TEST(Sandbox, SpawnBuildsFluentToyWithBlocksAndStickers)
     {
         // Arrange
@@ -80,9 +101,9 @@ namespace tbx::tests
 
         // Act
         ecs::Toy grunt = sandbox.spawn("Grunt")
-                        .with(Transform {.position = Vec3(1.0f, 2.0f, 3.0f)})
-                        .with(TestHealth {.hp = 50.0f, .armor = 10.0f})
-                        .sticker("enemy");
+                             .with(Transform {.position = Vec3(1.0f, 2.0f, 3.0f)})
+                             .with(TestHealth {.hp = 50.0f, .armor = 10.0f})
+                             .sticker("enemy");
 
         // Assert
         EXPECT_TRUE(grunt.is_alive());
@@ -100,7 +121,7 @@ namespace tbx::tests
         auto sandbox = ecs::Sandbox();
         ecs::Toy parent = sandbox.spawn("Parent");
         ecs::Toy child = sandbox.spawn("Child");
-        sandbox.set_parent(child, parent);
+        child.set_parent(parent);
 
         // Act
         sandbox.despawn(parent);
@@ -108,7 +129,7 @@ namespace tbx::tests
         // Assert
         EXPECT_FALSE(parent.is_alive());
         EXPECT_TRUE(child.is_alive());
-        EXPECT_FALSE(sandbox.get_parent(child).has_value());
+        EXPECT_FALSE(child.get_parent().has_value());
     }
 
     TEST(Sandbox, FindsToysBySearchAndSticker)
@@ -124,7 +145,10 @@ namespace tbx::tests
         const auto by_uuid = sandbox.find(grunt.get_uuid());
         sandbox.for_each_sticker(
             "enemy",
-            [&stickered](ecs::Toy toy) { stickered.push_back(toy.get_name()); });
+            [&stickered](ecs::Toy toy)
+            {
+                stickered.push_back(toy.get_name());
+            });
         const auto missing = sandbox.find("Ghost");
 
         // Assert
@@ -139,24 +163,26 @@ namespace tbx::tests
 
     TEST(Sandbox, KitRoundTripPreservesContent)
     {
-        // Arrange
+        // Arrange: a whole authored world written to disk, read back, and instantiated.
         register_ecs_test_blocks();
+        auto world = TestWorld();
         auto source = ecs::Sandbox();
         ecs::Toy parent = source.spawn("Room")
-                         .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
-                         .sticker("level");
+                              .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
+                              .sticker("level");
         ecs::Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
-        source.set_parent(child, parent);
-        const ecs::Kit kit = save(source, std::array {parent, child});
+        child.set_parent(parent);
+        ASSERT_TRUE(serialization::serialize(source, world.root / "world.kit").has_value());
 
         // Act
-        auto runtime = Runtime();
+        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "world.kit");
+        ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = ecs::Sandbox();
-        const auto loaded = load(target, runtime.state->assets, runtime.state->events, kit);
+        const auto loaded = target.spawn(world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
-        EXPECT_EQ(target.get_toy_count(), 2u);
+        EXPECT_EQ(target.get_toy_count(), 3u); // the kit-instance root wrapper + Room + Grunt
         const auto room = target.find("Room");
         const auto grunt = target.find("Grunt");
         ASSERT_TRUE(room.has_value());
@@ -164,89 +190,88 @@ namespace tbx::tests
         EXPECT_TRUE(room->has_sticker("level"));
         EXPECT_EQ(ecs::Toy(*room).get_block<Transform>().position, Vec3(5.0f, 0.0f, 0.0f));
         EXPECT_EQ(ecs::Toy(*grunt).get_block<TestHealth>().hp, 33.0f);
-        ASSERT_TRUE(target.get_parent(*grunt).has_value());
-        EXPECT_EQ(target.get_parent(*grunt)->get_id(), room->get_id());
+        ASSERT_TRUE(grunt->get_parent().has_value());
+        EXPECT_EQ(grunt->get_parent()->get_id(), room->get_id());
     }
 
-    TEST(Sandbox, KitSaveIsStableAcrossRoundTrips)
+    TEST(Sandbox, KitWriteIsStableAcrossRoundTrips)
     {
         // Arrange
         register_ecs_test_blocks();
+        auto world = TestWorld();
         auto source = ecs::Sandbox();
-        ecs::Toy toy = source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
-        const ecs::Kit first = save(source, std::array {toy});
+        source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
+        ASSERT_TRUE(serialization::serialize(source, world.root / "first.kit").has_value());
 
-        // Act
-        auto runtime = Runtime();
-        auto target = ecs::Sandbox();
-        ASSERT_TRUE(load(target, runtime.state->assets, runtime.state->events, first).has_value());
-        const auto reloaded = target.find("Thing");
-        ASSERT_TRUE(reloaded.has_value());
-        const ecs::Kit second = save(target, std::array {*reloaded});
+        // Act: read the kit back and write it again. (Instantiating into a world and
+        // re-capturing is deliberately NOT identity — a captured instance collapses back to
+        // a KitInstance reference — so the stable round trip is kit -> read -> write.)
+        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "first.kit");
+        ASSERT_TRUE(kit.has_value()) << kit.error();
+        ASSERT_TRUE(serialization::serialize(*kit, world.root / "second.kit").has_value());
 
         // Assert: identical content modulo per-instantiation uuids.
-        EXPECT_EQ(normalize_kit(to_json(first)), normalize_kit(to_json(second)));
+        EXPECT_EQ(
+            normalize_kit(parse_kit_file(world.root / "first.kit")),
+            normalize_kit(parse_kit_file(world.root / "second.kit")));
     }
 
     TEST(Sandbox, NestedKitsInstantiateRecursively)
     {
-        // Arrange: prefab <- room <- level, three deep with position offsets — the nested
-        // references are ordinary kit assets on disk.
+        // Arrange: prefab <- room <- level, three deep — each nesting is a toy wearing a
+        // KitInstance block, positioned by its own transform.
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = ecs::Sandbox();
-        write_kit(world, "prefab.kit", to_json(save(author, std::array {author.spawn("Pickup")})));
-        write_kit(
-            world,
-            "room.kit",
-            serialization::Json {
-                {"toys", serialization::Json::array()},
-                {"kits",
-                 serialization::Json::array(
-                     {serialization::Json {{"reference", "prefab.kit"}, {"position", {1.0f, 0.0f, 0.0f}}}})}});
-        write_kit(
-            world,
-            "level.kit",
-            serialization::Json {
-                {"toys", serialization::Json::array()},
-                {"kits",
-                 serialization::Json::array(
-                     {serialization::Json {{"reference", "room.kit"}, {"position", {10.0f, 0.0f, 0.0f}}}})}});
+        author.spawn("Pickup");
+        ASSERT_TRUE(serialization::serialize(author, world.root / "prefab.kit").has_value());
+
+        auto room = ecs::Kit();
+        room.spawn("prefab_ref")
+            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("prefab.kit")})
+            .get_transform()
+            .position = Vec3(1.0f, 0.0f, 0.0f);
+        ASSERT_TRUE(serialization::serialize(room, world.root / "room.kit").has_value());
+
+        auto level = ecs::Kit();
+        level.spawn("room_ref")
+            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("room.kit")})
+            .get_transform()
+            .position = Vec3(10.0f, 0.0f, 0.0f);
+        ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
 
         // Act
         auto sandbox = ecs::Sandbox();
-        const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<ecs::Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
+        const auto loaded = sandbox.spawn(
+            world.runtime.assets,
+            world.runtime.events,
+            Handle<ecs::Kit>("level.kit"),
+            Vec3(100.0f, 0.0f, 0.0f));
 
-        // Assert: offsets compose 100 + 10 + 1.
+        // Assert: the parent chain composes 100 + 10 + 1 in world space.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         const auto pickup = sandbox.find("Pickup");
         ASSERT_TRUE(pickup.has_value());
-        EXPECT_EQ(ecs::Toy(*pickup).get_block<Transform>().position, Vec3(111.0f, 0.0f, 0.0f));
+        const Vec3 world_position = Vec3(pickup->get_world_transform() * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        EXPECT_EQ(world_position, Vec3(111.0f, 0.0f, 0.0f));
     }
 
     TEST(Sandbox, KitReferenceCycleFailsAndRollsBack)
     {
-        // Arrange: a references b references a.
+        // Arrange: a's child kit is b, b's child kit is a.
         auto world = TestWorld();
-        write_kit(
-            world,
-            "a.kit",
-            serialization::Json {
-                {"toys",
-                 serialization::Json::array(
-                     {serialization::Json {{"uuid", "00"}, {"name", "InsideA"}, {"blocks", serialization::Json::array()}}})},
-                {"kits", serialization::Json::array({serialization::Json {{"reference", "b.kit"}}})}});
-        write_kit(
-            world,
-            "b.kit",
-            serialization::Json {
-                {"toys", serialization::Json::array()},
-                {"kits", serialization::Json::array({serialization::Json {{"reference", "a.kit"}}})}});
+        auto a = ecs::Kit();
+        a.spawn("InsideA");
+        a.spawn("a_to_b").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("b.kit")});
+        ASSERT_TRUE(serialization::serialize(a, world.root / "a.kit").has_value());
+        auto b = ecs::Kit();
+        b.spawn("b_to_a").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("a.kit")});
+        ASSERT_TRUE(serialization::serialize(b, world.root / "b.kit").has_value());
         auto sandbox = ecs::Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<ecs::Kit>("a.kit"));
+        const auto loaded =
+            sandbox.spawn(world.runtime.assets, world.runtime.events, Handle<ecs::Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -256,18 +281,18 @@ namespace tbx::tests
 
     TEST(Sandbox, KitReferenceToMissingAssetFails)
     {
-        // Arrange: the kit references an asset that does not exist.
+        // Arrange: a child kit that references an asset that does not exist.
         auto world = TestWorld();
-        write_kit(
-            world,
-            "broken.kit",
-            serialization::Json {
-                {"toys", serialization::Json::array()},
-                {"kits", serialization::Json::array({serialization::Json {{"reference", "missing.kit"}}})}});
+        auto broken = ecs::Kit();
+        broken.spawn("bad_ref").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("missing.kit")});
+        ASSERT_TRUE(serialization::serialize(broken, world.root / "broken.kit").has_value());
         auto sandbox = ecs::Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<ecs::Kit>("broken.kit"));
+        const auto loaded = sandbox.spawn(
+            world.runtime.assets,
+            world.runtime.events,
+            Handle<ecs::Kit>("broken.kit"));
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -276,17 +301,21 @@ namespace tbx::tests
 
     TEST(Sandbox, UnknownBlockTypeIsSkippedNotFatal)
     {
-        // Arrange
-        auto runtime = Runtime();
+        // Arrange: a .kit whose toy carries a block type this build does not know (an
+        // editor-only widget, say) — reading it must skip the block, not fail the toy.
+        auto world = TestWorld();
+        ASSERT_TRUE(write_text(
+                        (world.root / "widget.kit").string(),
+                        R"({"toys":[{"uuid":"0000000000000000000000000000abcd",)"
+                        R"("name":"Survivor","blocks":[{"type":"EditorOnlyWidget"}]}]})")
+                        .has_value());
         auto sandbox = ecs::Sandbox();
-        auto unknown_kit = ecs::Kit();
-        auto survivor = ecs::KitToy();
-        survivor.name = "Survivor";
-        survivor.blocks.push_back(ecs::KitBlock {.type = hash("EditorOnlyWidget"), .value = {}});
-        unknown_kit.toys.push_back(std::move(survivor));
 
         // Act
-        const auto loaded = load(sandbox, runtime.state->assets, runtime.state->events, unknown_kit);
+        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "widget.kit");
+        ASSERT_TRUE(kit.has_value()) << kit.error();
+        const auto loaded =
+            sandbox.spawn(world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -295,71 +324,118 @@ namespace tbx::tests
 
     TEST(Sandbox, StreamedKitLoadsAndUnloadsWithHysteresis)
     {
-        // Arrange: a kit whose bounds sit at the origin with radius 0.
+        // Arrange: a level kit with one streamed child kit (a KitInstance toy, streamed=true)
+        // whose bounds sit at the origin with radius 0. Streamed by camera frustums (load
+        // margin 5, unload margin 15).
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = ecs::Sandbox();
-        write_kit(world, "room.kit", to_json(save(author, std::array {author.spawn("RoomToy")})));
-        const auto box = ecs::Box {
-            .kits = {
-                ecs::BoxEntry {.kit = assets::AssetHandle<ecs::Kit>("room.kit"), .mode = ecs::KitMode::STREAMED}}};
+        author.spawn("RoomToy");
+        ASSERT_TRUE(serialization::serialize(author, world.root / "room.kit").has_value());
+        auto level = ecs::Kit();
+        level.spawn("far_room")
+            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("room.kit"), .streamed = true});
         auto sandbox = ecs::Sandbox();
-        ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
-        EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
+        sandbox.open(level);
+        world.flush_open(sandbox);
+        EXPECT_FALSE(sandbox.find("RoomToy").has_value()); // streamed contents do not preload
 
-        // Act: focus inside the load band — the kit streams in (async).
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(1.0f, 0.0f, 0.0f));
-        for (int i = 0; i < 500 && sandbox.get_toy_count() == 0; ++i)
+        const auto wait_for = [&](bool present)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            jobs::update(world.runtime.jobs);
-        }
-        const size loaded_count = sandbox.get_toy_count();
+            for (int i = 0; i < 500 && sandbox.find("RoomToy").has_value() != present; ++i)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                jobs::update(world.runtime.jobs);
+            }
+        };
 
-        // Focus just outside the load band but inside the unload band — stays loaded.
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(10.0f, 0.0f, 0.0f));
-        jobs::update(world.runtime.jobs);
-        const size hysteresis_count = sandbox.get_toy_count();
+        // Act: a camera looking straight at the origin — the kit streams in (async).
+        const auto seeing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, seeing);
+        wait_for(true);
+        const bool loaded = sandbox.find("RoomToy").has_value();
 
-        // Focus beyond the unload band — unloads.
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(100.0f, 0.0f, 0.0f));
+        // A camera close by but looking AWAY: the origin is ~10 behind it — outside the +5
+        // load volume but inside the +15 unload volume, so hysteresis keeps it loaded.
+        const auto glancing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f, 0.0f, 20.0f))};
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
         jobs::update(world.runtime.jobs);
+        const bool kept = sandbox.find("RoomToy").has_value();
+
+        // Far away and looking away — out of every volume: unloads.
+        const auto blind = std::array {look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f))};
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
+        jobs::update(world.runtime.jobs);
+        const bool unloaded = sandbox.find("RoomToy").has_value();
+
+        // ANY-frustum semantics: one blind camera plus one seeing camera loads it again.
+        const auto split_screen = std::array {
+            look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f)),
+            look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
+        sandbox
+            .stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, split_screen);
+        wait_for(true);
 
         // Assert
-        EXPECT_EQ(loaded_count, 1u);
-        EXPECT_EQ(hysteresis_count, 1u);
-        EXPECT_EQ(sandbox.get_toy_count(), 0u);
+        EXPECT_TRUE(loaded);
+        EXPECT_TRUE(kept); // hysteresis
+        EXPECT_FALSE(unloaded);
+        EXPECT_TRUE(sandbox.find("RoomToy").has_value()); // streamed back in
     }
 
-    TEST(Sandbox, BoxAlwaysKitsLoadImmediately)
+    TEST(Sandbox, ImmediateChildKitsLoadOnTheFirstStreamTick)
     {
-        // Arrange
+        // Arrange: a level kit with an immediate child kit (KitInstance toy, streamed=false).
         auto world = TestWorld();
         auto author = ecs::Sandbox();
-        write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
-        const auto box = ecs::Box {.kits = {ecs::BoxEntry {.kit = assets::AssetHandle<ecs::Kit>("sky.kit")}}};
+        author.spawn("Skybox");
+        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        auto level = ecs::Kit();
+        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
         auto sandbox = ecs::Sandbox();
 
-        // Act
-        const auto result = sandbox.open(world.runtime.assets, world.runtime.events, box);
+        // Act: open defers; the first stream tick (even with no cameras) spawns the level.
+        sandbox.open(level);
+        world.flush_open(sandbox);
 
         // Assert
-        ASSERT_TRUE(result.has_value()) << result.error();
         EXPECT_TRUE(sandbox.find("Skybox").has_value());
+    }
+
+    TEST(Sandbox, ReadSandboxLoadsALevelKit)
+    {
+        // Arrange: a level kit on disk — read<Sandbox> turns it into a world.
+        auto world = TestWorld();
+        auto author = ecs::Sandbox();
+        author.spawn("Skybox");
+        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        auto level = ecs::Kit();
+        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
+        ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
+
+        // Act
+        auto from_kit = serialization::deserialize<ecs::Sandbox>(world.root / "level.kit");
+        ASSERT_TRUE(from_kit.has_value()) << from_kit.error();
+        world.flush_open(*from_kit);
+
+        // Assert
+        EXPECT_TRUE(from_kit->find("Skybox").has_value());
     }
 
     TEST(Sandbox, DisabledStatePersistsThroughKits)
     {
         // Arrange
+        auto world = TestWorld();
         auto source = ecs::Sandbox();
         ecs::Toy toy = source.spawn("Lamp");
         toy.set_enabled(false);
-        const ecs::Kit kit = save(source, std::array {toy});
+        ASSERT_TRUE(serialization::serialize(source, world.root / "lamp.kit").has_value());
 
         // Act
-        auto runtime = Runtime();
+        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "lamp.kit");
+        ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = ecs::Sandbox();
-        ASSERT_TRUE(load(target, runtime.state->assets, runtime.state->events, kit).has_value());
+        ASSERT_TRUE(target.spawn(world.runtime.assets, world.runtime.events, *kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");
@@ -373,31 +449,37 @@ namespace tbx::tests
         // Arrange
         auto world = TestWorld();
         auto author = ecs::Sandbox();
-        write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
-        const auto box = ecs::Box {.kits = {ecs::BoxEntry {.kit = assets::AssetHandle<ecs::Kit>("sky.kit")}}};
+        author.spawn("Skybox");
+        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        auto level = ecs::Kit();
+        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
         auto sandbox = ecs::Sandbox();
-        ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
-        ASSERT_EQ(sandbox.get_toy_count(), 1u);
+        sandbox.open(level);
+        world.flush_open(sandbox);
+        ASSERT_TRUE(sandbox.find("Skybox").has_value());
 
         // Act
         sandbox.close();
 
         // Assert: empty, and a fresh open works again.
         EXPECT_EQ(sandbox.get_toy_count(), 0u);
-        EXPECT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
-        EXPECT_EQ(sandbox.get_toy_count(), 1u);
+        sandbox.open(level);
+        world.flush_open(sandbox);
+        EXPECT_TRUE(sandbox.find("Skybox").has_value());
     }
 
     TEST(Sandbox, WorldMatrixComposesParentChain)
     {
         // Arrange
         auto sandbox = ecs::Sandbox();
-        ecs::Toy parent = sandbox.spawn("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
-        ecs::Toy child = sandbox.spawn("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
-        sandbox.set_parent(child, parent);
+        ecs::Toy parent =
+            sandbox.spawn("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
+        ecs::Toy child =
+            sandbox.spawn("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
+        child.set_parent(parent);
 
         // Act
-        const Mat4 world = sandbox.get_world_matrix(child);
+        const Mat4 world = child.get_world_transform();
         const Vec4 origin = world * Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
         // Assert

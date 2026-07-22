@@ -7,9 +7,8 @@ namespace tbx::reflection
 
     TypeInfo& TypeRegistry::add(TypeInfo info)
     {
-        // Idempotent on purpose: a name registered twice keeps its one record, so facets
-        // stack — register_asset<App>("App") stamps the asset facet onto the same TypeInfo
-        // register_type<App> built the .tapp schema on.
+        // Idempotent on purpose: a name registered twice keeps its one record, so repeated
+        // lazy initialize() calls (app, renderer, sandbox, ...) all land on the same table.
         for (auto& existing : _types)
             if (existing->name_hash == info.name_hash)
                 return *existing;

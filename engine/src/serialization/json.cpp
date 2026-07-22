@@ -1,9 +1,12 @@
 #include "tbx/serialization/json.h"
+#include "tbx/utils/color.h"
 #include "tbx/files/files.h"
 #include "tbx/math/math.h"
 #include "tbx/reflection/type_registry.h"
-#include "tbx/utils/color.h"
+#include "tbx/serialization/read_write.h"
 #include <cstring>
+#include <filesystem>
+#include <span>
 
 namespace tbx::serialization
 {
@@ -95,31 +98,35 @@ namespace tbx::serialization
             }
             case reflection::FieldKind::TYPE:
             {
-                const auto nested =
-                    field.nested_hash ? reflection::describe(field.nested_hash->get())
-                                      : std::nullopt;
+                const auto nested = field.nested_hash
+                                        ? reflection::describe(field.nested_hash->get())
+                                        : std::nullopt;
                 if (!nested)
                     return Json::object();
                 return json_write(nested->get(), at);
             }
             case reflection::FieldKind::TYPE_LIST:
             {
-                const auto nested =
-                    field.nested_hash ? reflection::describe(field.nested_hash->get())
-                                      : std::nullopt;
+                const auto nested = field.nested_hash
+                                        ? reflection::describe(field.nested_hash->get())
+                                        : std::nullopt;
                 auto list = Json::array();
                 if (!nested)
                     return list;
                 const size count = field.get_list_count(object);
                 for (size index = 0; index < count; ++index)
-                    list.push_back(json_write(nested->get(), field.get_list_element(object, index)));
+                    list.push_back(
+                        json_write(nested->get(), field.get_list_element(object, index)));
                 return list;
             }
         }
         return {};
     }
 
-    static Result<void> read_field(const reflection::FieldInfo& field, std::byte* object, const Json& value)
+    static Result<void> read_field(
+        const reflection::FieldInfo& field,
+        std::byte* object,
+        const Json& value)
     {
         std::byte* at = object + field.offset;
         switch (field.kind)
@@ -228,18 +235,18 @@ namespace tbx::serialization
             }
             case reflection::FieldKind::TYPE:
             {
-                const auto nested =
-                    field.nested_hash ? reflection::describe(field.nested_hash->get())
-                                      : std::nullopt;
+                const auto nested = field.nested_hash
+                                        ? reflection::describe(field.nested_hash->get())
+                                        : std::nullopt;
                 if (!nested)
                     return fail("field '{}' has an unregistered nested type", field.name);
                 return json_read(nested->get(), at, value);
             }
             case reflection::FieldKind::TYPE_LIST:
             {
-                const auto nested =
-                    field.nested_hash ? reflection::describe(field.nested_hash->get())
-                                      : std::nullopt;
+                const auto nested = field.nested_hash
+                                        ? reflection::describe(field.nested_hash->get())
+                                        : std::nullopt;
                 if (!nested)
                     return fail("field '{}' has an unregistered element type", field.name);
                 if (!value.is_array())
@@ -314,29 +321,100 @@ namespace tbx::serialization
     }
 }
 
-namespace tbx::assets
+namespace tbx::serialization
 {
-    Result<void> read_registered_json(
-        const std::filesystem::path& path,
-        const reflection::TypeInfo& type,
-        std::byte* object)
+    //// DISK BOUNDARY (read_write.h) ////
+
+    /// @brief
+    /// Purpose: Loads and validates one JSON document from disk.
+    static Result<Json> parse_json_file(const std::filesystem::path& path)
     {
-        const auto text = files::read_text(path);
+        const auto text = read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        if (!serialization::Json::accept(*text))
+        if (!Json::accept(*text))
             return fail("'{}' is not valid JSON", path.string());
-        return serialization::json_read(type, object, serialization::Json::parse(*text));
+        return Json::parse(*text);
     }
 
-    template <>
-    Result<serialization::Json> load<serialization::Json>(const std::filesystem::path& path)
+    Result<void> deserialize_meta_fields(
+        const std::filesystem::path& path,
+        const reflection::TypeInfo& type,
+        std::byte* object,
+        std::span<const std::string> meta_fields)
     {
-        auto text = files::read_text(path);
-        if (!text)
-            return std::unexpected(text.error());
-        if (!serialization::Json::accept(*text))
-            return fail("'{}' is not valid JSON", path.string());
-        return serialization::Json::parse(*text);
+        const auto meta_path = std::filesystem::path(path.string() + ".meta");
+        if (!std::filesystem::exists(meta_path))
+            return ok(); // no sidecar: the routed fields keep their defaults
+        auto sidecar = parse_json_file(meta_path);
+        if (!sidecar)
+            return std::unexpected(sidecar.error());
+        // Only the routed fields read from the sidecar; its identity fields (id/version/type)
+        // belong to the asset system, so a fresh subset stamped with the schema version keeps
+        // migration out of the picture.
+        auto subset = Json::object();
+        subset[VERSION_KEY] = type.version;
+        for (const std::string& name : meta_fields)
+            if (sidecar->contains(name))
+                subset[name] = sidecar->at(name);
+        return json_read(type, object, subset);
+    }
+
+    Result<void> serialize_meta_fields(
+        const std::filesystem::path& path,
+        const reflection::TypeInfo& type,
+        const std::byte* object,
+        std::span<const std::string> meta_fields)
+    {
+        // Merge into the existing sidecar — the asset system's identity fields
+        // (id/version/type) must survive every write.
+        const auto meta_path = std::filesystem::path(path.string() + ".meta");
+        auto sidecar = Json::object();
+        if (std::filesystem::exists(meta_path))
+        {
+            auto existing = parse_json_file(meta_path);
+            if (!existing)
+                return std::unexpected(existing.error());
+            if (existing->is_object())
+                sidecar = std::move(*existing);
+        }
+        const Json fields = json_write(type, object);
+        for (const std::string& name : meta_fields)
+            if (fields.contains(name))
+                sidecar[name] = fields.at(name);
+        return write_text(meta_path.string(), sidecar.dump(4));
+    }
+
+    Result<void> deserialize_object(
+        const std::filesystem::path& path,
+        const reflection::TypeInfo& type,
+        std::byte* object,
+        std::span<const std::string> meta_fields)
+    {
+        const auto data = parse_json_file(path);
+        if (!data)
+            return std::unexpected(data.error());
+        if (auto loaded = json_read(type, object, *data); !loaded)
+            return loaded;
+        if (meta_fields.empty())
+            return ok();
+        return deserialize_meta_fields(path, type, object, meta_fields);
+    }
+
+    Result<void> serialize_object(
+        const std::filesystem::path& path,
+        const reflection::TypeInfo& type,
+        const std::byte* object,
+        std::span<const std::string> meta_fields)
+    {
+        auto payload = json_write(type, object);
+        if (!meta_fields.empty())
+        {
+            if (auto meta = serialize_meta_fields(path, type, object, meta_fields); !meta)
+                return meta;
+            for (const std::string& name : meta_fields)
+                payload.erase(name);
+        }
+        return write_text(path.string(), payload.dump(4));
     }
 }

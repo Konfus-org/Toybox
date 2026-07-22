@@ -1,4 +1,4 @@
--- The player: mouse look, WASD, hitscan fire, HUD, streaming focus. The whole game loop
+-- The player: mouse look, WASD, hitscan fire, HUD. The whole game loop
 -- lives here; the C++ side only renders and (in selftest) checks the outcome. All the vector
 -- and quaternion work goes through tbx.math (the engine's math library).
 
@@ -18,6 +18,10 @@ local hud = {
 function start(toy)
     tbx.ui.bind(hud, "kills", "kills")
     tbx.ui.bind(hud, "health", "health")
+
+    -- Fluent build chain: attach a block (chainable form of toy.AudioListener = {...}) and tag
+    -- the toy in one expression. The player is the ears, so it carries an AudioListener.
+    toy:with("AudioListener", { volume = 1.0 }):sticker("player")
 
     -- Mouse-look wants the cursor grabbed: invisible, pinned to the window, pure deltas.
     -- The selftest ignores the mouse entirely, so it leaves the real cursor alone — but
@@ -39,7 +43,7 @@ local function fire(toy, position, forward)
         return
     end
     if hit.toy and hit.toy:is_alive() and hit.toy:has_sticker("enemy") then
-        tbx.sandbox.despawn(hit.toy)
+        hit.toy:despawn()
         kills = kills + 1
         toy:sticker("scored")
         hud.kills += 1
@@ -100,5 +104,4 @@ function update(toy, delta_time: number)
         fire(toy, position, forward)
     end
 
-    tbx.sandbox.stream(position)
 end

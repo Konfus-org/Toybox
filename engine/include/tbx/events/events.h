@@ -1,8 +1,8 @@
 #pragma once
-#include "tbx/events/event_queue.h"
+#include "tbx/api.h"
+#include "tbx/events/queue.h"
 #include "tbx/events/signal.h"
 #include "tbx/platform/keys.h"
-#include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
 #include <array>
@@ -68,9 +68,9 @@ namespace tbx::events
     /// @brief
     /// Purpose: The events module's state, held by value on the Runtime; adding an event
     /// means adding a member, deliberately.
-    struct TBX_API EventsState
+    struct TBX_API State
     {
-        EventQueue queue;
+        Queue queue;
         Signal<KeyEvent> key {queue};
         Signal<WindowResized> window_resized {queue};
         Signal<AssetReloaded> asset_reloaded {queue};
@@ -83,5 +83,5 @@ namespace tbx::events
     /// Purpose: Dispatches everything queued since the last update, in emission order — the
     /// events module's per-frame verb; tbx::run() calls it during the pump. Events emitted
     /// during an update land in the next one.
-    TBX_API void update(EventsState& state);
+    TBX_API void update(State& state);
 }

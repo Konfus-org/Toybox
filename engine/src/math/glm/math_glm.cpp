@@ -1,10 +1,59 @@
 #include "tbx/math/math.h"
+#include "tbx/math/frustum.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-namespace tbx::math
+namespace tbx
 {
     //// MATH (glm backend) ////
+
+    Frustum make_frustum(const Mat4& view_projection)
+    {
+        // Gribb–Hartmann row extraction: each clip half-space is a row combination of the
+        // combined matrix. glm matrices are column-major, so a "row" gathers one component
+        // across the four columns.
+        const auto row = [&view_projection](const int component)
+        {
+            return Vec4(
+                view_projection[0][component],
+                view_projection[1][component],
+                view_projection[2][component],
+                view_projection[3][component]);
+        };
+        const Vec4 row_x = row(0);
+        const Vec4 row_y = row(1);
+        const Vec4 row_z = row(2);
+        const Vec4 row_w = row(3);
+
+        auto frustum = Frustum {};
+        frustum.planes[0] = row_w + row_x; // left
+        frustum.planes[1] = row_w - row_x; // right
+        frustum.planes[2] = row_w + row_y; // bottom
+        frustum.planes[3] = row_w - row_y; // top
+        frustum.planes[4] = row_w + row_z; // near
+        frustum.planes[5] = row_w - row_z; // far
+        for (Vec4& plane : frustum.planes)
+        {
+            // Unit normals are what make the sphere test's radius (and the streaming
+            // margins added to it) metric distances.
+            const float magnitude = glm::length(Vec3(plane.x, plane.y, plane.z));
+            if (magnitude > 0.0f)
+                plane /= magnitude;
+        }
+        return frustum;
+    }
+
+    bool intersects(const Frustum& frustum, const Vec3& sphere_center, const float sphere_radius)
+    {
+        for (const Vec4& plane : frustum.planes)
+        {
+            const float distance =
+                glm::dot(Vec3(plane.x, plane.y, plane.z), sphere_center) + plane.w;
+            if (distance < -sphere_radius)
+                return false; // wholly behind one plane: out of sight
+        }
+        return true;
+    }
 
     Quat angle_axis(const float radians, const Vec3& axis)
     {

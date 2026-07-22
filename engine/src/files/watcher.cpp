@@ -1,6 +1,6 @@
 #include "tbx/files/watcher.h"
 
-namespace tbx::files
+namespace tbx
 {
     //// FILE WATCHER ////
 

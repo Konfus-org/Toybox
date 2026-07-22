@@ -1,14 +1,12 @@
 #pragma once
-#include "tbx/assets/asset.h"
-#include "tbx/assets/asset_handle.h"
-#include "tbx/assets/load.h"
+#include "tbx/api.h"
+#include "tbx/assets/handle.h"
+#include "tbx/utils/color.h"
 #include "tbx/ecs/block.h"
+#include "tbx/utils/hash.h"
 #include "tbx/math/math.h"
 #include "tbx/reflection/type_registry.h"
 #include "tbx/serialization/json.h"
-#include "tbx/utils/api.h"
-#include "tbx/utils/color.h"
-#include "tbx/utils/hash.h"
 #include "tbx/utils/uuid.h"
 #include <any>
 #include <concepts>
@@ -21,14 +19,14 @@
 namespace tbx::reflection
 {
     /// @brief
-    /// Purpose: Detects assets::AssetHandle<T> fields so they reflect as FieldKind::ASSET.
+    /// Purpose: Detects assets::Handle<T> fields so they reflect as FieldKind::ASSET.
     template <typename T>
     struct IsAssetHandle : std::false_type
     {
     };
 
     template <typename TAsset>
-    struct IsAssetHandle<assets::AssetHandle<TAsset>> : std::true_type
+    struct IsAssetHandle<assets::Handle<TAsset>> : std::true_type
     {
     };
 
@@ -81,10 +79,9 @@ namespace tbx::reflection
     /// Purpose: Fluent registration builder:
     /// tbx::reflection::register_type<Player>("Player").version(2, &migrate).field("hp",
     /// &Player::hp).method("heal", &Player::heal)... builds the TypeInfo at startup — no
-    /// codegen. Facets stamp automatically from the type's bases: deriving tbx::ecs::Block adds
-    /// the ecs accessors, deriving tbx::Asset adds the asset decode (register asset types
-    /// where their assets::load<T> specialization is declared, e.g. in the app's registration
-    /// calls next to the type includes).
+    /// codegen. Facets stamp automatically from the type's bases: deriving tbx::ecs::Block
+    /// adds the ecs accessors. Disk IO is the serializer registry's job — pair every
+    /// registration with tbx::serialization::register_serializer<T>() when the type persists.
     template <typename T>
     class TypeRegistration final
     {
@@ -132,8 +129,7 @@ namespace tbx::reflection
                         *std::launder(reinterpret_cast<const TField*>(object + offset));
                     return std::pair<Uuid, std::string>(handle.id, handle.path);
                 };
-                field.write_asset =
-                    [offset](std::byte* object, const Uuid& id, std::string path)
+                field.write_asset = [offset](std::byte* object, const Uuid& id, std::string path)
                 {
                     auto& handle = *std::launder(reinterpret_cast<TField*>(object + offset));
                     handle.id = id;
@@ -145,10 +141,10 @@ namespace tbx::reflection
         }
 
         /// @brief
-        /// Purpose: Registers a list-of-asset-handles member (e.g. gfx::PostProcessing::shaders);
+        /// Purpose: Registers a list-of-asset-handles member (e.g. gpu::PostProcessing::shaders);
         /// serialized as an array of uuid strings.
         template <typename TAsset>
-        TypeRegistration& field(std::string name, std::vector<assets::AssetHandle<TAsset>> T::* member)
+        TypeRegistration& field(std::string name, std::vector<assets::Handle<TAsset>> T::* member)
         {
             auto probe = T();
             const auto offset = static_cast<size>(
@@ -158,26 +154,26 @@ namespace tbx::reflection
             auto field = FieldInfo {};
             field.name = std::move(name);
             field.offset = offset;
-            field.size_bytes = sizeof(std::vector<assets::AssetHandle<TAsset>>);
+            field.size_bytes = sizeof(std::vector<assets::Handle<TAsset>>);
             field.kind = FieldKind::ASSET_LIST;
             field.read_asset_list = [offset](const std::byte* object)
             {
                 const auto& list = *std::launder(
-                    reinterpret_cast<const std::vector<assets::AssetHandle<TAsset>>*>(object + offset));
+                    reinterpret_cast<const std::vector<assets::Handle<TAsset>>*>(object + offset));
                 auto ids = std::vector<Uuid>();
                 ids.reserve(list.size());
-                for (const assets::AssetHandle<TAsset>& handle : list)
+                for (const assets::Handle<TAsset>& handle : list)
                     ids.push_back(handle.id);
                 return ids;
             };
             field.write_asset_list = [offset](std::byte* object, const std::vector<Uuid>& ids)
             {
                 auto& list = *std::launder(
-                    reinterpret_cast<std::vector<assets::AssetHandle<TAsset>>*>(object + offset));
+                    reinterpret_cast<std::vector<assets::Handle<TAsset>>*>(object + offset));
                 list.clear();
                 list.reserve(ids.size());
                 for (const Uuid& id : ids)
-                    list.push_back(assets::AssetHandle<TAsset>(id));
+                    list.push_back(assets::Handle<TAsset>(id));
             };
             _info.get().fields.push_back(std::move(field));
             return *this;
@@ -252,7 +248,9 @@ namespace tbx::reflection
         /// @brief
         /// Purpose: Declares the schema version and the migration hook the JSON walker calls
         /// when loading older data (field renames, enum renumbering, shape changes).
-        TypeRegistration& version(uint32 version, std::function<void(serialization::Json&, uint32)> migrate)
+        TypeRegistration& version(
+            uint32 version,
+            std::function<void(serialization::Json&, uint32)> migrate)
         {
             _info.get().version = version;
             _info.get().migrate = std::move(migrate);
@@ -273,7 +271,10 @@ namespace tbx::reflection
             {
                 new (at) T();
             };
-            info.destroy = [](std::byte* at) { reinterpret_cast<T*>(at)->~T(); };
+            info.destroy = [](std::byte* at)
+            {
+                reinterpret_cast<T*>(at)->~T();
+            };
             return info;
         }
 
@@ -381,21 +382,6 @@ namespace tbx::reflection
                     if (!block)
                         return {};
                     return *block;
-                };
-            }
-            if constexpr (std::derived_from<T, assets::Asset>)
-            {
-                info.asset_shape = typeid(T).hash_code();
-                info.load_asset = [](const std::filesystem::path& disk_path,
-                                     const Uuid& id,
-                                     const std::string& relative_path) -> Result<std::any>
-                {
-                    auto decoded = assets::load<T>(disk_path);
-                    if (!decoded)
-                        return std::unexpected(decoded.error());
-                    decoded->id = id;
-                    decoded->path = relative_path;
-                    return std::any(std::move(*decoded));
                 };
             }
         }

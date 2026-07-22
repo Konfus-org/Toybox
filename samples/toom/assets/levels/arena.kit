@@ -1,0 +1,30 @@
+{
+    "toys": [
+        {
+            "name": "environment",
+            "blocks": [
+                { "type": "KitInstance", "kit": "kits/environment.kit" }
+            ]
+        },
+        {
+            "name": "player",
+            "blocks": [
+                { "type": "KitInstance", "kit": "kits/player.kit" }
+            ]
+        },
+        {
+            "name": "hub",
+            "blocks": [
+                { "type": "KitInstance", "kit": "kits/hub.kit" }
+            ]
+        },
+        {
+            "name": "far_room",
+            "blocks": [
+                { "type": "Transform", "position": [0.0, 0.0, -60.0] },
+                { "type": "KitInstance", "kit": "kits/far_room.kit", "streamed": true }
+            ]
+        }
+    ],
+    "bounds": { "center": [0.0, 0.0, 0.0], "radius": 0.0 }
+}

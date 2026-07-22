@@ -1,10 +1,11 @@
 #pragma once
-// Toy method bodies — included by sandbox.h once Sandbox is complete.
+// Toy template/inline bodies that need only the Registry (the container-taking constructor
+// lives in container.h, where ToyContainer is complete).
 
 namespace tbx::ecs
 {
-    inline Toy::Toy(Sandbox& sandbox, const ToyId id)
-        : _sandbox(sandbox)
+    inline Toy::Toy(Registry& registry, const ToyId id)
+        : _registry(registry)
         , _id(id)
     {
     }
@@ -12,25 +13,32 @@ namespace tbx::ecs
     template <typename TBlock>
     TBlock& Toy::get_block()
     {
-        return _sandbox->get()._registry.get_or_emplace<TBlock>(_id);
+        return _registry->get().get_or_emplace<TBlock>(_id);
+    }
+
+    template <typename TBlock>
+    TBlock* Toy::try_block() const
+    {
+        return _registry ? _registry->get().try_get<TBlock>(_id) : nullptr;
     }
 
     template <typename TBlock>
     bool Toy::has_block() const
     {
-        return _sandbox && _sandbox->get()._registry.all_of<TBlock>(_id);
+        return _registry && _registry->get().all_of<TBlock>(_id);
     }
 
     template <typename TBlock>
-    void Toy::remove_block()
+    Toy& Toy::remove_block()
     {
-        _sandbox->get()._registry.remove<TBlock>(_id);
+        _registry->get().remove<TBlock>(_id);
+        return *this;
     }
 
     template <typename TBlock>
     Toy& Toy::with(TBlock block)
     {
-        _sandbox->get()._registry.emplace_or_replace<TBlock>(_id, std::move(block));
+        _registry->get().emplace_or_replace<TBlock>(_id, std::move(block));
         return *this;
     }
 }

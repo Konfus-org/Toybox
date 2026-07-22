@@ -1,8 +1,9 @@
 #pragma once
-#include "tbx/assets/asset_handle.h"
+#include "tbx/api.h"
+#include "tbx/assets/handle.h"
 #include "tbx/ecs/block.h"
-#include "tbx/scripting/script_source.h"
-#include "tbx/utils/api.h"
+#include "tbx/scripting/source.h"
+
 
 namespace tbx::scripts
 {
@@ -11,6 +12,6 @@ namespace tbx::scripts
     /// defines start(toy), update(toy, delta_time), and fixed_update(toy, delta_time).
     struct TBX_API Script : ecs::Block
     {
-        assets::AssetHandle<ScriptSource> source = {};
+        assets::Handle<Source> source = {};
     };
 }

@@ -23,8 +23,9 @@ include(third_party_warnings)
 tbx_backend(LOGGING spdlog debug)
 tbx_backend(MATH glm math)
 tbx_backend(SERIALIZATION nlohmann)
+tbx_backend(ECS entt)
 tbx_backend(PLATFORM sdl)
-tbx_backend(GFX gl)
+tbx_backend(GPU gl)
 tbx_backend(PHYSICS jolt)
 tbx_backend(AUDIO steamaudio)
 tbx_backend(UI rmlui)
@@ -44,8 +45,8 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|math|debug|serialization|audio|ui)/[^/]+/")
-list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES} ${TBX_UI_BACKEND_SOURCES})
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gpu|physics|scripting|math|debug|serialization|audio|ui|ecs)/[^/]+/")
+list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GPU_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_ECS_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES} ${TBX_UI_BACKEND_SOURCES})
 
 if(TBX_BUILD_SHARED)
     add_library(tbx SHARED ${TBX_SOURCES})
@@ -57,13 +58,14 @@ target_include_directories(tbx PUBLIC engine/include)
 # Header-only backends contribute an include dir instead of sources.
 target_include_directories(tbx PUBLIC
     "engine/src/math/${TBX_MATH_BACKEND}"
-    "engine/src/serialization/${TBX_SERIALIZATION_BACKEND}")
+    "engine/src/serialization/${TBX_SERIALIZATION_BACKEND}"
+    "engine/src/ecs/${TBX_ECS_BACKEND}")
 target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 # Precompile the heavyweights every TU re-parses otherwise (std, math/serialization backend
 # headers, entt) — the single biggest incremental-build lever.
 target_precompile_headers(tbx PRIVATE engine/src/pch.h)
 # glm/nlohmann/entt types ARE the swappable public seams (tbx_math_backend.h,
-# tbx_serialization_backend.h, registry.h); every other third-party lib is private.
+# tbx_serialization_backend.h, tbx_ecs_backend.h); every other third-party lib is private.
 target_link_libraries(tbx
     PUBLIC glm::glm nlohmann_json::nlohmann_json EnTT::EnTT
     PRIVATE spdlog::spdlog assimp::assimp
@@ -92,7 +94,7 @@ endif()
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
     target_link_libraries(tbx PRIVATE SDL3::SDL3-static)
 endif()
-if(TBX_GFX_BACKEND STREQUAL "gl")
+if(TBX_GPU_BACKEND STREQUAL "gl")
     target_link_libraries(tbx PRIVATE glad)
 endif()
 

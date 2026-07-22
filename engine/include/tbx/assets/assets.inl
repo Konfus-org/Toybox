@@ -6,7 +6,7 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Typed view over find().
     template <typename TAsset>
-    std::optional<std::reference_wrapper<TAsset>> find_resident(AssetsState& state, const Uuid& id)
+    std::optional<std::reference_wrapper<TAsset>> find_resident(State& state, const Uuid& id)
     {
         const auto stored = find(state, id);
         if (!stored)
@@ -19,10 +19,10 @@ namespace tbx::assets
 
     template <typename TAsset>
     jobs::Task<Result<std::reference_wrapper<TAsset>>> load(
-        AssetsState& state,
-        events::EventsState& events,
-        jobs::JobsState& jobs,
-        AssetHandle<TAsset> handle)
+        State& state,
+        events::State& events,
+        jobs::State& jobs,
+        Handle<TAsset> handle)
     {
         auto resolved = resolve_handle(state, handle.id, handle.path);
         if (!resolved)
@@ -35,7 +35,7 @@ namespace tbx::assets
         // Resolve on this thread so the worker section below touches nothing but the file.
         const auto disk_path = resolve_path(state, resolved->relative_path);
         co_await jobs::on_worker(jobs);
-        auto decoded = load<TAsset>(disk_path);
+        auto decoded = serialization::deserialize<TAsset>(disk_path);
         co_await jobs::on_main(jobs);
         if (!decoded)
             co_return std::unexpected(decoded.error());
@@ -54,9 +54,9 @@ namespace tbx::assets
 
     template <typename TAsset>
     Result<std::reference_wrapper<TAsset>> load_now(
-        AssetsState& state,
-        events::EventsState& events,
-        AssetHandle<TAsset> handle)
+        State& state,
+        events::State& events,
+        Handle<TAsset> handle)
     {
         auto resolved = resolve_handle(state, handle.id, handle.path);
         if (!resolved)
@@ -65,7 +65,7 @@ namespace tbx::assets
             return ok(std::ref(resident->get()));
         if (resolved->relative_path.empty())
             return fail("asset {} has no tracked path", resolved->id.to_string());
-        auto decoded = load<TAsset>(resolve_path(state, resolved->relative_path));
+        auto decoded = serialization::deserialize<TAsset>(resolve_path(state, resolved->relative_path));
         if (!decoded)
             return std::unexpected(decoded.error());
         decoded->id = resolved->id; // a loaded asset knows its own handle

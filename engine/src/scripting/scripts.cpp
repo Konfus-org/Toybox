@@ -1,12 +1,12 @@
 #include "tbx/scripting/scripts.h"
+#include "builtin_backends.h"
 #include "tbx/app.h"
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
-#include "tbx/reflection/reflection.h"
-#include "tbx/scripting/script.h"
-#include "tbx/runtime.h"
 #include "tbx/utils/hash.h"
-#include "builtin_backends.h"
+#include "tbx/reflection/reflection.h"
+#include "tbx/runtime.h"
+#include "tbx/scripting/script.h"
 #include <filesystem>
 #include <unordered_set>
 
@@ -14,14 +14,14 @@ namespace tbx::scripts
 {
     //// COMPILED-IN BACKEND FACTORIES ////
     // One line per backend folder; TBX_SCRIPTING_HAS_* comes from tbx_backend_list(). Adding a
-    // language = a folder implementing ScriptBackend + its factory declared here.
+    // language = a folder implementing Backend + its factory declared here.
 
 #ifdef TBX_SCRIPTING_HAS_LUAU
-    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime);
+    std::unique_ptr<Backend> make_luau_backend(RuntimeState& runtime);
 #endif
 
-    static std::optional<std::reference_wrapper<ScriptBackend>> route(
-        ScriptsState& state,
+    static std::optional<std::reference_wrapper<Backend>> route(
+        State& state,
         const std::string& name)
     {
         if (state.backends.empty())
@@ -47,7 +47,7 @@ namespace tbx::scripts
 
     void initialize(RuntimeState& runtime)
     {
-        ScriptsState& state = runtime.scripts;
+        State& state = runtime.scripts;
         if (!state.backends.empty())
             return;
         reflection::initialize();
@@ -57,20 +57,20 @@ namespace tbx::scripts
 #endif
     }
 
-    void add_backend(ScriptsState& state, std::unique_ptr<ScriptBackend> backend)
+    void add_backend(State& state, std::unique_ptr<Backend> backend)
     {
         TBX_INFO("scripting backend '{}' ready", backend->get_name());
         state.backends.push_back(std::move(backend));
     }
 
-    void fixed_update(ScriptsState& state, const float fixed_delta_time)
+    void fixed_update(State& state, const float fixed_delta_time)
     {
         for (const auto& backend : state.backends)
             backend->fixed_update(fixed_delta_time);
     }
 
     Result<void> load_source(
-        ScriptsState& state,
+        State& state,
         const Uuid& id,
         const std::string& name,
         const std::string_view source)
@@ -81,8 +81,8 @@ namespace tbx::scripts
         return backend->get().load_source(id, name, source);
     }
 
-    Result<assets::AssetHandle<ScriptSource>> load_source(
-        ScriptsState& state,
+    Result<assets::Handle<Source>> load_source(
+        State& state,
         const std::string& name,
         const std::string_view source)
     {
@@ -90,10 +90,10 @@ namespace tbx::scripts
         auto loaded = load_source(state, id, name, source);
         if (!loaded)
             return std::unexpected(loaded.error());
-        return ok(assets::AssetHandle<ScriptSource>(id));
+        return ok(assets::Handle<Source>(id));
     }
 
-    bool owns(const ScriptsState& state, const std::string_view extension)
+    bool owns(const State& state, const std::string_view extension)
     {
         for (const auto& backend : state.backends)
             if (backend->owns_extension(extension))
@@ -102,7 +102,7 @@ namespace tbx::scripts
     }
 
     Result<void> reload_source(
-        ScriptsState& state,
+        State& state,
         const Uuid& id,
         const std::string& name,
         const std::string_view source)
@@ -113,34 +113,34 @@ namespace tbx::scripts
         return backend->get().reload_source(id, name, source);
     }
 
-    Result<void> reload_source(
-        ScriptsState& state,
-        const std::string& name,
-        const std::string_view source)
+    Result<void> reload_source(State& state, const std::string& name, const std::string_view source)
     {
         return reload_source(state, derived_script_id(name), name, source);
     }
 
     void update(
-        ScriptsState& state,
+        State& state,
         ecs::Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         const float delta_time)
     {
         // Script sources referenced by spawned toys are ordinary assets: acquire each once —
         // the store emits asset_reloaded and the reload glue hands it to the right backend.
-        for (auto&& [entity, script] : sandbox.get_registry().view<Script>().each())
-        {
-            if (!script.source.id.is_valid() || state.acquired_sources.contains(script.source.id))
-                continue;
-            state.acquired_sources.insert(script.source.id);
-            if (const auto acquired = assets::load_now(assets, events, script.source); !acquired)
-                TBX_ERROR(
-                    "script source '{}': {}",
-                    script.source.id.to_string(),
-                    acquired.error());
-        }
+        sandbox.each<Script>(
+            [&](ecs::Toy, Script& script)
+            {
+                if (!script.source.id.is_valid()
+                    || state.acquired_sources.contains(script.source.id))
+                    return;
+                state.acquired_sources.insert(script.source.id);
+                if (const auto acquired = assets::load_now(assets, events, script.source);
+                    !acquired)
+                    TBX_ERROR(
+                        "script source '{}': {}",
+                        script.source.id.to_string(),
+                        acquired.error());
+            });
 
         // Every backend runs; each skips Script blocks whose source it never loaded, so mixed
         // C++/Lua/C# toys coexist in one sandbox.

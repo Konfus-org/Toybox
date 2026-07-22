@@ -21,6 +21,7 @@
 - **Nesting**: Do not nest structs or classes within other types.
 - **API Leakage**: Never expose internal namespaces in public signatures, return types, or docs.
 - **Accessor Naming**: Getters use a `get_` prefix and setters a `set_` prefix — never bare-noun accessors (`get_width()`, not `width()`).
+- **Fluent Mutators**: Mutating methods on ECS handles (`ecs::Toy`) and the builtin data blocks/assets (`Transform`, `Material`, `RigidBody`, `Camera`, `Ui`, …) return a reference to the object they mutated (`set_name` returns `Toy&`, `set_roughness` returns `Material&`) so a toy or block builds in one chain — `spawn("Grunt").with(Transform{}).sticker("enemy").set_enabled(true)`, `Material{}.set_albedo(red).set_roughness(0.3f)`. Read accessors (`get_`/`is_`) still return their value. The Lua bindings mirror this: `toy:with("Transform", {...}):sticker("enemy"):set_enabled(true)`.
 - **Bool Naming**: Bool-returning methods and bool members use `is_` or another question-style prefix that reads naturally (`is_headless()`, `is_down`); never omit the prefix.
 - **Verbosity**: No shorthand names — verbose and descriptive wins (`register_type` not `reg`, `initialize` not `init`, `delta_time` not `dt`).
 - **Data-Oriented Modules**: Where a subsystem is plain state + queries, prefer a short namespace of free functions with state as statics in the module's `.cpp` (`tbx::input::is_down(key)`, `tbx::gfx::draw(...)`, `tbx::files::read_text(...)`) — no manager class ceremony. Keep classes where RAII genuinely earns it: resource owners with real teardown/ordering (`Engine`, `Jobs`, `Window`, `Sandbox`) and small data/handle types (`Task`, `Signal`, `Toy`, `Uuid`).
@@ -124,33 +125,45 @@ class Name :
 {
   public:
     Usings...
+    Consts...
+    NestedTypes...
 
-  public:
     Constructor
     Destructor
 
-  public:
+    CopyConstructors...
+    AssignmentOperators...
+  
+    Getters/Setters (sort by keyword: static/inline/etc, then by name)
+    Methods (sort by keyword: static/inline/etc, then by name)
+    Properties (sort by keyword: static/inline/etc, then by name)
+
+  protected:
+    Consts...
+    NestedTypes...
+
+    Constructor
+    Destructor
+
     CopyConstructors...
     AssignmentOperators...
 
-  public:
+    Getters/Setters (sort by keyword: static/inline/etc, then by name)
     Methods (sort by keyword: static/inline/etc, then by name)
-
-  public:
     Properties (sort by keyword: static/inline/etc, then by name)
 
   private:
+    Consts...
+    NestedTypes...
+
     Constructor
     Destructor
 
-  private:
     CopyConstructors...
     AssignmentOperators...
 
-  private:
+    Getters/Setters (sort by keyword: static/inline/etc, then by name)
     Methods (sort by keyword: static/inline/etc, then by name)
-
-  private:
     Properties (sort by keyword: static/inline/etc, then by name)
 };
 ```
@@ -161,9 +174,15 @@ Struct with all public members:
 ```cpp
 struct Name
 {
-  Usings
+  Usings...
+  Consts...
+  NestedTypes...
+
   Constructor
   Destructor
+
+  Getters/Setters...
+  Methods...
   Properties...
 }
 ```

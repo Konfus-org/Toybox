@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/events/events.h"
 #include "tbx/platform/input.h"
-#include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 #include <cstddef>
 #include <memory>
@@ -53,7 +53,7 @@ namespace tbx::windows
     /// headless (tests/tooling). The first window is the main one: it carries the app's
     /// config, the UI, the cursor mode, and closing it stops the app; closing any other
     /// window just closes that window.
-    struct TBX_API WindowsState
+    struct TBX_API State
     {
         std::vector<Window> windows = {};
     };
@@ -62,12 +62,9 @@ namespace tbx::windows
     /// Purpose: Runs the windows for one frame: presents what was drawn since the last call
     /// (each window's first frame skips cleanly), materializes OS windows for new entries
     /// (the first one brings up the shared GL context), applies changed data (title, icon,
-    /// cursor mode, and the gfx module's vsync request), and pumps OS events into the input
+    /// cursor mode, and the gpu module's vsync request), and pumps OS events into the input
     /// state and event signals. Called by tbx::run() every frame.
-    TBX_API void update(
-        WindowsState& state,
-        input::InputState& input,
-        events::EventsState& events);
+    TBX_API void update(State& state, input::State& input, events::State& events);
 
     /// @brief
     /// Purpose: Binds the shared GL context to this window's surface — subsequent gpu calls

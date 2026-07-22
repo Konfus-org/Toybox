@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/ecs/block.h"
-#include "tbx/utils/api.h"
 
 namespace tbx::physics
 {
@@ -11,5 +11,9 @@ namespace tbx::physics
     {
         float mass = 1.0f;
         bool is_kinematic = false;
+
+        // Fluent setters — each returns *this for one-chain construction.
+        RigidBody& set_mass(float value) { mass = value; return *this; }
+        RigidBody& set_kinematic(bool value) { is_kinematic = value; return *this; }
     };
 }

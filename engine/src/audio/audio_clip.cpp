@@ -1,4 +1,4 @@
-#include "tbx/audio/audio_clip.h"
+#include "tbx/audio/clip.h"
 #include "tbx/files/files.h"
 #include <cstring>
 
@@ -20,13 +20,13 @@ namespace tbx::audio
         return value;
     }
 
-    Result<AudioClip> parse_wav(const std::span<const std::byte> bytes)
+    Result<Clip> parse_wav(const std::span<const std::byte> bytes)
     {
         if (bytes.size() < 12 || std::memcmp(bytes.data(), "RIFF", 4) != 0
             || std::memcmp(bytes.data() + 8, "WAVE", 4) != 0)
             return fail("not a RIFF/WAVE payload");
 
-        auto clip = AudioClip {};
+        auto clip = Clip {};
         uint16 format = 0;
         uint16 bits_per_sample = 0;
         bool has_format = false;
@@ -80,17 +80,11 @@ namespace tbx::audio
         return fail("WAV has no data chunk");
     }
 
-}
-
-namespace tbx::assets
-{
-    template <>
-    Result<audio::AudioClip> load<audio::AudioClip>(const std::filesystem::path& path)
+    Result<Clip> deserialize_clip(const std::filesystem::path& path)
     {
-        auto bytes = files::read_bytes(path);
+        auto bytes = read_bytes(path);
         if (!bytes)
             return std::unexpected(bytes.error());
-        return audio::parse_wav(*bytes);
+        return parse_wav(*bytes);
     }
-
 }

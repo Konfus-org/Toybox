@@ -1,11 +1,11 @@
 #pragma once
 // The whole reflection surface: field/type records, the process-wide registry, and the
 // fluent registration builder.
+#include "tbx/api.h"
 #include "tbx/reflection/field_info.h"
 #include "tbx/reflection/type_info.h"
 #include "tbx/reflection/type_registration.h"
 #include "tbx/reflection/type_registry.h"
-#include "tbx/utils/api.h"
 
 namespace tbx::reflection
 {

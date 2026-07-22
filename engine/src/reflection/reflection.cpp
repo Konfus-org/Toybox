@@ -1,27 +1,28 @@
 #include "tbx/reflection/reflection.h"
 #include "tbx/app.h"
-#include "tbx/audio/audio_clip.h"
-#include "tbx/audio/audio_listener.h"
-#include "tbx/audio/audio_source.h"
-#include "tbx/ecs/box.h"
+#include "tbx/audio/clip.h"
+#include "tbx/audio/listener.h"
+#include "tbx/audio/source.h"
+#include "tbx/ecs/billboard.h"
 #include "tbx/ecs/kit.h"
-#include "tbx/gfx/camera.h"
-#include "tbx/gfx/directional_light.h"
-#include "tbx/gfx/material.h"
-#include "tbx/gfx/model.h"
-#include "tbx/gfx/post_processing.h"
-#include "tbx/gfx/renderer.h"
-#include "tbx/gfx/shader_source.h"
-#include "tbx/gfx/sky.h"
-#include "tbx/gfx/texture.h"
+#include "tbx/gpu/camera.h"
+#include "tbx/gpu/directional_light.h"
+#include "tbx/gpu/material.h"
+#include "tbx/gpu/model.h"
+#include "tbx/gpu/post_processing.h"
+#include "tbx/gpu/renderer.h"
+#include "tbx/gpu/shader_source.h"
+#include "tbx/gpu/sky.h"
+#include "tbx/gpu/texture.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/rigid_body.h"
 #include "tbx/scripting/script.h"
-#include "tbx/scripting/script_source.h"
+#include "tbx/scripting/source.h"
+#include "tbx/serialization/serializers.h"
+#include "tbx/ui/document.h"
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui_block.h"
-#include "tbx/ui/ui_document.h"
 
 namespace tbx::reflection
 {
@@ -36,18 +37,18 @@ namespace tbx::reflection
             .field("position", &Transform::position)
             .field("rotation", &Transform::rotation)
             .field("scale", &Transform::scale);
-        register_type<gfx::Camera>("Camera")
-            .field("fov_degrees", &gfx::Camera::fov_degrees)
-            .field("near_plane", &gfx::Camera::near_plane)
-            .field("far_plane", &gfx::Camera::far_plane)
-            .field("window", &gfx::Camera::window)
-            .field("viewport", &gfx::Camera::viewport);
-        register_type<gfx::Renderer>("Renderer")
-            .field("material", &gfx::Renderer::material)
-            .field("model", &gfx::Renderer::model);
-        register_type<gfx::DirectionalLight>("DirectionalLight")
-            .field("color", &gfx::DirectionalLight::color)
-            .field("intensity", &gfx::DirectionalLight::intensity);
+        register_type<gpu::Camera>("Camera")
+            .field("fov_degrees", &gpu::Camera::fov_degrees)
+            .field("near_plane", &gpu::Camera::near_plane)
+            .field("far_plane", &gpu::Camera::far_plane)
+            .field("window", &gpu::Camera::window)
+            .field("viewport", &gpu::Camera::viewport);
+        register_type<gpu::Renderer>("Renderer")
+            .field("material", &gpu::Renderer::material)
+            .field("model", &gpu::Renderer::model);
+        register_type<gpu::DirectionalLight>("DirectionalLight")
+            .field("color", &gpu::DirectionalLight::color)
+            .field("intensity", &gpu::DirectionalLight::intensity);
         register_type<physics::RigidBody>("RigidBody")
             .field("mass", &physics::RigidBody::mass)
             .field("is_kinematic", &physics::RigidBody::is_kinematic);
@@ -61,49 +62,52 @@ namespace tbx::reflection
             .field("vertex", &ui::Ui::vertex)
             .field("fragment", &ui::Ui::fragment)
             .field("is_world_anchored", &ui::Ui::is_world_anchored);
-        register_type<gfx::Sky>("Sky").field("texture", &gfx::Sky::texture).field("tint", &gfx::Sky::tint);
-        register_type<gfx::PostProcessing>("PostProcessing").field("shaders", &gfx::PostProcessing::shaders);
+        register_type<gpu::Sky>("Sky")
+            .field("texture", &gpu::Sky::texture)
+            .field("tint", &gpu::Sky::tint);
+        register_type<gpu::PostProcessing>("PostProcessing")
+            .field("shaders", &gpu::PostProcessing::shaders);
         register_type<scripts::Script>("Script").field("source", &scripts::Script::source);
-        register_type<audio::AudioListener>("AudioListener").field("volume", &audio::AudioListener::volume);
-        register_type<audio::AudioSource>("AudioSource")
-            .field("clip", &audio::AudioSource::clip)
-            .field("volume", &audio::AudioSource::volume)
-            .field("is_looping", &audio::AudioSource::is_looping)
-            .field("is_playing", &audio::AudioSource::is_playing);
+        register_type<audio::Listener>("AudioListener").field("volume", &audio::Listener::volume);
+        register_type<audio::Source>("AudioSource")
+            .field("clip", &audio::Source::clip)
+            .field("volume", &audio::Source::volume)
+            .field("is_looping", &audio::Source::is_looping)
+            .field("is_playing", &audio::Source::is_playing);
+        // A toy wearing this block is a nested kit; its children are the kit's contents.
+        register_type<ecs::KitInstance>("KitInstance")
+            .field("kit", &ecs::KitInstance::kit)
+            .field("streamed", &ecs::KitInstance::streamed);
+        // Opt-in billboarding — a toy only faces the camera with this block.
+        register_type<ecs::Billboard>("Billboard").field("lock_y", &ecs::Billboard::lock_y);
     }
 
     /// @brief
-    /// Purpose: Registers every builtin asset type — deriving tbx::Asset is what makes them
-    /// assets; register_type stamps the load/hot-reload facet from the base automatically.
-    /// Types with real decoders (stb, assimp, raw text...) keep a load<T> specialization;
-    /// plain data types (gfx::Material, ecs::Box) decode generically through their fields. Idempotent.
+    /// Purpose: Registers every builtin asset type's SHAPE. How each one reads/writes on
+    /// disk is the serializer registry's business — register_builtin_serializers() pairs
+    /// every entry here with its serializer. Idempotent.
     static void register_builtin_assets()
     {
-        register_type<gfx::Texture>("Texture");
-        register_type<gfx::Model>("Model");
-        register_type<gfx::ShaderSource>("ShaderSource");
-        register_type<audio::AudioClip>("AudioClip");
-        register_type<scripts::ScriptSource>("ScriptSource");
-        register_type<ui::UiDocument>("UiDocument");
+        register_type<gpu::Texture>("Texture");
+        register_type<gpu::Model>("Model");
+        register_type<gpu::ShaderSource>("ShaderSource");
+        register_type<audio::Clip>("AudioClip");
+        register_type<scripts::Source>("ScriptSource");
+        register_type<ui::Document>("UiDocument");
         register_type<ui::Font>("Font");
         register_type<ecs::Kit>("Kit");
-        register_type<gfx::Material>("Material")
-            .field("vertex", &gfx::Material::vertex)
-            .field("fragment", &gfx::Material::fragment)
-            .field("albedo_map", &gfx::Material::albedo_map)
-            .field("normal_map", &gfx::Material::normal_map)
-            .field("metallic_map", &gfx::Material::metallic_map)
-            .field("roughness_map", &gfx::Material::roughness_map)
-            .field("albedo", &gfx::Material::albedo)
-            .field("emissive", &gfx::Material::emissive)
-            .field("metallic", &gfx::Material::metallic)
-            .field("roughness", &gfx::Material::roughness)
-            .field("uv_scale", &gfx::Material::uv_scale);
-        register_type<ecs::BoxEntry>("BoxEntry")
-            .field("reference", &ecs::BoxEntry::kit)
-            .field("mode", &ecs::BoxEntry::mode)
-            .field("position", &ecs::BoxEntry::position);
-        register_type<ecs::Box>("Box").field("kits", &ecs::Box::kits);
+        register_type<gpu::Material>("Material")
+            .field("vertex", &gpu::Material::vertex)
+            .field("fragment", &gpu::Material::fragment)
+            .field("albedo_map", &gpu::Material::albedo_map)
+            .field("normal_map", &gpu::Material::normal_map)
+            .field("metallic_map", &gpu::Material::metallic_map)
+            .field("roughness_map", &gpu::Material::roughness_map)
+            .field("albedo", &gpu::Material::albedo)
+            .field("emissive", &gpu::Material::emissive)
+            .field("metallic", &gpu::Material::metallic)
+            .field("roughness", &gpu::Material::roughness)
+            .field("uv_scale", &gpu::Material::uv_scale);
     }
 
     /// @brief
@@ -145,6 +149,8 @@ namespace tbx::reflection
         register_blocks();
         register_builtin_assets();
         register_app_types();
+        // Shapes first, serializers second — Format::DEFAULT validates reflection exists.
+        serialization::register_builtin_serializers();
 
         g_registered = true;
     }

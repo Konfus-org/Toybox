@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 #include <format>
 #include <string_view>
 #include <utility>

@@ -1,6 +1,6 @@
 #include "tbx/audio/audio.h"
-#include "tbx/audio/audio_clip.h"
-#include "tbx/audio/audio_source.h"
+#include "tbx/audio/clip.h"
+#include "tbx/audio/source.h"
 #include "tbx/runtime.h"
 #include <gtest/gtest.h>
 #include <cstring>
@@ -72,7 +72,7 @@ namespace tbx::tests
     {
         // Arrange
         auto runtime = Runtime();
-        runtime.state->sandbox.spawn("Speaker").with(audio::AudioSource {});
+        runtime.state->sandbox.spawn("Speaker").with(audio::Source {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
         audio::update(

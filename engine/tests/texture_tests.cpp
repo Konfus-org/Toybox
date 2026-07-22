@@ -1,4 +1,6 @@
-#include "tbx/gfx/texture.h"
+#include "tbx/gpu/texture.h"
+#include "tbx/reflection/reflection.h"
+#include "tbx/serialization/read_write.h"
 #include <cstddef>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -7,8 +9,10 @@ namespace tbx::tests
 {
     TEST(Texture, SaveRoundTripsThroughLoad)
     {
-        // Arrange: a 2x2 texture with four distinct opaque pixels.
-        auto original = gfx::Texture();
+        // Arrange: a 2x2 texture with four distinct opaque pixels. The serializer registry
+        // dispatches read/write, so registration comes first.
+        reflection::initialize();
+        auto original = gpu::Texture();
         original.width = 2;
         original.height = 2;
         constexpr unsigned char BYTES[] = {
@@ -21,10 +25,10 @@ namespace tbx::tests
         const auto path = std::filesystem::temp_directory_path() / "tbx_texture_test.bmp";
 
         // Act
-        const auto saved = save(original, path);
-        const auto loaded = assets::load<gfx::Texture>(path);
+        const auto saved = serialization::serialize(original, path);
+        const auto loaded = serialization::deserialize<gpu::Texture>(path);
 
-        // Assert: the BMP written by save() decodes back to the exact same image.
+        // Assert: the BMP written by write() decodes back to the exact same image.
         ASSERT_TRUE(saved.has_value()) << saved.error();
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         EXPECT_EQ(loaded->width, original.width);
@@ -35,11 +39,12 @@ namespace tbx::tests
     TEST(Texture, SaveRejectsAnEmptyTexture)
     {
         // Arrange
-        const auto empty = gfx::Texture();
+        reflection::initialize();
+        const auto empty = gpu::Texture();
         const auto path = std::filesystem::temp_directory_path() / "tbx_texture_empty.bmp";
 
         // Act
-        const auto saved = save(empty, path);
+        const auto saved = serialization::serialize(empty, path);
 
         // Assert
         EXPECT_FALSE(saved.has_value());

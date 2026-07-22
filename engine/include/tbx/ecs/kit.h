@@ -1,110 +1,64 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/assets/asset.h"
-#include "tbx/assets/asset_handle.h"
-#include "tbx/assets/assets.h"
-#include "tbx/assets/load.h"
-#include "tbx/ecs/toy.h"
-#include "tbx/events/events.h"
+#include "tbx/assets/handle.h"
+#include "tbx/ecs/block.h"
+#include "tbx/ecs/container.h"
 #include "tbx/math/math.h"
-#include "tbx/serialization/json.h"
-#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
 #include "tbx/utils/typedefs.h"
-#include "tbx/utils/uuid.h"
-#include <any>
-#include <span>
-#include <string>
-#include <vector>
+#include <filesystem>
 
 namespace tbx::ecs
 {
-    class Sandbox;
     struct TBX_API Kit;
 
     /// @brief
-    /// Purpose: One block on a kit toy, strongly typed in memory: the reflected type's name
-    /// hash plus a boxed instance of it (an empty value or unknown type skips on load).
-    struct TBX_API KitBlock
+    /// Purpose: A block marking a toy as an instantiated (or to-be-instantiated) kit: the
+    /// toy's children ARE the kit's contents. Child kits are just child toys wearing this
+    /// block — a nested kit is authored as a toy with a KitInstance, positioned by its
+    /// transform. `streamed` defers that expansion to the streaming system: the kit loads
+    /// when a camera looks its way and unloads when none does. Serializes like any block.
+    struct TBX_API KitInstance : Block
     {
-        uint64 type = 0;
-        std::any value = {};
+        assets::Handle<Kit> kit = {};
+        bool streamed = false;
+
+        KitInstance& set_kit(assets::Handle<Kit> value)
+        {
+            kit = std::move(value);
+            return *this;
+        }
+        KitInstance& set_streamed(bool value)
+        {
+            streamed = value;
+            return *this;
+        }
     };
 
     /// @brief
-    /// Purpose: One toy inside a kit: identity for parent links (fresh live uuids are minted
-    /// on load), enablement, stickers, and its blocks.
-    struct TBX_API KitToy
+    /// Purpose: A kit is a container of toys — real Toys arranged by the ordinary parent/child
+    /// links, with nested kits sitting right in that hierarchy as toys wearing a KitInstance
+    /// block. One concept covering prefab, scene, level, and chunk: a prefab is a kit you
+    /// reference, a level is a kit you open as the world. It is an ordinary asset
+    /// (assets::Handle<Kit>, .kit files) that serializes itself and its children.
+    /// @details
+    /// It shares its whole toy-container shape and query surface with Sandbox (ToyContainer);
+    /// the registry is hidden. It stays copyable (it rides in the asset cache).
+    struct TBX_API Kit : ToyContainer, assets::Asset
     {
-        Uuid uuid = {};
-        std::string name = "Toy";
-        bool is_enabled = true;
-        Uuid parent = {}; // another kit toy's uuid; nil = root
-        std::vector<std::string> stickers = {};
-        std::vector<KitBlock> blocks = {};
-    };
-
-    /// @brief
-    /// Purpose: A nested kit reference: which kit and where it sits relative to the parent.
-    struct TBX_API KitReference
-    {
-        assets::AssetHandle<Kit> kit = {};
-        Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
-    };
-
-    /// @brief
-    /// Purpose: A set of things, strongly typed in memory: toys (with their blocks and
-    /// stickers) plus references to other kits, recursively — one concept covering prefab,
-    /// scene, level, and chunk. A kit is an ordinary asset (assets::AssetHandle<Kit>, .kit files);
-    /// JSON exists only at the load<Kit>/to_json serialize boundary.
-    struct TBX_API Kit : assets::Asset
-    {
-        std::vector<KitToy> toys = {};
-        std::vector<KitReference> kits = {};
+        // How far the kit reaches from its origin — streaming uses this for the load/unload
+        // distance (authored, preserved across read/write).
         Vec3 bounds_center = Vec3(0.0f, 0.0f, 0.0f);
         float bounds_radius = 0.0f;
     };
 
     /// @brief
-    /// Purpose: Handle to one instantiated kit; Sandbox::despawn(instance) removes exactly
-    /// the toys it spawned (including toys from nested kit references).
-    struct TBX_API KitInstance
-    {
-        uint64 id = 0;
-    };
+    /// Purpose: Kit's registered reader — the .kit JSON schema ({toys, bounds}) into a kit
+    /// (toys spawned into its container). Call it through serialization::deserialize<Kit>(path).
+    TBX_API Result<Kit> deserialize_kit(const std::filesystem::path& path);
 
     /// @brief
-    /// Purpose: The kit's on-disk JSON form ({toys, kits, bounds}) — the serialize half of
-    /// the boundary; blocks write through their reflected types.
-    TBX_API serialization::Json to_json(const Kit& kit);
-
-    /// @brief
-    /// Purpose: Serializes chosen toys (blocks, stickers, parent links, bounds) as a kit.
-    TBX_API Kit save(Sandbox& sandbox, std::span<const Toy> toys);
-
-    /// @brief
-    /// Purpose: Serializes the whole sandbox — every live toy — as a kit.
-    TBX_API Result<Kit> save(Sandbox& sandbox);
-
-    /// @brief
-    /// Purpose: Serializes one toy (with its blocks and stickers) as a kit.
-    TBX_API Result<Kit> save(const Toy& toy);
-
-    /// @brief
-    /// Purpose: Instantiates a kit into a sandbox — the load half of save() round-trips and
-    /// what Sandbox::spawn(assets::AssetHandle<Kit>) runs on. Nested kit references resolve
-    /// recursively through the sandbox's assets; cycles are load errors; root position
-    /// offsets every parentless toy.
-    TBX_API Result<KitInstance> load(
-        Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        const Kit& kit,
-        const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f));
-}
-
-namespace tbx::assets
-{
-    /// @brief
-    /// Purpose: Loads a .kit file — the deserialize half of the kit's JSON boundary.
-    template <>
-    TBX_API Result<ecs::Kit> load<ecs::Kit>(const std::filesystem::path& path);
+    /// Purpose: Kit's registered writer — call it through serialization::serialize(kit, path).
+    TBX_API Result<void> serialize_kit(const Kit& kit, const std::filesystem::path& path);
 }

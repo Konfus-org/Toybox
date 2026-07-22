@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/reflection/type_info.h"
-#include "tbx/utils/api.h"
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -9,8 +9,8 @@
 namespace tbx::reflection
 {
     /// @brief
-    /// Purpose: Per-C++-type registration slot; register_type<T>() fills it so fields of type T can link
-    /// to T's TypeInfo lazily (registration order never matters).
+    /// Purpose: Per-C++-type registration slot; register_type<T>() fills it so fields of type T can
+    /// link to T's TypeInfo lazily (registration order never matters).
     template <typename T>
     struct TypeSlot
     {
@@ -36,7 +36,7 @@ namespace tbx::reflection
       public:
         /// @brief
         /// Purpose: Adds a type record and returns it; a name registered twice keeps its one
-        /// existing record (facets stack onto it — register_block, register_asset).
+        /// existing record (facets stack onto it, stamped from the type's bases).
         TypeInfo& add(TypeInfo info);
 
         /// @brief

@@ -1,11 +1,11 @@
 #pragma once
-#include "tbx/gfx/render_target.h"
+#include "tbx/api.h"
+#include "tbx/utils/color.h"
+#include "tbx/gpu/render_target.h"
 #include "tbx/math/math.h"
+#include "tbx/ui/document.h"
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui_block.h"
-#include "tbx/ui/ui_document.h"
-#include "tbx/utils/api.h"
-#include "tbx/utils/color.h"
 #include <format>
 #include <functional>
 #include <memory>
@@ -21,7 +21,7 @@
 // through its own gpu pipeline). update() advances animations and retires documents that
 // stopped being drawn.
 //
-// Dynamic values flow through UiBinding objects: a binding links a document slot (elements
+// Dynamic values flow through Binding objects: a binding links a document slot (elements
 // carrying data-text="name" / data-style="name") to a value source. bind_to() links a live
 // variable, bind() takes any hand-built binding, and the typed set_* family pushes one-off
 // values.
@@ -30,7 +30,7 @@ namespace tbx::ui
     /// @brief
     /// Purpose: THE link between two things: a named document slot (data-text / data-style
     /// attributes) and the source producing its value, evaluated every update().
-    struct TBX_API UiBinding
+    struct TBX_API Binding
     {
         std::string name = {};
         std::function<std::string()> source = {};
@@ -43,19 +43,19 @@ namespace tbx::ui
     /// library types never escape that folder), built lazily on the first draw. Declared
     /// before the scripts member in RuntimeState: Lua closures live in the bindings and must
     /// die before their VM.
-    struct TBX_API UiState
+    struct TBX_API State
     {
-        UiState();
-        ~UiState();
+        State();
+        ~State();
 
-        UiState(const UiState&) = delete;
-        UiState& operator=(const UiState&) = delete;
+        State(const State&) = delete;
+        State& operator=(const State&) = delete;
 
-        UiState(UiState&& other) noexcept;
-        UiState& operator=(UiState&& other) noexcept;
+        State(State&& other) noexcept;
+        State& operator=(State&& other) noexcept;
 
         std::unordered_map<std::string, std::string> bindings; // slot -> latest value
-        std::unordered_map<std::string, UiBinding> live_bindings; // evaluated every update
+        std::unordered_map<std::string, Binding> live_bindings; // evaluated every update
         struct Backend; // defined by the ui backend's .cpp
         std::unique_ptr<Backend> backend;
     };
@@ -65,24 +65,24 @@ namespace tbx::ui
     /// premultiplied alpha). Documents are cached by content behind the boundary — drawing
     /// every frame is the API; what is not drawn disappears. Shading is not the document's
     /// business: passes set gpu pipelines around the textures this produces.
-    TBX_API void draw(UiState& state, const UiDocument& document, const gfx::RenderTarget& target);
+    TBX_API void draw(State& state, const Document& document, const gpu::RenderTarget& target);
 
     /// @brief
     /// Purpose: Registers a font face under a family name — documents reference it via
     /// font-family in their styles. Faces are fallback-capable; call once per face (the
     /// runtime sets the engine's builtin font at boot, games may add more). The boundary
     /// keeps its own copy of the bytes, so the asset may unload freely.
-    TBX_API void set_font(UiState& state, const Font& font, const std::string& family);
+    TBX_API void set_font(State& state, const Font& font, const std::string& family);
 
     /// @brief
     /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
     /// documents. Called by tbx::run() every frame.
-    TBX_API void update(UiState& state, float delta_time);
+    TBX_API void update(State& state, float delta_time);
 
     /// @brief
     /// Purpose: Registers a binding (replacing any with the same name); its source runs
     /// every update().
-    TBX_API void bind(UiState& state, UiBinding binding);
+    TBX_API void bind(State& state, Binding binding);
 
     // The live bind family: this property binds to that UI element — mutate the variable
     // and the element follows (the variable must outlive the binding; unbind() releases).
@@ -91,7 +91,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a bool to the named element slot.
-    inline void bind(UiState& state, const bool& value, std::string name)
+    inline void bind(State& state, const bool& value, std::string name)
     {
         auto source = [&value]
         {
@@ -102,7 +102,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a color (#rrggbbaa) to the named element slot.
-    inline void bind(UiState& state, const Color& value, std::string name)
+    inline void bind(State& state, const Color& value, std::string name)
     {
         auto source = [&value]
         {
@@ -118,7 +118,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a float to the named element slot.
-    inline void bind(UiState& state, const float& value, std::string name)
+    inline void bind(State& state, const float& value, std::string name)
     {
         auto source = [&value]
         {
@@ -129,7 +129,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds an int to the named element slot.
-    inline void bind(UiState& state, const int& value, std::string name)
+    inline void bind(State& state, const int& value, std::string name)
     {
         auto source = [&value]
         {
@@ -140,7 +140,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a string to the named element slot.
-    inline void bind(UiState& state, const std::string& value, std::string name)
+    inline void bind(State& state, const std::string& value, std::string name)
     {
         auto source = [&value]
         {
@@ -151,7 +151,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a Vec2 ("x, y") to the named element slot.
-    inline void bind(UiState& state, const Vec2& value, std::string name)
+    inline void bind(State& state, const Vec2& value, std::string name)
     {
         auto source = [&value]
         {
@@ -162,7 +162,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Binds a Vec3 ("x, y, z") to the named element slot.
-    inline void bind(UiState& state, const Vec3& value, std::string name)
+    inline void bind(State& state, const Vec3& value, std::string name)
     {
         auto source = [&value]
         {
@@ -170,6 +170,5 @@ namespace tbx::ui
         };
         bind(state, {.name = std::move(name), .source = std::move(source)});
     }
-
 
 }

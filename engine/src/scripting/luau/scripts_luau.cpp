@@ -34,7 +34,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: The Luau scripting backend. VM types never escape this folder; other language
     /// backends (csharp/...) sit beside it and run simultaneously.
-    class LuauBackend final : public ScriptBackend
+    class LuauBackend final : public Backend
     {
       public:
         explicit LuauBackend(RuntimeState& runtime)
@@ -109,15 +109,16 @@ namespace tbx::scripts
       private:
         void run_scripts(const char* function_name, const float delta_time)
         {
-            auto& registry = _runtime.get().sandbox.get_registry();
-            for (const auto [entity, script] : registry.view<Script>().each())
-            {
-                if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
-                    continue;
+            _runtime.get().sandbox.each<Script>(
+                [&](ecs::Toy toy, Script& script)
+                {
+                if (!toy.is_enabled())
+                    return;
+                const ecs::ToyId entity = toy.get_id();
                 const Uuid id = script.source.id;
                 const auto found = _scripts_by_id.find(id);
                 if (found == _scripts_by_id.end())
-                    continue; // not this backend's source (another language, or still loading)
+                    return; // not this backend's source (another language, or still loading)
                 const CompiledScript& source = found->second;
 
                 LuauInstance& instance = _instances[static_cast<uint32>(entity)];
@@ -125,7 +126,7 @@ namespace tbx::scripts
                     || instance.generation != source.generation;
                 if (is_stale
                     && !instantiate(instance, source.name, source.bytecode, id, source.generation))
-                    continue;
+                    return;
 
                 if (!instance.is_started)
                 {
@@ -133,7 +134,7 @@ namespace tbx::scripts
                     call_script_function(instance.table_ref, "start", entity, {});
                 }
                 call_script_function(instance.table_ref, function_name, entity, delta_time);
-            }
+                });
         }
 
         Result<std::string> compile_source(const std::string& name, const std::string_view source)
@@ -231,7 +232,7 @@ namespace tbx::scripts
 
 
 
-    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime)
+    std::unique_ptr<Backend> make_luau_backend(RuntimeState& runtime)
     {
         return std::make_unique<LuauBackend>(runtime);
     }

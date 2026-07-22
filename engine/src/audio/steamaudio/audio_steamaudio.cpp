@@ -1,7 +1,7 @@
 #include "tbx/audio/audio.h"
 #include "tbx/ecs/sandbox.h"
-#include "tbx/audio/audio_source.h"
-#include "tbx/audio/audio_listener.h"
+#include "tbx/audio/source.h"
+#include "tbx/audio/listener.h"
 #include "tbx/runtime.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
@@ -38,7 +38,7 @@ namespace tbx::audio
     /// and the latest spatial parameters update() computed on the main thread.
     struct Voice
     {
-        std::shared_ptr<const AudioClip> clip = {};
+        std::shared_ptr<const Clip> clip = {};
         double cursor = 0.0;
         float volume = 1.0f;
         float attenuation = 1.0f;
@@ -53,7 +53,7 @@ namespace tbx::audio
     /// Purpose: The whole audio engine behind the boundary, built lazily on the first update
     /// (the destructor stops the SDL stream first, so the mixer callback is silent before
     /// any buffer frees).
-    struct AudioState::Backend
+    struct State::Backend
     {
         ~Backend()
         {
@@ -79,26 +79,26 @@ namespace tbx::audio
         IPLAudioBuffer stereo = {};
         std::mutex voices_mutex;
         std::unordered_map<uint32, Voice> voices; // keyed by ecs::ToyId value
-        std::unordered_map<Uuid, std::shared_ptr<const AudioClip>> clips;
+        std::unordered_map<Uuid, std::shared_ptr<const Clip>> clips;
         float listener_volume = 1.0f;
         std::vector<float> interleaved;
     };
 
-    AudioState::AudioState() = default;
-    AudioState::~AudioState() = default;
+    State::State() = default;
+    State::~State() = default;
 
     //// DSP (audio thread) ////
 
-    static void mix_block(AudioState& audio, const int frame_count)
+    static void mix_block(State& audio, const int frame_count)
     {
-        AudioState::Backend& state = *audio.backend;
+        State::Backend& state = *audio.backend;
         state.interleaved.assign(static_cast<size>(frame_count) * 2, 0.0f);
         const std::scoped_lock lock(state.voices_mutex);
         for (auto& [key, voice] : state.voices)
         {
             if (!voice.is_active || !voice.clip || voice.clip->samples.empty())
                 continue;
-            const AudioClip& clip = *voice.clip;
+            const Clip& clip = *voice.clip;
             const double step =
                 static_cast<double>(clip.sample_rate) / SAMPLE_RATE; // nearest-sample resample
             const size frames_in_clip = clip.samples.size() / clip.channels;
@@ -150,7 +150,7 @@ namespace tbx::audio
     static void SDLCALL
         feed_device(void* userdata, SDL_AudioStream* stream, const int additional_amount, int)
     {
-        auto& audio = *static_cast<AudioState*>(userdata);
+        auto& audio = *static_cast<State*>(userdata);
         int remaining_bytes = additional_amount;
         while (remaining_bytes > 0)
         {
@@ -168,12 +168,12 @@ namespace tbx::audio
 
     //// SETUP ////
 
-    static std::optional<std::reference_wrapper<AudioState::Backend>> ensure_audio_ready(
-        AudioState& audio)
+    static std::optional<std::reference_wrapper<State::Backend>> ensure_audio_ready(
+        State& audio)
     {
         if (audio.backend)
             return *audio.backend;
-        auto state = std::make_unique<AudioState::Backend>();
+        auto state = std::make_unique<State::Backend>();
 
         auto context_settings = IPLContextSettings {};
         context_settings.version = STEAMAUDIO_VERSION;
@@ -197,10 +197,10 @@ namespace tbx::audio
         iplAudioBufferAllocate(state->context, 1, FRAME_SIZE, &state->mono);
         iplAudioBufferAllocate(state->context, 2, FRAME_SIZE, &state->stereo);
 
-        // The callback receives the value-held AudioState (stable inside the heap-held
+        // The callback receives the value-held State (stable inside the heap-held
         // RuntimeState): master volume + backend buffers together.
         audio.backend = std::move(state);
-        AudioState::Backend& backend = *audio.backend;
+        State::Backend& backend = *audio.backend;
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
             TBX_WARN("SDL audio unavailable ({}); spatializer runs silent", SDL_GetError());
         else
@@ -225,46 +225,46 @@ namespace tbx::audio
     //// BOUNDARY ////
 
     void update(
-        AudioState& audio,
+        State& audio,
         ecs::Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         const float)
     {
         const auto ready = ensure_audio_ready(audio);
         if (!ready)
             return;
-        AudioState::Backend& state = ready->get();
-        auto& registry = sandbox.get_registry();
+        State::Backend& state = ready->get();
 
         // The first enabled listener frames the world; no listener, everything is silent.
         auto listener_inverse = Mat4(1.0f);
         bool has_listener = false;
-        for (const auto [entity, listener] : registry.view<AudioListener>().each())
-        {
-            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
-                continue;
-            listener_inverse = math::inverse(sandbox.get_world_matrix(ecs::Toy(sandbox, entity)));
-            state.listener_volume = listener.volume;
-            has_listener = true;
-            break;
-        }
+        sandbox.each<Listener>(
+            [&](ecs::Toy toy, Listener& listener)
+            {
+                if (has_listener || !toy.is_enabled())
+                    return;
+                listener_inverse = inverse(toy.get_world_transform());
+                state.listener_volume = listener.volume;
+                has_listener = true;
+            });
 
         const std::scoped_lock lock(state.voices_mutex);
 
         // Mirror playing sources into voices; spatial extent comes from the toy's physics::Collider.
-        for (const auto [entity, source] : registry.view<AudioSource>().each())
-        {
-            const auto key = static_cast<uint32>(entity);
-            const bool wants_voice = has_listener && registry.get<ecs::ToyHandle>(entity).is_enabled
-                                     && source.is_playing && source.clip.is_valid();
+        sandbox.each<Source>(
+            [&](ecs::Toy toy, Source& source)
+            {
+            const auto key = static_cast<uint32>(toy.get_id());
+            const bool wants_voice = has_listener && toy.is_enabled() && source.is_playing
+                                     && source.clip.is_valid();
             auto existing = state.voices.find(key);
 
             if (!wants_voice)
             {
                 if (existing != state.voices.end())
                     state.voices.erase(existing); // the holder releases the effect
-                continue;
+                return;
             }
 
             if (existing == state.voices.end())
@@ -275,8 +275,8 @@ namespace tbx::audio
                 {
                     const auto clip = assets::load_now(assets, events, source.clip); // resolves by tracked path
                     if (!clip)
-                        continue;
-                    cached = std::make_shared<AudioClip>(clip->get());
+                        return;
+                    cached = std::make_shared<Clip>(clip->get());
                 }
                 auto voice = Voice {};
                 voice.clip = cached;
@@ -294,19 +294,19 @@ namespace tbx::audio
             Voice& voice = existing->second;
             if (voice.is_finished)
             {
-                registry.get<AudioSource>(entity).is_playing = false;
-                continue;
+                source.is_playing = false;
+                return;
             }
 
-            const Mat4 world = sandbox.get_world_matrix(ecs::Toy(sandbox, entity));
+            const Mat4 world = toy.get_world_transform();
             const Vec3 local = Vec3(listener_inverse * world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
-            const float distance = math::length(local);
+            const float distance = length(local);
             const Vec3 direction =
                 distance > 0.0001f ? local * (1.0f / distance) : Vec3(0.0f, 0.0f, -1.0f);
 
             // A physics::Collider softens attenuation by its extent (the shared physics::Shape vocabulary).
             float extent = 0.0f;
-            if (const auto* collider = registry.try_get<physics::Collider>(entity))
+            if (const auto* collider = toy.try_block<physics::Collider>())
             {
                 switch (collider->shape)
                 {
@@ -328,15 +328,15 @@ namespace tbx::audio
             voice.attenuation = 1.0f / (1.0f + std::max(0.0f, distance - extent));
             voice.volume = source.volume;
             voice.is_looping = source.is_looping;
-        }
+            });
 
-        // Reap voices whose toy despawned (or lost its AudioSource) while playing — the
+        // Reap voices whose toy despawned (or lost its Source) while playing — the
         // mirror loop above never revisits them, so they would otherwise mix and hold their
         // effects until shutdown (mirrors the physics body sweep).
         for (auto it = state.voices.begin(); it != state.voices.end();)
         {
-            const auto entity = static_cast<ecs::ToyId>(it->first);
-            const bool is_stale = !registry.valid(entity) || !registry.all_of<AudioSource>(entity);
+            auto toy = ecs::Toy(sandbox, static_cast<ecs::ToyId>(it->first));
+            const bool is_stale = !toy.is_alive() || !toy.has_block<Source>();
             it = is_stale ? state.voices.erase(it) : std::next(it);
         }
     }

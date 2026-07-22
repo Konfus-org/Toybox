@@ -49,9 +49,8 @@ namespace tbx::tests
     TEST(CommandList, MissingAndMalformedOptionsFallBackToDefaults)
     {
         // Arrange: one malformed number and nothing else.
-        auto arguments = std::array {
-            const_cast<char*>("app.exe"),
-            const_cast<char*>("--width=fast")};
+        auto arguments =
+            std::array {const_cast<char*>("app.exe"), const_cast<char*>("--width=fast")};
 
         // Act
         const auto commands = CommandList(static_cast<int>(arguments.size()), arguments.data());

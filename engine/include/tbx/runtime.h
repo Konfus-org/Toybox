@@ -1,18 +1,18 @@
 #pragma once
 #include "tbx/app.h"
 #include "tbx/audio/audio.h"
-#include "tbx/debug/debug_view.h"
+#include "tbx/debug/view.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/gfx/render_graph.h"
-#include "tbx/gfx/renderer_state.h"
+#include "tbx/gpu/render_graph.h"
+#include "tbx/gpu/state.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/platform/window.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/ui/ui.h"
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 #include <chrono>
 #include <memory>
 
@@ -43,19 +43,19 @@ namespace tbx
     {
         App app = {};
         FrameState frame = {};
-        input::InputState input = {};
-        windows::WindowsState windows = {};
+        input::State input = {};
+        windows::State windows = {};
         ecs::Sandbox sandbox = {};
-        gfx::RenderGraph render_graph = {};
-        jobs::JobsState jobs = {};
-        events::EventsState events = {};
-        assets::AssetsState assets = {};
-        gfx::RendererState renderer = {};
-        scripts::ScriptsState scripts = {};
-        physics::PhysicsState physics = {};
-        audio::AudioState audio = {};
-        ui::UiState ui = {};
-        debug::view::DebugState debug = {};
+        gpu::RenderGraph render_graph = {};
+        jobs::State jobs = {};
+        events::State events = {};
+        assets::State assets = {};
+        gpu::State renderer = {};
+        scripts::State scripts = {};
+        physics::State physics = {};
+        audio::State audio = {};
+        ui::State ui = {};
+        debug::view::State debug = {};
     };
 
     /// @brief

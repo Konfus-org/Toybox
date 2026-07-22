@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/ecs/registry.h"
 #include "tbx/reflection/field_info.h"
-#include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
@@ -10,8 +10,8 @@
 #include <functional>
 #include <span>
 #include <string>
-#include <vector>
 #include <tbx_serialization_backend.h>
+#include <vector>
 
 namespace tbx::reflection
 {
@@ -57,14 +57,7 @@ namespace tbx::reflection
         void (*remove_block)(ecs::Registry&, ecs::ToyId) = nullptr;
         bool (*assign_block)(ecs::Registry&, ecs::ToyId, const std::any&) = nullptr;
         std::any (*copy_block)(ecs::Registry&, ecs::ToyId) = nullptr;
-        // The asset facet, stamped automatically when the type derives tbx::Asset: the
-        // typeid shape of its resident std::any plus the type-erased decode hot reload runs
-        // (which stamps the loaded asset's identity). Null for non-asset types — asset
-        // types are exactly the reflected types whose load_asset is set.
-        size asset_shape = 0;
-        Result<std::any> (*load_asset)(
-            const std::filesystem::path& disk_path,
-            const Uuid& id,
-            const std::string& relative_path) = nullptr;
+        // How a type moves between memory and disk is NOT reflection's business: that lives
+        // on the serializer registry (tbx::serialization::register_serializer<T>).
     };
 }

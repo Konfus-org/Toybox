@@ -8,7 +8,7 @@
 #include "tbx/ecs/sandbox.h"
 #include "tbx/physics/rigid_body.h"
 #include "tbx/physics/collider.h"
-#include "tbx/gfx/renderer.h"
+#include "tbx/gpu/renderer.h"
 #include "tbx/assets/assets.h"
 #include "tbx/math/transform.h"
 #include "tbx/assets/builtin.h"
@@ -121,8 +121,8 @@ namespace tbx::physics
 
     /// @brief
     /// Purpose: The whole simulation behind the boundary: Jolt world, filters, mirrored
-    /// bodies. PhysicsState owns exactly one, built lazily on the first update.
-    struct PhysicsState::Simulation
+    /// bodies. State owns exactly one, built lazily on the first update.
+    struct State::Simulation
     {
         JPH::TempAllocatorImpl temp;
         JPH::JobSystemThreadPool jolt_jobs;
@@ -145,10 +145,10 @@ namespace tbx::physics
         }
     };
 
-    PhysicsState::PhysicsState() = default;
-    PhysicsState::~PhysicsState() = default;
+    State::State() = default;
+    State::~State() = default;
 
-    static PhysicsState::Simulation& ensure_simulation(PhysicsState& state)
+    static State::Simulation& ensure_simulation(State& state)
     {
         // Jolt's allocator/factory/type registration is inherently process-global; it is set
         // up exactly once and deliberately lives (leaks) for the process lifetime - Runtimes
@@ -162,7 +162,7 @@ namespace tbx::physics
             JPH::RegisterTypes();
         }
         if (!state.simulation)
-            state.simulation = std::make_unique<PhysicsState::Simulation>();
+            state.simulation = std::make_unique<State::Simulation>();
         return *state.simulation;
     }
 
@@ -197,19 +197,18 @@ namespace tbx::physics
     }
 
     /// @brief
-    /// Purpose: A concave mesh shape from a gfx::Renderer's geometry: imported model triangles
+    /// Purpose: A concave mesh shape from a gpu::Renderer's geometry: imported model triangles
     /// (scaled by the transform) or an analytic stand-in for the builtin primitives.
     static JPH::ShapeRefC make_mesh_shape(
-        assets::AssetsState& assets,
-        events::EventsState& events,
-        ecs::Registry& registry,
-        const ecs::ToyId entity,
+        assets::State& assets,
+        events::State& events,
+        ecs::Toy toy,
         const Vec3& scale)
     {
-        const auto* renderer = registry.try_get<gfx::Renderer>(entity);
+        const auto* renderer = toy.try_block<gpu::Renderer>();
         if (!renderer)
         {
-            TBX_WARN("Shape::MESH collider without a gfx::Renderer block; falling back to a box");
+            TBX_WARN("Shape::MESH collider without a gpu::Renderer block; falling back to a box");
             return make_fallback_box(scale);
         }
 
@@ -256,11 +255,10 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Maps the shared Shape vocabulary onto Jolt shapes.
     static JPH::ShapeRefC make_shape(
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         const Collider& collider,
-        ecs::Registry& registry,
-        const ecs::ToyId entity,
+        ecs::Toy toy,
         const Vec3& scale)
     {
         switch (collider.shape)
@@ -270,42 +268,68 @@ namespace tbx::physics
             case Shape::CAPSULE:
                 return new JPH::CapsuleShape(collider.height * 0.5f, collider.radius);
             case Shape::MESH:
-                return make_mesh_shape(assets, events, registry, entity, scale);
+                return make_mesh_shape(assets, events, toy, scale);
             case Shape::BOX:
                 break;
         }
         return new JPH::BoxShape(to_jolt(collider.half_extents));
     }
 
+    /// @brief
+    /// Purpose: One transform in another's space (parent ∘ child) — TRS composition.
+    static Transform compose(const Transform& parent, const Transform& child)
+    {
+        return Transform {
+            .position = parent.position + rotate(parent.rotation, parent.scale * child.position),
+            .rotation = multiply(parent.rotation, child.rotation),
+            .scale = parent.scale * child.scale};
+    }
+
+    /// @brief
+    /// Purpose: A toy's world transform (local composed up the parent chain) — Jolt bodies
+    /// live in world space, so this is what placement reads and write-back inverts.
+    static Transform world_pose(ecs::Toy toy)
+    {
+        auto chain = std::vector<Transform>();
+        for (auto current = std::optional<ecs::Toy>(toy); current && current->is_alive();
+             current = current->get_parent())
+            chain.push_back(current->get_transform());
+        auto world = Transform {};
+        for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+            world = compose(world, *it);
+        return world;
+    }
+
     //// BOUNDARY ////
 
     void update(
-        PhysicsState& state,
+        State& state,
         ecs::Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         const float fixed_delta_time)
     {
         reflection::initialize();
-        PhysicsState::Simulation& physics = ensure_simulation(state);
+        State::Simulation& physics = ensure_simulation(state);
         // Gravity is a plain field on the state; whatever it says now is what this step uses.
         physics.system.SetGravity(to_jolt(state.gravity));
         JPH::BodyInterface& bodies = physics.system.GetBodyInterface();
-        auto& registry = sandbox.get_registry();
 
         // Mirror collider toys into the simulation (created on first sight).
-        for (const auto [entity, collider] : registry.view<Collider>().each())
-        {
-            if (!registry.get<ecs::ToyHandle>(entity).is_enabled)
-                continue;
-            const auto key = static_cast<uint32>(entity);
-            const auto* rigid_body = registry.try_get<RigidBody>(entity);
-            const auto& transform = registry.get_or_emplace<Transform>(entity);
+        sandbox.each<Collider>(
+            [&](ecs::Toy toy, Collider& collider)
+            {
+            if (!toy.is_enabled())
+                return;
+            const auto key = static_cast<uint32>(toy.get_id());
+            const auto* rigid_body = toy.try_block<RigidBody>();
+            // Jolt simulates in world space; place bodies at the toy's world transform.
+            const Transform transform = world_pose(toy);
             const auto existing = physics.bodies_by_toy.find(key);
             if (existing == physics.bodies_by_toy.end())
             {
                 auto settings = JPH::BodyCreationSettings(
-                    make_shape(assets, events, collider, registry, entity, transform.scale),
+                    make_shape(assets, events, collider, toy, transform.scale),
                     to_jolt(transform.position),
                     to_jolt(transform.rotation),
                     rigid_body ? (rigid_body->is_kinematic ? JPH::EMotionType::Kinematic
@@ -331,12 +355,12 @@ namespace tbx::physics
                     to_jolt(transform.rotation),
                     fixed_delta_time);
             }
-        }
+            });
 
         // Bodies whose toys despawned leave the simulation.
         for (auto it = physics.bodies_by_toy.begin(); it != physics.bodies_by_toy.end();)
         {
-            if (!registry.valid(static_cast<ecs::ToyId>(it->first)))
+            if (!ecs::Toy(sandbox, static_cast<ecs::ToyId>(it->first)).is_alive())
             {
                 bodies.RemoveBody(it->second);
                 bodies.DestroyBody(it->second);
@@ -353,12 +377,35 @@ namespace tbx::physics
         {
             if (bodies.GetMotionType(body_id) != JPH::EMotionType::Dynamic)
                 continue;
-            auto& transform = registry.get<Transform>(static_cast<ecs::ToyId>(key));
+            auto body_toy = ecs::Toy(sandbox, static_cast<ecs::ToyId>(key));
+            if (!body_toy.is_alive())
+                continue;
             JPH::RVec3 position = {};
             JPH::Quat rotation = {};
             bodies.GetPositionAndRotation(body_id, position, rotation);
-            transform.position = to_engine(position);
-            transform.rotation = to_engine(rotation);
+            const Vec3 world_position = to_engine(position);
+            const Quat world_rotation = to_engine(rotation);
+            // The body pose is world space; store it back as the toy's LOCAL transform,
+            // undoing any parent so a parented dynamic body lands where physics put it.
+            auto& local = body_toy.get_transform();
+            const auto parent_toy = body_toy.get_parent();
+            if (parent_toy)
+            {
+                const Transform parent = world_pose(*parent_toy);
+                const Quat inverse_parent = Quat(
+                    parent.rotation.w,
+                    -parent.rotation.x,
+                    -parent.rotation.y,
+                    -parent.rotation.z);
+                local.position =
+                    rotate(inverse_parent, world_position - parent.position) / parent.scale;
+                local.rotation = multiply(inverse_parent, world_rotation);
+            }
+            else
+            {
+                local.position = world_position;
+                local.rotation = world_rotation;
+            }
         }
 
         for (const auto& [toy_a, toy_b] : physics.contacts.drain())
@@ -366,15 +413,15 @@ namespace tbx::physics
     }
 
     std::optional<RaycastHit> raycast(
-        PhysicsState& state,
+        State& state,
         const Vec3& origin,
         const Vec3& direction,
         const float max_distance)
     {
         if (!state.simulation)
             return {};
-        PhysicsState::Simulation& physics = *state.simulation;
-        const Vec3 normalized = math::normalize(direction);
+        State::Simulation& physics = *state.simulation;
+        const Vec3 normalized = normalize(direction);
         const auto ray = JPH::RRayCast(to_jolt(origin), to_jolt(normalized * max_distance));
         auto hit = JPH::RayCastResult {};
         if (!physics.system.GetNarrowPhaseQuery().CastRay(ray, hit))

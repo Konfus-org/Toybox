@@ -21,6 +21,6 @@
 #include <variant>
 #include <vector>
 
-#include <entt/entt.hpp>
+#include <tbx_ecs_backend.h>
 #include <tbx_math_backend.h>
 #include <tbx_serialization_backend.h>

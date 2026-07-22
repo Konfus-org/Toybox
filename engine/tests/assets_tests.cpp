@@ -1,5 +1,6 @@
 #include "tbx/assets/assets.h"
 #include "tbx/reflection/type_registration.h"
+#include "tbx/serialization/registration.h"
 #include "tbx/runtime.h"
 #include "tbx/events/events.h"
 #include "tbx/serialization/json.h"
@@ -10,8 +11,8 @@
 namespace tbx::tests
 {
     /// @brief
-    /// Purpose: A minimal asset for the test: no hand-written loader — a registered type
-    /// decodes generically through the reflection walker.
+    /// Purpose: A minimal asset for the test: no hand-written loader — a Format::DEFAULT
+    /// serializer decodes generically through the reflection walker.
     struct ThingAsset : assets::Asset
     {
         int answer = 0;
@@ -27,6 +28,7 @@ namespace tbx::tests
             file << "{\"answer\": 42}";
         }
         reflection::register_type<ThingAsset>("ThingAsset").field("answer", &ThingAsset::answer);
+        serialization::register_serializer<ThingAsset>().format(serialization::Format::DEFAULT);
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         assets::set_root(runtime.assets, runtime.events, runtime.jobs, asset_root);
@@ -35,7 +37,7 @@ namespace tbx::tests
             &unload_count,
             [&unload_count](const events::AssetUnloaded&) { ++unload_count; });
         const auto loaded =
-            assets::load_now(runtime.assets, runtime.events, assets::AssetHandle<ThingAsset>("thing.json"));
+            assets::load_now(runtime.assets, runtime.events, assets::Handle<ThingAsset>("thing.json"));
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         ASSERT_EQ(assets::get_loaded_count(runtime.assets), 1u);
         EXPECT_EQ(loaded->get().answer, 42);
@@ -54,7 +56,7 @@ namespace tbx::tests
 
         // A fresh reference simply reloads it from disk.
         const auto reloaded =
-            assets::load_now(runtime.assets, runtime.events, assets::AssetHandle<ThingAsset>("thing.json"));
+            assets::load_now(runtime.assets, runtime.events, assets::Handle<ThingAsset>("thing.json"));
         ASSERT_TRUE(reloaded.has_value()) << reloaded.error();
         EXPECT_EQ(reloaded->get().answer, 42);
     }

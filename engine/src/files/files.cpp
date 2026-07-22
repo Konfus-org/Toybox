@@ -2,7 +2,7 @@
 #include "tbx/utils/typedefs.h"
 #include <fstream>
 
-namespace tbx::files
+namespace tbx
 {
     //// FILES ////
 

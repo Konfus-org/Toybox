@@ -1,12 +1,12 @@
 #pragma once
-#include "tbx/utils/api.h"
+#include "tbx/api.h"
 #include <chrono>
 #include <filesystem>
 #include <functional>
 #include <thread>
 #include <unordered_map>
 
-namespace tbx::files
+namespace tbx
 {
     /// @brief
     /// Purpose: Watches a directory tree and reports changed/added files by polling mtimes —

@@ -1,8 +1,8 @@
 # tbx_backend(<SUBSYSTEM> <default>)
 #
 # The generic backend-swap mechanism. Each subsystem that wraps a third-party
-# library declares one concrete boundary header (e.g. gfx/gpu.h) and one folder
-# per backend implementing it (e.g. gfx/gl/, gfx/vulkan/). This helper:
+# library declares one concrete boundary header (e.g. gpu/gpu.h) and one folder
+# per backend implementing it (e.g. gpu/gl/, gpu/vulkan/). This helper:
 #
 #   * declares the cache variable TBX_<SUBSYSTEM>_BACKEND (default <default>)
 #   * validates that engine/src/<subsystem>/<choice>/ exists

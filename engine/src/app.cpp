@@ -1,24 +1,26 @@
 #include "tbx/app.h"
 #include "scripting/builtin_backends.h"
 #include "tbx/audio/audio.h"
-#include "tbx/audio/audio_clip.h"
-#include "tbx/cmdline_handler.h"
-#include "tbx/debug/debug_view.h"
+#include "tbx/audio/clip.h"
 #include "tbx/debug/log.h"
-#include "tbx/gfx/gpu.h"
-#include "tbx/gfx/material.h"
-#include "tbx/gfx/model.h"
-#include "tbx/gfx/shader_source.h"
-#include "tbx/gfx/texture.h"
+#include "tbx/debug/view.h"
+#include "tbx/ecs/billboard.h"
+#include "tbx/gpu/camera.h"
+#include "tbx/gpu/gpu.h"
+#include "tbx/gpu/material.h"
+#include "tbx/gpu/model.h"
+#include "tbx/gpu/shader_source.h"
+#include "tbx/gpu/texture.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/reflection/type_registration.h"
 #include "tbx/runtime.h"
-#include "tbx/scripting/script_source.h"
+#include "tbx/scripting/source.h"
+#include "tbx/ui/document.h"
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui.h"
-#include "tbx/ui/ui_document.h"
+#include "tbx/utils/cmdline_handler.h"
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -55,8 +57,8 @@ namespace tbx
             }
         }
         // Settings are plain runtime state now: write the fields, the modules read them.
-        // Vsync is the gfx module's request; the window backend applies it per surface.
-        gfx::set_vsync(app.settings.graphics.is_vsync_enabled);
+        // Vsync is the gpu module's request; the window backend applies it per surface.
+        gpu::set_vsync(app.settings.graphics.is_vsync_enabled);
         state.renderer.shadow_resolution = app.settings.graphics.shadow_resolution;
         state.physics.gravity = app.settings.physics.gravity;
         state.audio.master_volume = app.settings.audio.master_volume;
@@ -78,10 +80,10 @@ namespace tbx
             return;
         }
 
-        reflection::initialize();
         app.status = AppStatus::RUNNING;
         state.frame.previous = std::chrono::steady_clock::now();
-        assets::set_root(state.assets, state.events, state.jobs, app.config.root_dir);
+        // Stands reflection + serializers up, sets the root, and discovers every asset.
+        assets::initialize(state.assets, state.events, state.jobs, app.config.root_dir);
         apply_settings(app, state);
 
         // The engine ui font is an ordinary asset (resolved through the engine resources
@@ -91,7 +93,7 @@ namespace tbx
             if (const auto font = assets::load_now(
                     state.assets,
                     state.events,
-                    assets::AssetHandle<ui::Font>("Fonts/MontserratMedium.otf")))
+                    assets::Handle<ui::Font>("Fonts/MontserratMedium.otf")))
                 ui::set_font(state.ui, font->get(), "Montserrat");
             else
                 TBX_WARN("builtin ui font: {}", font.error());
@@ -110,7 +112,7 @@ namespace tbx
             if (const auto self = assets::load_now(
                     state.assets,
                     state.events,
-                    assets::AssetHandle<App>(entry.path().filename().generic_string()));
+                    assets::Handle<App>(entry.path().filename().generic_string()));
                 !self)
                 TBX_WARN("app config: {}", self.error());
             break; // the first .tapp is THE app file
@@ -124,7 +126,7 @@ namespace tbx
                 if (std::string_view(reloaded.extension.data()) != ".tapp")
                     return;
                 const auto fresh =
-                    assets::load_now(state.assets, state.events, assets::AssetHandle<App>(reloaded.id));
+                    assets::load_now(state.assets, state.events, assets::Handle<App>(reloaded.id));
                 if (!fresh)
                 {
                     TBX_ERROR("app config reload: {}", fresh.error());
@@ -146,7 +148,7 @@ namespace tbx
             &state,
             [&state](const events::AssetUnloaded& unloaded)
             {
-                gfx::forget_asset(state.renderer, unloaded.id);
+                gpu::forget_asset(state.renderer, unloaded.id);
             });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
@@ -154,13 +156,15 @@ namespace tbx
             &state,
             [&state](const events::AssetReloaded& reloaded)
             {
-                gfx::forget_asset(state.renderer, reloaded.id); // re-upload GPU copies of the fresh data
+                gpu::forget_asset(
+                    state.renderer,
+                    reloaded.id); // re-upload GPU copies of the fresh data
                 if (!scripts::owns(state.scripts, reloaded.extension.data()))
                     return; // not a script source — nothing to (re)register
                 const auto script = assets::load_now(
                     state.assets,
                     state.events,
-                    assets::AssetHandle<scripts::ScriptSource>(reloaded.id));
+                    assets::Handle<scripts::Source>(reloaded.id));
                 if (script)
                 {
                     if (const auto result = scripts::reload_source(
@@ -173,25 +177,20 @@ namespace tbx
                 }
             });
 
-        // Configured content is ordinary assets: the box opens (its kits resolve through
-        // the sandbox's assets), the UI document loads and shows. Failures request a clean
-        // exit. Hosts without a configured box (selftest rigs, tools) drive the sandbox by
-        // hand instead.
+        // Configured content is an ordinary asset: the level kit opens (its child kits
+        // resolve through the sandbox's assets and spawn on the first stream() tick). Failure
+        // requests a clean exit. Hosts without a configured level (selftest rigs, tools) drive
+        // the sandbox by hand instead.
         if (app.config.sandbox.is_set())
         {
-            const auto box = assets::load_now(state.assets, state.events, app.config.sandbox);
-            if (!box)
+            const auto level = assets::load_now(state.assets, state.events, app.config.sandbox);
+            if (!level)
             {
-                TBX_ERROR("sandbox '{}': {}", app.config.sandbox.path, box.error());
+                TBX_ERROR("level '{}': {}", app.config.sandbox.path, level.error());
                 app.status = AppStatus::QUIT_REQUESTED;
             }
-            else if (
-                const auto opened = state.sandbox.open(state.assets, state.events, box->get());
-                !opened)
-            {
-                TBX_ERROR("sandbox '{}': {}", app.config.sandbox.path, opened.error());
-                app.status = AppStatus::QUIT_REQUESTED;
-            }
+            else
+                state.sandbox.open(level->get());
         }
 
         scripts::initialize(state);
@@ -206,6 +205,62 @@ namespace tbx
     }
 
     //// THE LOOP ////
+
+    /// @brief
+    /// Purpose: One frustum per enabled camera in the scene — however many there are
+    /// (splitscreen coop, editor viewports), each matched to its window exactly the way the
+    /// renderer matches them (empty name = the main window, viewport rect scales the
+    /// aspect), so streaming and rendering agree on what is in sight.
+    static std::vector<Frustum> gather_camera_frustums(RuntimeState& state)
+    {
+        auto frustums = std::vector<Frustum>();
+        if (state.windows.windows.empty())
+            return frustums; // headless: no views, no streaming decisions
+        state.sandbox.each<gpu::Camera>(
+            [&](ecs::Toy toy, gpu::Camera& camera)
+            {
+                if (!toy.is_enabled())
+                    return;
+                const windows::Window* window = nullptr;
+                for (const windows::Window& candidate : state.windows.windows)
+                {
+                    const bool is_main = &candidate == &state.windows.windows.front();
+                    if (camera.window.empty() ? is_main : camera.window == candidate.name)
+                    {
+                        window = &candidate;
+                        break;
+                    }
+                }
+                if (!window || window->status != windows::WindowStatus::OPEN)
+                    return;
+                const int width = static_cast<int>(camera.viewport.z * window->width);
+                const int height = static_cast<int>(camera.viewport.w * window->height);
+                if (width <= 0 || height <= 0)
+                    return;
+                frustums.push_back(
+                    gpu::make_frustum(
+                        camera,
+                        toy.get_world_transform(),
+                        static_cast<float>(width) / height));
+            });
+        return frustums;
+    }
+
+    /// @brief
+    /// Purpose: The world position of the first enabled camera, if any — what billboards
+    /// turn to face.
+    static std::optional<Vec3> primary_camera_position(RuntimeState& state)
+    {
+        auto position = std::optional<Vec3>();
+        state.sandbox.each<gpu::Camera>(
+            [&](ecs::Toy toy, gpu::Camera&)
+            {
+                if (position || !toy.is_enabled())
+                    return;
+                position = Vec3(toy.get_world_transform() * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            });
+        return position;
+    }
 
     bool run(Runtime& runtime)
     {
@@ -278,6 +333,17 @@ namespace tbx
             physics::update(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 
+        // Billboards face the active camera (opt-in; nothing rotates without a Billboard
+        // block) — done after scripts/physics settle transforms, before rendering.
+        if (const auto camera_position = primary_camera_position(state))
+            ecs::update_billboards(state.sandbox, *camera_position);
+
+        // The engine pulls streaming: every enabled camera contributes a frustum (after
+        // scripts/physics settled the transforms), and the sandbox loads what any of them
+        // can see. Also flushes a pending open().
+        const auto frustums = gather_camera_frustums(state);
+        state.sandbox.stream(state.assets, state.events, state.jobs, frustums);
+
         // The engine renders by default; hosts with their own pipeline opt out and draw
         // between run() calls instead. Every open window gets a graph run; the first is
         // the main one (shadow map, post chain, UI).
@@ -288,8 +354,8 @@ namespace tbx
                 if (window.status != windows::WindowStatus::OPEN || !window.backend)
                     continue;
                 windows::make_current(window);
-                gfx::set_viewport(window.width, window.height);
-                auto context = gfx::RenderContext {
+                gpu::set_viewport(window.width, window.height);
+                auto context = gpu::RenderContext {
                     .renderer = state.renderer,
                     .sandbox = state.sandbox,
                     .assets = state.assets,

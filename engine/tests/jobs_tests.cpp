@@ -9,7 +9,7 @@ namespace tbx::tests
     TEST(Jobs, RunReturnsCallableResultOnSuccess)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
 
         // Act
         const int result = jobs::wait(jobs::run(pool, [] { return 41 + 1; }));
@@ -21,7 +21,7 @@ namespace tbx::tests
     TEST(Jobs, WaitRethrowsWhenTaskThrows)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto throwing = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);
@@ -35,7 +35,7 @@ namespace tbx::tests
     TEST(Jobs, RunExecutesOffTheCallingThread)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         const auto main_thread = std::this_thread::get_id();
 
         // Act
@@ -48,7 +48,7 @@ namespace tbx::tests
     TEST(Jobs, TaskResultsChainAcrossAwaits)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto inner = [&]() -> jobs::Task<int>
         {
             co_await jobs::on_worker(pool);
@@ -71,7 +71,7 @@ namespace tbx::tests
     TEST(Jobs, TaskCarriesMoveOnlyResults)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto make = [&]() -> jobs::Task<std::unique_ptr<int>>
         {
             co_await jobs::on_worker(pool);
@@ -89,7 +89,7 @@ namespace tbx::tests
     TEST(Jobs, MainHopResumesOnDrain)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto hopped = std::atomic<bool>(false);
         auto task = [&]() -> jobs::Task<void>
         {
@@ -113,7 +113,7 @@ namespace tbx::tests
     TEST(Jobs, MainHopDoesNotRunWithoutDrain)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto ran = std::atomic<bool>(false);
         auto task = [&]() -> jobs::Task<void>
         {
@@ -134,7 +134,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForCoversEveryIndexExactlyOnce)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         constexpr size COUNT = 10'000;
         auto hits = std::vector<std::atomic<int>>(COUNT);
 
@@ -149,7 +149,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForWithZeroCountRunsNothing)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto calls = std::atomic<int>(0);
 
         // Act
@@ -162,7 +162,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForNestsInsideWorker)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto nested = [&]() -> jobs::Task<size>
         {
             co_await jobs::on_worker(pool);
@@ -181,7 +181,7 @@ namespace tbx::tests
     TEST(Jobs, DetachedTaskExceptionIsSwallowed)
     {
         // Arrange
-        auto pool = jobs::JobsState();
+        auto pool = jobs::State();
         auto throwing = [&]() -> jobs::Task<void>
         {
             co_await jobs::on_worker(pool);

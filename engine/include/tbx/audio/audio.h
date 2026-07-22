@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/assets/assets.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/utils/api.h"
 #include <atomic>
 #include <memory>
 
@@ -15,13 +15,13 @@ namespace tbx::audio
     /// Purpose: The audio module's state, held by value on the Runtime. The spatializer and
     /// output device live behind the backend seam (audio/steamaudio/ defines Backend; library
     /// types never escape that folder) and are built lazily on the first update.
-    struct TBX_API AudioState
+    struct TBX_API State
     {
-        AudioState();
-        ~AudioState();
+        State();
+        ~State();
 
-        AudioState(const AudioState&) = delete;
-        AudioState& operator=(const AudioState&) = delete;
+        State(const State&) = delete;
+        State& operator=(const State&) = delete;
 
         // Written on the main thread, read on the audio thread.
         std::atomic<float> master_volume = 1.0f;
@@ -35,9 +35,9 @@ namespace tbx::audio
     /// the spatializer (clips resolve through the asset states) and keeps the output device
     /// fed. Called by tbx::run() every frame.
     TBX_API void update(
-        AudioState& audio,
+        State& audio,
         ecs::Sandbox& sandbox,
-        assets::AssetsState& assets,
-        events::EventsState& events,
+        assets::State& assets,
+        events::State& events,
         float delta_time);
 }
