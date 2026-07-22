@@ -125,7 +125,7 @@ namespace tbx
                     .parent = NULL_TOY, // linked below
                     .stickers = source_info.stickers});
             destination.emplace<Transform>(id); // a default the block copy overwrites
-            for (const reflection::TypeInfo& type : reflection::get_type_registry().get_all())
+            for (const TypeInfo& type : get_type_registry().get_all())
             {
                 if (!type.has_block || !type.copy_block || !type.assign_block
                     || !type.has_block(from, source_id))
@@ -170,7 +170,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Reads a kit-file uuid string (dashes tolerated; malformed reads as nil).
-    static Uuid parse_toy_uuid(const serialization::Json& value)
+    static Uuid parse_toy_uuid(const Json& value)
     {
         if (!value.is_string())
             return {};
@@ -179,15 +179,15 @@ namespace tbx
         return Uuid::parse(text);
     }
 
-    serialization::Json serialize_toys(const ToyContainer& container)
+    Json serialize_toys(const ToyContainer& container)
     {
         auto& registry = *container._registry;
-        auto toys = serialization::Json::array();
+        auto toys = Json::array();
         for (const auto [id, info] : registry.view<ToyInfo>().each())
         {
             if (is_kit_content(registry, id))
                 continue;
-            auto toy_json = serialization::Json::object();
+            auto toy_json = Json::object();
             toy_json["uuid"] = info.uuid.to_string();
             toy_json["name"] = info.name;
             if (!info.is_enabled)
@@ -197,8 +197,8 @@ namespace tbx
             if (!info.stickers.empty())
                 toy_json["stickers"] = info.stickers;
 
-            auto blocks = serialization::Json::array();
-            for (const reflection::TypeInfo& type : reflection::get_type_registry().get_all())
+            auto blocks = Json::array();
+            for (const TypeInfo& type : get_type_registry().get_all())
             {
                 if (!type.has_block || !type.write_any || !type.copy_block
                     || !type.has_block(registry, id))
@@ -211,12 +211,12 @@ namespace tbx
         return toys;
     }
 
-    Result<void> deserialize_toys(ToyContainer& container, const serialization::Json& toys)
+    Result<void> deserialize_toys(ToyContainer& container, const Json& toys)
     {
         auto& registry = *container._registry;
         auto by_uuid = std::unordered_map<Uuid, ToyId>();
         auto parent_links = std::vector<std::pair<ToyId, Uuid>>();
-        for (const serialization::Json& toy_json : toys)
+        for (const Json& toy_json : toys)
         {
             const ToyId id = registry.create();
             auto info = ToyInfo {};
@@ -225,7 +225,7 @@ namespace tbx
             info.name = toy_json.value("name", std::string("Toy"));
             info.is_enabled = toy_json.value("is_enabled", true);
             if (toy_json.contains("stickers"))
-                for (const serialization::Json& sticker : toy_json["stickers"])
+                for (const Json& sticker : toy_json["stickers"])
                     info.stickers.push_back(sticker.get<std::string>());
             registry.emplace<ToyInfo>(id, std::move(info));
             registry.emplace<Transform>(id);
@@ -234,12 +234,12 @@ namespace tbx
             if (toy_json.contains("parent"))
                 parent_links.emplace_back(id, parse_toy_uuid(toy_json["parent"]));
 
-            for (const serialization::Json& block_json :
-                 toy_json.value("blocks", serialization::Json::array()))
+            for (const Json& block_json :
+                 toy_json.value("blocks", Json::array()))
             {
                 const auto type_name = block_json.value("type", std::string());
                 const uint64 hashed = hash(type_name);
-                const auto type = reflection::describe(hashed);
+                const auto type = describe_type(hashed);
                 if (!type || !type->get().read_any || !type->get().assign_block)
                 {
                     TBX_WARN("kit references unknown block type '{}'; skipped", type_name);

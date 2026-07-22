@@ -8,14 +8,14 @@
 #include <string>
 #include <vector>
 
-namespace tbx::serialization
+namespace tbx
 {
     /// @brief
     /// Purpose: How a registered type moves between memory and disk. DEFAULT walks the type's
     /// reflection as JSON; TEXT reads/writes the file as raw text through the type's
     /// `std::string text` member; CUSTOM calls the reader/writer functions given at
     /// registration.
-    enum class Format
+    enum class SerializerFormat
     {
         DEFAULT,
         TEXT,
@@ -24,14 +24,14 @@ namespace tbx::serialization
 
     /// @brief
     /// Purpose: Runtime record for one registered serializer — how a type reads from and
-    /// writes to disk (register_serializer<T> fills one; serialization::read/write dispatch
+    /// writes to disk (register_serializer<T> fills one; read/write dispatch
     /// on it).
-    struct TBX_API Info
+    struct TBX_API SerializerInfo
     {
         std::string name = {};
         // typeid(T).hash_code() — the registry's dedupe/lookup key.
         size type_hash = 0;
-        Format format = Format::DEFAULT;
+        SerializerFormat format = SerializerFormat::DEFAULT;
         // Reflected field names routed to the `<path>.meta` sidecar instead of the payload.
         std::vector<std::string> meta_fields = {};
         // The asset facet, stamped when the type derives tbx::Asset: the typeid shape of its

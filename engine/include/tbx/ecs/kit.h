@@ -21,10 +21,10 @@ namespace tbx
     /// when a camera looks its way and unloads when none does. Serializes like any block.
     struct TBX_API KitInstance : Block
     {
-        assets::Handle<Kit> kit = {};
+        AssetHandle<Kit> kit = {};
         bool streamed = false;
 
-        KitInstance& set_kit(assets::Handle<Kit> value)
+        KitInstance& set_kit(AssetHandle<Kit> value)
         {
             kit = std::move(value);
             return *this;
@@ -41,11 +41,11 @@ namespace tbx
     /// links, with nested kits sitting right in that hierarchy as toys wearing a KitInstance
     /// block. One concept covering prefab, scene, level, and chunk: a prefab is a kit you
     /// reference, a level is a kit you open as the world. It is an ordinary asset
-    /// (assets::Handle<Kit>, .kit files) that serializes itself and its children.
+    /// (AssetHandle<Kit>, .kit files) that serializes itself and its children.
     /// @details
     /// It shares its whole toy-container shape and query surface with Sandbox (ToyContainer);
     /// the registry is hidden. It stays copyable (it rides in the asset cache).
-    struct TBX_API Kit : ToyContainer, assets::Asset
+    struct TBX_API Kit : ToyContainer, Asset
     {
         // How far the kit reaches from its origin — streaming uses this for the load/unload
         // distance (authored, preserved across read/write).
@@ -55,10 +55,10 @@ namespace tbx
 
     /// @brief
     /// Purpose: Kit's registered reader — the .kit JSON schema ({toys, bounds}) into a kit
-    /// (toys spawned into its container). Call it through serialization::deserialize<Kit>(path).
+    /// (toys spawned into its container). Call it through deserialize<Kit>(path).
     TBX_API Result<Kit> deserialize_kit(const std::filesystem::path& path);
 
     /// @brief
-    /// Purpose: Kit's registered writer — call it through serialization::serialize(kit, path).
+    /// Purpose: Kit's registered writer — call it through serialize(kit, path).
     TBX_API Result<void> serialize_kit(const Kit& kit, const std::filesystem::path& path);
 }

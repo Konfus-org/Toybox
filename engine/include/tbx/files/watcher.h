@@ -14,7 +14,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns the polling thread; stops on destruction (RAII). Thread Safety: The
     /// callback runs ON THE WATCHER THREAD — callers marshal to the main thread themselves
-    /// (e.g. via jobs::post_main).
+    /// (e.g. via post_main).
     class TBX_API FileWatcher final
     {
       public:

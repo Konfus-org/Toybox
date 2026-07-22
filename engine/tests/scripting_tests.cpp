@@ -26,14 +26,14 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
+        initialize(runtime); // wires the VM backends
+        const auto mover = load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: start renamed once; update advanced position twice.
         EXPECT_EQ(toy.get_name(), "started");
@@ -46,10 +46,10 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
+        initialize(runtime); // wires the VM backends
 
         // Act
-        const auto result = scripts::load_source(runtime.scripts, "broken", "this is not luau ((");
+        const auto result = load_source(runtime.scripts, "broken", "this is not luau ((");
 
         // Assert
         EXPECT_FALSE(result.has_value());
@@ -61,25 +61,25 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
+        initialize(runtime); // wires the VM backends
         auto reload_count = 0;
         runtime.events.script_reloaded.subscribe(
             &reload_count,
-            [&reload_count](const events::ScriptReloaded&) { ++reload_count; });
-        const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
+            [&reload_count](const ScriptReloaded&) { ++reload_count; });
+        const auto mover = load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         toy.set_name("renamed-by-test");
 
         // Act: v2 renames differently on start; instance must restart.
-        const auto reloaded = scripts::reload_source(runtime.scripts, "mover", R"(
+        const auto reloaded = reload_source(runtime.scripts, "mover", R"(
 function start(toy)
     toy:set_name("restarted")
 end
 )");
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        events::update(runtime.events);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_events(runtime.events);
 
         // Assert
         ASSERT_TRUE(reloaded.has_value()) << reloaded.error();
@@ -93,15 +93,15 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
+        initialize(runtime); // wires the VM backends
+        const auto mover = load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Act
-        const auto reloaded = scripts::reload_source(runtime.scripts, "mover", "broken ((");
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        const auto reloaded = reload_source(runtime.scripts, "mover", "broken ((");
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: reload failed, old script keeps running.
         EXPECT_FALSE(reloaded.has_value());
@@ -114,18 +114,18 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto spawner = scripts::load_source(runtime.scripts, "spawner", R"(
+        initialize(runtime); // wires the VM backends
+        const auto spawner = load_source(runtime.scripts, "spawner", R"(
 function start(toy)
     local friend = tbx.sandbox.spawn("Friend")
     friend:sticker("summoned")
 end
 )");
         ASSERT_TRUE(spawner.has_value());
-        sandbox.spawn("Summoner").with(scripts::Script {.source = *spawner});
+        sandbox.spawn("Summoner").with(Script {.source = *spawner});
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert
         const auto summoned = sandbox.find("Friend");
@@ -139,23 +139,23 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto stepper = scripts::load_source(runtime.scripts, "stepper", R"(
+        initialize(runtime); // wires the VM backends
+        const auto stepper = load_source(runtime.scripts, "stepper", R"(
 function fixed_update(toy, delta_time)
     local position = toy.Transform.position
     toy.Transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
 end
 )");
         ASSERT_TRUE(stepper.has_value());
-        Toy toy = sandbox.spawn("Stepper").with(scripts::Script {.source = *stepper});
+        Toy toy = sandbox.spawn("Stepper").with(Script {.source = *stepper});
 
         // Act: variable updates do not run the fixed hook; fixed steps do.
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         const float after_updates = toy.get_block<Transform>().position.x;
-        scripts::fixed_update(runtime.scripts, 1.0f / 60.0f);
-        scripts::fixed_update(runtime.scripts, 1.0f / 60.0f);
-        scripts::fixed_update(runtime.scripts, 1.0f / 60.0f);
+        fixed_update_scripts(runtime.scripts, 1.0f / 60.0f);
+        fixed_update_scripts(runtime.scripts, 1.0f / 60.0f);
+        fixed_update_scripts(runtime.scripts, 1.0f / 60.0f);
 
         // Assert
         EXPECT_EQ(after_updates, 0.0f);
@@ -168,8 +168,8 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto builder = scripts::load_source(runtime.scripts, "builder", R"(
+        initialize(runtime); // wires the VM backends
+        const auto builder = load_source(runtime.scripts, "builder", R"(
 function start(toy)
     if toy.RigidBody == nil then
         toy:set_name("bare")
@@ -178,16 +178,16 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(builder.has_value());
-        Toy toy = sandbox.spawn("Buildable").with(scripts::Script {.source = *builder});
+        Toy toy = sandbox.spawn("Buildable").with(Script {.source = *builder});
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: the nil read proved absence, the assignment attached and populated.
         EXPECT_EQ(toy.get_name(), "bare");
-        ASSERT_TRUE(toy.has_block<physics::RigidBody>());
-        EXPECT_EQ(toy.get_block<physics::RigidBody>().mass, 5.0f);
-        EXPECT_TRUE(toy.get_block<physics::RigidBody>().is_kinematic);
+        ASSERT_TRUE(toy.has_block<RigidBody>());
+        EXPECT_EQ(toy.get_block<RigidBody>().mass, 5.0f);
+        EXPECT_TRUE(toy.get_block<RigidBody>().is_kinematic);
     }
 
     TEST(Scripts, TbxMathMirrorsTheEngineMathLibrary)
@@ -196,8 +196,8 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto mathy = scripts::load_source(runtime.scripts, "mathy", R"(
+        initialize(runtime); // wires the VM backends
+        const auto mathy = load_source(runtime.scripts, "mathy", R"(
 function start(toy)
     local moved = tbx.math.add({ x = 1.0, y = 2.0, z = 3.0 }, { x = 1.0, y = 0.0, z = 0.0 })
     local yawed = tbx.math.rotate(
@@ -207,10 +207,10 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(mathy.has_value());
-        Toy toy = sandbox.spawn("Mathy").with(scripts::Script {.source = *mathy});
+        Toy toy = sandbox.spawn("Mathy").with(Script {.source = *mathy});
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: (1+1) + rotate(-Z by 90° yaw).x = 2 + (-1) = 1.
         const Vec3 position = toy.get_block<Transform>().position;
@@ -225,8 +225,8 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto typed = scripts::load_source(runtime.scripts, "typed", R"(
+        initialize(runtime); // wires the VM backends
+        const auto typed = load_source(runtime.scripts, "typed", R"(
 function start(toy)
     -- tbx.Key/tbx.MouseButton are enum tables; prove they exist and are numbers.
     toy.Transform.position = {
@@ -237,16 +237,16 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(typed.has_value());
-        Toy toy = sandbox.spawn("Typist").with(scripts::Script {.source = *typed});
+        Toy toy = sandbox.spawn("Typist").with(Script {.source = *typed});
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert
         const Vec3 position = toy.get_block<Transform>().position;
-        EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(input::Key::W)));
-        EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(input::Key::ESCAPE)));
-        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(input::MouseButton::LEFT)));
+        EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(Key::W)));
+        EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(Key::ESCAPE)));
+        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(MouseButton::LEFT)));
     }
 
     TEST(Scripts, DisabledToysDoNotRunScripts)
@@ -255,19 +255,19 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
+        initialize(runtime); // wires the VM backends
+        const auto mover = load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
         toy.set_enabled(false);
 
         // Act
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: neither start nor update ran; re-enabling wakes it up.
         EXPECT_EQ(toy.get_name(), "Grunt");
         toy.set_enabled(true);
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         EXPECT_EQ(toy.get_name(), "started");
     }
 
@@ -277,14 +277,14 @@ end
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        scripts::initialize(runtime); // wires the VM backends
-        const auto silent = scripts::load_source(runtime.scripts, "silent", "local nothing_defined = true");
+        initialize(runtime); // wires the VM backends
+        const auto silent = load_source(runtime.scripts, "silent", "local nothing_defined = true");
         ASSERT_TRUE(silent.has_value());
-        sandbox.spawn("Quiet").with(scripts::Script {.source = *silent});
+        sandbox.spawn("Quiet").with(Script {.source = *silent});
 
         // Act / Assert: surviving both frames IS the behavior.
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         SUCCEED();
     }
 }

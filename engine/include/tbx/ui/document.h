@@ -5,14 +5,14 @@
 #include "tbx/ui/font.h"
 #include <string>
 
-namespace tbx::ui
+namespace tbx
 {
     /// @brief
     /// Purpose: UI document asset (.rml) — plain RML/RCSS text (Format::TEXT) handed to
     /// tbx::ui.
-    struct TBX_API Document : assets::Asset
+    struct TBX_API Document : Asset
     {
         std::string text = {};
-        assets::Handle<Font> font = {};
+        AssetHandle<Font> font = {};
     };
 }

@@ -38,11 +38,11 @@ namespace tbx
     {
         if (!state.windows.windows.empty())
         {
-            windows::Window& window = state.windows.windows.front();
+            Window& window = state.windows.windows.front();
             window.title = app.config.title;
             if (app.config.icon.is_set())
             {
-                if (const auto icon = assets::load_now(state.assets, state.events, app.config.icon))
+                if (const auto icon = load_asset_now(state.assets, state.events, app.config.icon))
                 {
                     window.icon_width = icon->get().width;
                     window.icon_height = icon->get().height;
@@ -83,18 +83,18 @@ namespace tbx
         app.status = AppStatus::RUNNING;
         state.frame.previous = std::chrono::steady_clock::now();
         // Stands reflection + serializers up, sets the root, and discovers every asset.
-        assets::initialize(state.assets, state.events, state.jobs, app.config.root_dir);
+        initialize_assets(state.assets, state.events, state.jobs, app.config.root_dir);
         apply_settings(app, state);
 
         // The engine ui font is an ordinary asset (resolved through the engine resources
-        // root); games call ui::set_font for their own faces.
+        // root); games call set_font for their own faces.
         if (!app.config.root_dir.empty())
         {
-            if (const auto font = assets::load_now(
+            if (const auto font = load_asset_now(
                     state.assets,
                     state.events,
-                    assets::Handle<ui::Font>("Fonts/MontserratMedium.otf")))
-                ui::set_font(state.ui, font->get(), "Montserrat");
+                    AssetHandle<Font>("Fonts/MontserratMedium.otf")))
+                set_font(state.ui, font->get(), "Montserrat");
             else
                 TBX_WARN("builtin ui font: {}", font.error());
         }
@@ -109,10 +109,10 @@ namespace tbx
             const auto& entry = *it;
             if (entry.path().extension() != ".tapp")
                 continue;
-            if (const auto self = assets::load_now(
+            if (const auto self = load_asset_now(
                     state.assets,
                     state.events,
-                    assets::Handle<App>(entry.path().filename().generic_string()));
+                    AssetHandle<App>(entry.path().filename().generic_string()));
                 !self)
                 TBX_WARN("app config: {}", self.error());
             break; // the first .tapp is THE app file
@@ -121,12 +121,12 @@ namespace tbx
         // Subscribe to settings reload events
         state.events.asset_reloaded.subscribe(
             &state,
-            [&state](const events::AssetReloaded& reloaded)
+            [&state](const AssetReloaded& reloaded)
             {
                 if (std::string_view(reloaded.extension.data()) != ".tapp")
                     return;
                 const auto fresh =
-                    assets::load_now(state.assets, state.events, assets::Handle<App>(reloaded.id));
+                    load_asset_now(state.assets, state.events, AssetHandle<App>(reloaded.id));
                 if (!fresh)
                 {
                     TBX_ERROR("app config reload: {}", fresh.error());
@@ -146,7 +146,7 @@ namespace tbx
         // Idle-collected or hot-reloaded assets drop their render-side caches.
         state.events.asset_unloaded.subscribe(
             &state,
-            [&state](const events::AssetUnloaded& unloaded)
+            [&state](const AssetUnloaded& unloaded)
             {
                 gpu::forget_asset(state.renderer, unloaded.id);
             });
@@ -154,20 +154,20 @@ namespace tbx
         // Changed .luau assets hot-reload their scripts; instances restart next update.
         state.events.asset_reloaded.subscribe(
             &state,
-            [&state](const events::AssetReloaded& reloaded)
+            [&state](const AssetReloaded& reloaded)
             {
                 gpu::forget_asset(
                     state.renderer,
                     reloaded.id); // re-upload GPU copies of the fresh data
-                if (!scripts::owns(state.scripts, reloaded.extension.data()))
+                if (!owns_script_extension(state.scripts, reloaded.extension.data()))
                     return; // not a script source — nothing to (re)register
-                const auto script = assets::load_now(
+                const auto script = load_asset_now(
                     state.assets,
                     state.events,
-                    assets::Handle<scripts::Source>(reloaded.id));
+                    AssetHandle<ScriptSource>(reloaded.id));
                 if (script)
                 {
-                    if (const auto result = scripts::reload_source(
+                    if (const auto result = reload_source(
                             state.scripts,
                             reloaded.id,
                             script->get().name,
@@ -183,7 +183,7 @@ namespace tbx
         // the sandbox by hand instead.
         if (app.config.sandbox.is_set())
         {
-            const auto level = assets::load_now(state.assets, state.events, app.config.sandbox);
+            const auto level = load_asset_now(state.assets, state.events, app.config.sandbox);
             if (!level)
             {
                 TBX_ERROR("level '{}': {}", app.config.sandbox.path, level.error());
@@ -193,7 +193,7 @@ namespace tbx
                 state.sandbox.open(level->get());
         }
 
-        scripts::initialize(state);
+        initialize(state);
 
         if (state.windows.windows.empty())
             TBX_INFO("Toybox app up (headless)");
@@ -221,8 +221,8 @@ namespace tbx
             {
                 if (!toy.is_enabled())
                     return;
-                const windows::Window* window = nullptr;
-                for (const windows::Window& candidate : state.windows.windows)
+                const Window* window = nullptr;
+                for (const Window& candidate : state.windows.windows)
                 {
                     const bool is_main = &candidate == &state.windows.windows.front();
                     if (camera.window.empty() ? is_main : camera.window == candidate.name)
@@ -231,7 +231,7 @@ namespace tbx
                         break;
                     }
                 }
-                if (!window || window->status != windows::WindowStatus::OPEN)
+                if (!window || window->status != WindowStatus::OPEN)
                     return;
                 const int width = static_cast<int>(camera.viewport.z * window->width);
                 const int height = static_cast<int>(camera.viewport.w * window->height);
@@ -270,21 +270,21 @@ namespace tbx
         if (app.status == AppStatus::STOPPED)
             return false;
         if (app.status == AppStatus::RUNNING)
-            cmdline::update(state);
+            update_cmdline(state);
         if (app.status == AppStatus::CREATED)
             boot(state);
 
         // The windows present what was drawn since the last run() call, then pump OS events
         // (each window's first frame skips its present cleanly). The main window closing
         // stops the app; other windows just close.
-        input::pump(state.input);
-        windows::update(state.windows, state.input, state.events);
+        pump(state.input);
+        update_windows(state.windows, state.input, state.events);
         const bool window_alive =
             state.windows.windows.empty()
-            || state.windows.windows.front().status == windows::WindowStatus::OPEN;
+            || state.windows.windows.front().status == WindowStatus::OPEN;
 
-        jobs::update(state.jobs);
-        events::update(state.events);
+        update_jobs(state.jobs);
+        update_events(state.events);
 
         if (!window_alive || app.status == AppStatus::QUIT_REQUESTED)
         {
@@ -299,7 +299,7 @@ namespace tbx
         state.frame.previous = now;
         ++state.frame.index;
 
-        debug::view::update(
+        update_debug_view(
             state.debug,
             state.input,
             state.sandbox,
@@ -307,20 +307,20 @@ namespace tbx
             state.windows,
             state.ui,
             state.frame.delta_time);
-        assets::update(state.assets, state.events);
-        scripts::update(
+        update_assets(state.assets, state.events);
+        update_scripts(
             state.scripts,
             state.sandbox,
             state.assets,
             state.events,
             state.frame.delta_time);
-        audio::update(
+        update_audio(
             state.audio,
             state.sandbox,
             state.assets,
             state.events,
             state.frame.delta_time);
-        ui::update(state.ui, state.frame.delta_time);
+        update_ui(state.ui, state.frame.delta_time);
 
         const float fixed_step = app.settings.physics.fixed_timestep > 0.0f
                                      ? app.settings.physics.fixed_timestep
@@ -329,8 +329,8 @@ namespace tbx
         while (state.frame.accumulator >= fixed_step)
         {
             state.frame.accumulator -= fixed_step;
-            scripts::fixed_update(state.scripts, fixed_step);
-            physics::update(state.physics, state.sandbox, state.assets, state.events, fixed_step);
+            fixed_update_scripts(state.scripts, fixed_step);
+            update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 
         // Billboards face the active camera (opt-in; nothing rotates without a Billboard
@@ -349,11 +349,11 @@ namespace tbx
         // the main one (shadow map, post chain, UI).
         if (!app.settings.graphics.is_custom_pipeline)
         {
-            for (windows::Window& window : state.windows.windows)
+            for (Window& window : state.windows.windows)
             {
-                if (window.status != windows::WindowStatus::OPEN || !window.backend)
+                if (window.status != WindowStatus::OPEN || !window.backend)
                     continue;
-                windows::make_current(window);
+                make_current(window);
                 gpu::set_viewport(window.width, window.height);
                 auto context = gpu::RenderContext {
                     .renderer = state.renderer,

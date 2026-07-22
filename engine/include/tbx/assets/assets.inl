@@ -1,14 +1,14 @@
 #pragma once
 // Template bodies for the assets module — included by assets.h.
 
-namespace tbx::assets
+namespace tbx
 {
     /// @brief
-    /// Purpose: Typed view over find().
+    /// Purpose: Typed view over find_asset().
     template <typename TAsset>
-    std::optional<std::reference_wrapper<TAsset>> find_resident(State& state, const Uuid& id)
+    std::optional<std::reference_wrapper<TAsset>> find_resident(AssetsState& state, const Uuid& id)
     {
-        const auto stored = find(state, id);
+        const auto stored = find_asset(state, id);
         if (!stored)
             return {};
         auto* asset = std::any_cast<TAsset>(&stored->get());
@@ -18,11 +18,11 @@ namespace tbx::assets
     }
 
     template <typename TAsset>
-    jobs::Task<Result<std::reference_wrapper<TAsset>>> load(
-        State& state,
-        events::State& events,
-        jobs::State& jobs,
-        Handle<TAsset> handle)
+    Task<Result<std::reference_wrapper<TAsset>>> load_asset(
+        AssetsState& state,
+        EventsState& events,
+        JobsState& jobs,
+        AssetHandle<TAsset> handle)
     {
         auto resolved = resolve_handle(state, handle.id, handle.path);
         if (!resolved)
@@ -33,15 +33,15 @@ namespace tbx::assets
             co_return fail("asset {} has no tracked path", resolved->id.to_string());
 
         // Resolve on this thread so the worker section below touches nothing but the file.
-        const auto disk_path = resolve_path(state, resolved->relative_path);
-        co_await jobs::on_worker(jobs);
-        auto decoded = serialization::deserialize<TAsset>(disk_path);
-        co_await jobs::on_main(jobs);
+        const auto disk_path = resolve_asset_path(state, resolved->relative_path);
+        co_await on_worker(jobs);
+        auto decoded = deserialize<TAsset>(disk_path);
+        co_await on_main(jobs);
         if (!decoded)
             co_return std::unexpected(decoded.error());
         decoded->id = resolved->id; // a loaded asset knows its own handle
         decoded->path = resolved->relative_path;
-        store(
+        store_asset(
             state,
             events,
             resolved->id,
@@ -53,10 +53,10 @@ namespace tbx::assets
     }
 
     template <typename TAsset>
-    Result<std::reference_wrapper<TAsset>> load_now(
-        State& state,
-        events::State& events,
-        Handle<TAsset> handle)
+    Result<std::reference_wrapper<TAsset>> load_asset_now(
+        AssetsState& state,
+        EventsState& events,
+        AssetHandle<TAsset> handle)
     {
         auto resolved = resolve_handle(state, handle.id, handle.path);
         if (!resolved)
@@ -65,12 +65,12 @@ namespace tbx::assets
             return ok(std::ref(resident->get()));
         if (resolved->relative_path.empty())
             return fail("asset {} has no tracked path", resolved->id.to_string());
-        auto decoded = serialization::deserialize<TAsset>(resolve_path(state, resolved->relative_path));
+        auto decoded = deserialize<TAsset>(resolve_asset_path(state, resolved->relative_path));
         if (!decoded)
             return std::unexpected(decoded.error());
         decoded->id = resolved->id; // a loaded asset knows its own handle
         decoded->path = resolved->relative_path;
-        store(
+        store_asset(
             state,
             events,
             resolved->id,

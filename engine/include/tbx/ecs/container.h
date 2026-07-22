@@ -108,8 +108,8 @@ namespace tbx
         // Toy reads _registry to bind its handle; the floating serializers walk it. Nothing
         // else names it.
         friend class Toy;
-        friend serialization::Json serialize_toys(const ToyContainer&);
-        friend Result<void> deserialize_toys(ToyContainer&, const serialization::Json&);
+        friend Json serialize_toys(const ToyContainer&);
+        friend Result<void> deserialize_toys(ToyContainer&, const Json&);
     };
 
     // The container-taking Toy constructor — defined here where ToyContainer is complete and
@@ -125,10 +125,10 @@ namespace tbx
     /// and Sandbox both use (a kit instance's regenerated children are skipped). A floating
     /// function over the toy graph; a kit/level serializer wraps it with its own fields
     /// (bounds, ...) under its own extension.
-    TBX_API serialization::Json serialize_toys(const ToyContainer& container);
+    TBX_API Json serialize_toys(const ToyContainer& container);
 
     /// @brief
     /// Purpose: Spawns a "toys" JSON array into a container, linking parents by uuid — the
     /// shared deserialize half.
-    TBX_API Result<void> deserialize_toys(ToyContainer& container, const serialization::Json& toys);
+    TBX_API Result<void> deserialize_toys(ToyContainer& container, const Json& toys);
 }

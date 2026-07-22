@@ -32,7 +32,7 @@
 #include <unordered_map>
 
 
-namespace tbx::physics
+namespace tbx
 {
     //// LAYERS ////
 
@@ -121,8 +121,8 @@ namespace tbx::physics
 
     /// @brief
     /// Purpose: The whole simulation behind the boundary: Jolt world, filters, mirrored
-    /// bodies. State owns exactly one, built lazily on the first update.
-    struct State::Simulation
+    /// bodies. PhysicsState owns exactly one, built lazily on the first update.
+    struct PhysicsState::Simulation
     {
         JPH::TempAllocatorImpl temp;
         JPH::JobSystemThreadPool jolt_jobs;
@@ -145,10 +145,10 @@ namespace tbx::physics
         }
     };
 
-    State::State() = default;
-    State::~State() = default;
+    PhysicsState::PhysicsState() = default;
+    PhysicsState::~PhysicsState() = default;
 
-    static State::Simulation& ensure_simulation(State& state)
+    static PhysicsState::Simulation& ensure_simulation(PhysicsState& state)
     {
         // Jolt's allocator/factory/type registration is inherently process-global; it is set
         // up exactly once and deliberately lives (leaks) for the process lifetime - Runtimes
@@ -162,7 +162,7 @@ namespace tbx::physics
             JPH::RegisterTypes();
         }
         if (!state.simulation)
-            state.simulation = std::make_unique<State::Simulation>();
+            state.simulation = std::make_unique<PhysicsState::Simulation>();
         return *state.simulation;
     }
 
@@ -200,8 +200,8 @@ namespace tbx::physics
     /// Purpose: A concave mesh shape from a gpu::Renderer's geometry: imported model triangles
     /// (scaled by the transform) or an analytic stand-in for the builtin primitives.
     static JPH::ShapeRefC make_mesh_shape(
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         Toy toy,
         const Vec3& scale)
     {
@@ -213,15 +213,15 @@ namespace tbx::physics
         }
 
         // Builtin primitives get their exact analytic shapes.
-        if (!renderer->model.is_set() || renderer->model.id == builtin::CUBE.id)
+        if (!renderer->model.is_set() || renderer->model.id == Builtin::CUBE.id)
             return make_fallback_box(scale);
-        if (renderer->model.id == builtin::SPHERE.id)
+        if (renderer->model.id == Builtin::SPHERE.id)
             return new JPH::SphereShape(std::max({scale.x, scale.y, scale.z}) * 0.5f);
-        if (renderer->model.id == builtin::PLANE.id)
+        if (renderer->model.id == Builtin::PLANE.id)
             return new JPH::BoxShape(
                 JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
 
-        if (const auto model = assets::load_now(assets, events, renderer->model))
+        if (const auto model = load_asset_now(assets, events, renderer->model))
         {
             // Interleaved position(3)+normal(3)+uv(2) triangle list from the importer.
             const auto& vertices = model->get().vertices;
@@ -255,8 +255,8 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Maps the shared Shape vocabulary onto Jolt shapes.
     static JPH::ShapeRefC make_shape(
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         const Collider& collider,
         Toy toy,
         const Vec3& scale)
@@ -302,15 +302,15 @@ namespace tbx::physics
 
     //// BOUNDARY ////
 
-    void update(
-        State& state,
+    void update_physics(
+        PhysicsState& state,
         Sandbox& sandbox,
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         const float fixed_delta_time)
     {
-        reflection::initialize();
-        State::Simulation& physics = ensure_simulation(state);
+        initialize_reflection();
+        PhysicsState::Simulation& physics = ensure_simulation(state);
         // Gravity is a plain field on the state; whatever it says now is what this step uses.
         physics.system.SetGravity(to_jolt(state.gravity));
         JPH::BodyInterface& bodies = physics.system.GetBodyInterface();
@@ -413,14 +413,14 @@ namespace tbx::physics
     }
 
     std::optional<RaycastHit> raycast(
-        State& state,
+        PhysicsState& state,
         const Vec3& origin,
         const Vec3& direction,
         const float max_distance)
     {
         if (!state.simulation)
             return {};
-        State::Simulation& physics = *state.simulation;
+        PhysicsState::Simulation& physics = *state.simulation;
         const Vec3 normalized = normalize(direction);
         const auto ray = JPH::RRayCast(to_jolt(origin), to_jolt(normalized * max_distance));
         auto hit = JPH::RayCastResult {};

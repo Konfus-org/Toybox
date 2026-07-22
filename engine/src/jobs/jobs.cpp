@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace tbx::jobs
+namespace tbx
 {
     /// @brief
     /// Purpose: Fire-and-forget coroutine shell: starts immediately and self-destroys at the
@@ -90,7 +90,7 @@ namespace tbx::jobs
         }
     }
 
-    static void worker_loop(State& state, const std::stop_token& stop)
+    static void worker_loop(JobsState& state, const std::stop_token& stop)
     {
         while (true)
         {
@@ -113,7 +113,7 @@ namespace tbx::jobs
         }
     }
 
-    static State& ensure_jobs_ready(State& state)
+    static JobsState& ensure_jobs_ready(JobsState& state)
     {
         if (state.workers.empty())
         {
@@ -132,13 +132,13 @@ namespace tbx::jobs
         return state;
     }
 
-    static void post_main_to(State& state, std::function<void()> job)
+    static void post_main_to(JobsState& state, std::function<void()> job)
     {
         std::scoped_lock lock(state.main_mutex);
         state.main_queue.push_back(std::move(job));
     }
 
-    static void post_worker_to(State& state, std::function<void()> job)
+    static void post_worker_to(JobsState& state, std::function<void()> job)
     {
         {
             std::scoped_lock lock(state.worker_mutex);
@@ -149,7 +149,7 @@ namespace tbx::jobs
 
     //// BOUNDARY ////
 
-    void update(State& state)
+    void update_jobs(JobsState& state)
     {
         std::vector<std::function<void()>> jobs;
         {
@@ -161,26 +161,26 @@ namespace tbx::jobs
             job();
     }
 
-    size get_worker_count(State& jobs)
+    size get_worker_count(JobsState& jobs)
     {
         return ensure_jobs_ready(jobs).workers.size();
     }
 
-    ScheduleOn on_main(State& jobs)
+    ScheduleOn on_main(JobsState& jobs)
     {
         return {.jobs = jobs, .resume_on_main = true};
     }
 
-    ScheduleOn on_worker(State& jobs)
+    ScheduleOn on_worker(JobsState& jobs)
     {
         return {.jobs = jobs, .resume_on_main = false};
     }
 
-    void parallel_for(State& pool, size count, const std::function<void(size)>& action)
+    void parallel_for(JobsState& pool, size count, const std::function<void(size)>& action)
     {
         if (count == 0)
             return;
-        State& jobs = ensure_jobs_ready(pool);
+        JobsState& jobs = ensure_jobs_ready(pool);
         const size helpers = jobs.workers.size();
         if (count == 1 || helpers == 0)
         {
@@ -205,22 +205,22 @@ namespace tbx::jobs
         state->finished.acquire();
     }
 
-    void post_main(State& jobs, std::function<void()> job)
+    void post_main(JobsState& jobs, std::function<void()> job)
     {
         post_main_to(ensure_jobs_ready(jobs), std::move(job));
     }
 
-    void post_worker(State& jobs, std::function<void()> job)
+    void post_worker(JobsState& jobs, std::function<void()> job)
     {
         post_worker_to(ensure_jobs_ready(jobs), std::move(job));
     }
 
-    void start(Task<void> task)
+    void start_detached(Task<void> task)
     {
         run_detached(std::move(task));
     }
 
-    State::~State()
+    JobsState::~JobsState()
     {
         for (auto& worker : workers)
             worker.request_stop();
@@ -230,7 +230,7 @@ namespace tbx::jobs
 
     void ScheduleOn::await_suspend(std::coroutine_handle<> handle) const
     {
-        State& pool = ensure_jobs_ready(jobs.get());
+        JobsState& pool = ensure_jobs_ready(jobs.get());
         if (resume_on_main)
             post_main_to(
                 pool,

@@ -1,8 +1,8 @@
 #include "tbx/events/events.h"
 
-namespace tbx::events
+namespace tbx
 {
-    void update(State& state)
+    void update_events(EventsState& state)
     {
         state.queue.drain();
     }

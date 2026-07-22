@@ -1,7 +1,7 @@
 #include "tbx/ui/font.h"
 #include "tbx/files/files.h"
 
-namespace tbx::ui
+namespace tbx
 {
     Result<Font> deserialize_font(const std::filesystem::path& path)
     {

@@ -13,7 +13,7 @@
 #include <tbx_serialization_backend.h>
 #include <vector>
 
-namespace tbx::reflection
+namespace tbx
 {
     /// @brief
     /// Purpose: Runtime reflection record for one registered method: its name plus a
@@ -37,7 +37,7 @@ namespace tbx::reflection
         size size_bytes = 0;
         uint32 version = 1;
         // Called by the JSON walker when stored version < current; edits the raw JSON in place.
-        std::function<void(serialization::Json&, uint32)> migrate = {};
+        std::function<void(Json&, uint32)> migrate = {};
         std::vector<FieldInfo> fields = {};
         std::vector<MethodInfo> methods = {};
         void (*construct)(std::byte*) = nullptr;
@@ -45,8 +45,8 @@ namespace tbx::reflection
         // The type-erased JSON round trip, stamped for every registered type — the one
         // serialize/deserialize boundary for strongly-typed data held behind std::any
         // (kit blocks). read_any returns an empty any on failure.
-        std::any (*read_any)(const serialization::Json&) = nullptr;
-        serialization::Json (*write_any)(const std::any&) = nullptr;
+        std::any (*read_any)(const Json&) = nullptr;
+        Json (*write_any)(const std::any&) = nullptr;
         // The block facet, stamped automatically when the type derives tbx::Block:
         // type-erased component accessors over the shared ecs seam (ecs/registry.h, a
         // public seam like Json). Null for plain reflected types — the registry itself is
@@ -58,6 +58,6 @@ namespace tbx::reflection
         bool (*assign_block)(Registry&, ToyId, const std::any&) = nullptr;
         std::any (*copy_block)(Registry&, ToyId) = nullptr;
         // How a type moves between memory and disk is NOT reflection's business: that lives
-        // on the serializer registry (tbx::serialization::register_serializer<T>).
+        // on the serializer registry (tbx::register_serializer<T>).
     };
 }

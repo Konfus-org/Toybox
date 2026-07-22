@@ -11,7 +11,7 @@ namespace tbx::tests
     {
         // Arrange: a .tapp with every settings group, handles authored as paths. The App
         // decodes generically through its reflected schema, so registration comes first.
-        reflection::initialize();
+        initialize_reflection();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Game.tapp";
@@ -35,7 +35,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = serialization::deserialize<App>(tapp);
+        const auto loaded = deserialize<App>(tapp);
 
         // Assert: fields land, handles carry authoring paths.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -56,7 +56,7 @@ namespace tbx::tests
     TEST(App, MissingTappKeysKeepDefaults)
     {
         // Arrange
-        reflection::initialize();
+        initialize_reflection();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Sparse.tapp";
@@ -66,7 +66,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = serialization::deserialize<App>(tapp);
+        const auto loaded = deserialize<App>(tapp);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();

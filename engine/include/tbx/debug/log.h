@@ -10,7 +10,7 @@
 //
 // Log through the TBX_TRACE/TBX_INFO/TBX_WARN/TBX_ERROR macros: they stamp the source
 // file/line onto every message, and levels below TBX_LOG_LEVEL compile out entirely.
-namespace tbx::debug
+namespace tbx
 {
     /// @brief
     /// Purpose: Severity of one log line. (FAIL, not ERROR — windows.h steals that name.)
@@ -62,28 +62,28 @@ namespace tbx::debug
 
 #if TBX_LOG_LEVEL <= 0
     #define TBX_TRACE(...)                                                                         \
-        ::tbx::debug::log_message(::tbx::debug::LogLevel::TRACE, __FILE__, __LINE__, __VA_ARGS__)
+        ::tbx::log_message(::tbx::LogLevel::TRACE, __FILE__, __LINE__, __VA_ARGS__)
 #else
     #define TBX_TRACE(...) ((void)0)
 #endif
 
 #if TBX_LOG_LEVEL <= 1
     #define TBX_INFO(...)                                                                          \
-        ::tbx::debug::log_message(::tbx::debug::LogLevel::INFO, __FILE__, __LINE__, __VA_ARGS__)
+        ::tbx::log_message(::tbx::LogLevel::INFO, __FILE__, __LINE__, __VA_ARGS__)
 #else
     #define TBX_INFO(...) ((void)0)
 #endif
 
 #if TBX_LOG_LEVEL <= 2
     #define TBX_WARN(...)                                                                          \
-        ::tbx::debug::log_message(::tbx::debug::LogLevel::WARN, __FILE__, __LINE__, __VA_ARGS__)
+        ::tbx::log_message(::tbx::LogLevel::WARN, __FILE__, __LINE__, __VA_ARGS__)
 #else
     #define TBX_WARN(...) ((void)0)
 #endif
 
 #if TBX_LOG_LEVEL <= 3
     #define TBX_ERROR(...)                                                                         \
-        ::tbx::debug::log_message(::tbx::debug::LogLevel::FAIL, __FILE__, __LINE__, __VA_ARGS__)
+        ::tbx::log_message(::tbx::LogLevel::FAIL, __FILE__, __LINE__, __VA_ARGS__)
 #else
     #define TBX_ERROR(...) ((void)0)
 #endif

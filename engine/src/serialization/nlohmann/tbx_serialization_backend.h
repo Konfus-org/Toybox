@@ -2,7 +2,7 @@
 #include <nlohmann/json.hpp>
 
 // The nlohmann serialization backend's TYPE surface: the Json document alias.
-namespace tbx::serialization
+namespace tbx
 {
     using Json = nlohmann::json;
 }

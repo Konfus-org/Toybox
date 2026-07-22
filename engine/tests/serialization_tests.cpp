@@ -52,19 +52,19 @@ namespace tbx::tests
         if (g_registered)
             return;
         g_registered = true;
-        reflection::register_type<DiskThing>("DiskThing")
+        register_type<DiskThing>("DiskThing")
             .field("answer", &DiskThing::answer)
             .field("label", &DiskThing::label);
-        serialization::register_serializer<DiskThing>()
-            .format(serialization::Format::DEFAULT)
+        register_serializer<DiskThing>()
+            .format(SerializerFormat::DEFAULT)
             .meta(&DiskThing::label);
-        reflection::register_type<NoteThing>("NoteThing")
+        register_type<NoteThing>("NoteThing")
             .field("author", &NoteThing::author);
-        serialization::register_serializer<NoteThing>()
-            .format(serialization::Format::TEXT)
+        register_serializer<NoteThing>()
+            .format(SerializerFormat::TEXT)
             .meta(&NoteThing::author);
-        serialization::register_serializer<BlobThing>()
-            .format(serialization::Format::CUSTOM)
+        register_serializer<BlobThing>()
+            .format(SerializerFormat::CUSTOM)
             .deserializer(deserialize_blob_thing);
     }
 
@@ -88,8 +88,8 @@ namespace tbx::tests
         original.label = "important";
 
         // Act
-        const auto written = serialization::serialize(original, path);
-        const auto loaded = serialization::deserialize<DiskThing>(path);
+        const auto written = serialize(original, path);
+        const auto loaded = deserialize<DiskThing>(path);
 
         // Assert: both fields round-trip, and the meta property lives in the sidecar file,
         // not the payload.
@@ -97,11 +97,11 @@ namespace tbx::tests
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         EXPECT_EQ(loaded->answer, 42);
         EXPECT_EQ(loaded->label, "important");
-        const auto payload = serialization::Json::parse(*read_text(path));
+        const auto payload = Json::parse(*read_text(path));
         EXPECT_TRUE(payload.contains("answer"));
         EXPECT_FALSE(payload.contains("label"));
         const auto sidecar =
-            serialization::Json::parse(*read_text(path.string() + ".meta"));
+            Json::parse(*read_text(path.string() + ".meta"));
         EXPECT_EQ(sidecar.value("label", std::string()), "important");
     }
 
@@ -118,11 +118,11 @@ namespace tbx::tests
         original.label = "merged";
 
         // Act
-        ASSERT_TRUE(serialization::serialize(original, path).has_value());
+        ASSERT_TRUE(serialize(original, path).has_value());
 
         // Assert: the meta property landed WITHOUT clobbering the identity fields.
         const auto sidecar =
-            serialization::Json::parse(*read_text(path.string() + ".meta"));
+            Json::parse(*read_text(path.string() + ".meta"));
         EXPECT_EQ(sidecar.value("label", std::string()), "merged");
         EXPECT_EQ(
             sidecar.value("id", std::string()),
@@ -140,8 +140,8 @@ namespace tbx::tests
         original.author = "jer";
 
         // Act
-        const auto written = serialization::serialize(original, path);
-        const auto loaded = serialization::deserialize<NoteThing>(path);
+        const auto written = serialize(original, path);
+        const auto loaded = deserialize<NoteThing>(path);
 
         // Assert: the payload file is EXACTLY the text; the author rides in the sidecar.
         ASSERT_TRUE(written.has_value()) << written.error();
@@ -158,15 +158,15 @@ namespace tbx::tests
         const auto path = test_root() / "blob.bin";
 
         // Act
-        const auto loaded = serialization::deserialize<BlobThing>(path);
+        const auto loaded = deserialize<BlobThing>(path);
 
         // Assert: the reader runs; the missing writer asserts (debug) or fails (release).
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         EXPECT_EQ(loaded->value, 7);
 #ifdef TBX_ASSERTS_ENABLED
-        EXPECT_DEATH((void)serialization::serialize(BlobThing {.value = 1}, path), "");
+        EXPECT_DEATH((void)serialize(BlobThing {.value = 1}, path), "");
 #else
-        const auto written = serialization::serialize(BlobThing {.value = 1}, path);
+        const auto written = serialize(BlobThing {.value = 1}, path);
         ASSERT_FALSE(written.has_value());
         EXPECT_NE(written.error().find("no writer"), std::string::npos);
 #endif
@@ -179,8 +179,8 @@ namespace tbx::tests
         const auto path = test_root() / "ghost.json";
 
         // Act
-        const auto loaded = serialization::deserialize<GhostThing>(path);
-        const auto written = serialization::serialize(GhostThing(), path);
+        const auto loaded = deserialize<GhostThing>(path);
+        const auto written = serialize(GhostThing(), path);
 
         // Assert
         ASSERT_FALSE(loaded.has_value());

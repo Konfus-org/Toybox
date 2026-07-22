@@ -3,33 +3,33 @@
 #include <string>
 #include <utility>
 
-namespace tbx::assets
+namespace tbx
 {
     /// @brief
     /// Purpose: Typed reference to an asset. Identity is the uuid from the identity-only
     /// .meta sidecar ({id, version, type}) so renames never break references; a handle may
-    /// also be authored straight from a relative path — Handle<gpu::Texture>("MyTexture.png")
+    /// also be authored straight from a relative path — AssetHandle<gpu::Texture>("MyTexture.png")
     /// — and resolves to its id on first load. The id is always the first member: serialized
     /// handles are exactly their uuid.
     template <typename TAsset>
-    struct Handle
+    struct AssetHandle
     {
         Uuid id = {};
         std::string path = {};
 
-        Handle() = default;
+        AssetHandle() = default;
 
-        explicit(false) Handle(const Uuid& asset_id)
+        explicit(false) AssetHandle(const Uuid& asset_id)
             : id(asset_id)
         {
         }
 
-        explicit Handle(std::string relative_path)
+        explicit AssetHandle(std::string relative_path)
             : path(std::move(relative_path))
         {
         }
 
-        Handle(const Uuid& asset_id, std::string relative_path)
+        AssetHandle(const Uuid& asset_id, std::string relative_path)
             : id(asset_id)
             , path(std::move(relative_path))
         {
@@ -49,11 +49,4 @@ namespace tbx::assets
             return id.is_valid();
         }
     };
-}
-
-namespace tbx
-{
-    // The handle spells like Asset does — both live at the tbx level for authoring
-    // ergonomics (Handle<Kit>, Handle<gpu::Texture>).
-    using assets::Handle;
 }

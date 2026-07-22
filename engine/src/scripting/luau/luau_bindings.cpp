@@ -9,7 +9,7 @@
 #include <cstring>
 #include <lualib.h>
 
-namespace tbx::scripts
+namespace tbx
 {
     static constexpr const char* TOY_METATABLE = "tbx.Toy";
     static constexpr const char* BLOCK_METATABLE = "tbx.Block";
@@ -80,55 +80,55 @@ namespace tbx::scripts
 
     static int push_field_value(
         lua_State* lua,
-        const reflection::FieldInfo& field,
+        const FieldInfo& field,
         const std::byte* block)
     {
         const std::byte* at = block + field.offset;
         switch (field.kind)
         {
-            case reflection::FieldKind::BOOL:
+            case FieldKind::BOOL:
                 lua_pushboolean(lua, *reinterpret_cast<const bool*>(at));
                 return 1;
-            case reflection::FieldKind::INT32:
+            case FieldKind::INT32:
                 lua_pushnumber(lua, *reinterpret_cast<const int32*>(at));
                 return 1;
-            case reflection::FieldKind::UINT32:
+            case FieldKind::UINT32:
                 lua_pushnumber(lua, *reinterpret_cast<const uint32*>(at));
                 return 1;
-            case reflection::FieldKind::INT64:
+            case FieldKind::INT64:
                 lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const int64*>(at)));
                 return 1;
-            case reflection::FieldKind::UINT64:
+            case FieldKind::UINT64:
                 lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const uint64*>(at)));
                 return 1;
-            case reflection::FieldKind::FLOAT:
+            case FieldKind::FLOAT:
                 lua_pushnumber(lua, *reinterpret_cast<const float*>(at));
                 return 1;
-            case reflection::FieldKind::DOUBLE:
+            case FieldKind::DOUBLE:
                 lua_pushnumber(lua, *reinterpret_cast<const double*>(at));
                 return 1;
-            case reflection::FieldKind::STRING:
+            case FieldKind::STRING:
                 lua_pushstring(lua, reinterpret_cast<const std::string*>(at)->c_str());
                 return 1;
-            case reflection::FieldKind::VEC2:
+            case FieldKind::VEC2:
                 push_vector_table(lua, &reinterpret_cast<const Vec2*>(at)->x, XYZW_KEYS, 2);
                 return 1;
-            case reflection::FieldKind::VEC3:
+            case FieldKind::VEC3:
                 push_vector_table(lua, &reinterpret_cast<const Vec3*>(at)->x, XYZW_KEYS, 3);
                 return 1;
-            case reflection::FieldKind::VEC4:
+            case FieldKind::VEC4:
                 push_vector_table(lua, &reinterpret_cast<const Vec4*>(at)->x, XYZW_KEYS, 4);
                 return 1;
-            case reflection::FieldKind::QUAT:
+            case FieldKind::QUAT:
                 push_vector_table(lua, &reinterpret_cast<const Quat*>(at)->x, XYZW_KEYS, 4);
                 return 1;
-            case reflection::FieldKind::COLOR:
+            case FieldKind::COLOR:
                 push_vector_table(lua, &reinterpret_cast<const Color*>(at)->r, RGBA_KEYS, 4);
                 return 1;
-            case reflection::FieldKind::UUID:
+            case FieldKind::UUID:
                 lua_pushstring(lua, reinterpret_cast<const Uuid*>(at)->to_string().c_str());
                 return 1;
-            case reflection::FieldKind::ASSET:
+            case FieldKind::ASSET:
             {
                 const auto [id, asset_path] = field.read_asset(block);
                 if (!id.is_valid() && !asset_path.empty())
@@ -137,14 +137,14 @@ namespace tbx::scripts
                     lua_pushstring(lua, id.to_string().c_str());
                 return 1;
             }
-            case reflection::FieldKind::ENUM:
+            case FieldKind::ENUM:
             {
                 auto raw = uint64(0);
                 std::memcpy(&raw, at, field.size_bytes);
                 lua_pushnumber(lua, static_cast<double>(raw));
                 return 1;
             }
-            case reflection::FieldKind::ASSET_LIST:
+            case FieldKind::ASSET_LIST:
             {
                 const auto ids = field.read_asset_list(block);
                 lua_createtable(lua, static_cast<int>(ids.size()), 0);
@@ -155,8 +155,8 @@ namespace tbx::scripts
                 }
                 return 1;
             }
-            case reflection::FieldKind::TYPE:
-            case reflection::FieldKind::TYPE_LIST:
+            case FieldKind::TYPE:
+            case FieldKind::TYPE_LIST:
                 TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 lua_pushnil(lua);
                 return 1;
@@ -168,60 +168,60 @@ namespace tbx::scripts
     static void write_field_value(
         lua_State* lua,
         const int value_index,
-        const reflection::FieldInfo& field,
+        const FieldInfo& field,
         std::byte* block)
     {
         std::byte* at = block + field.offset;
         switch (field.kind)
         {
-            case reflection::FieldKind::BOOL:
+            case FieldKind::BOOL:
                 *reinterpret_cast<bool*>(at) = lua_toboolean(lua, value_index) != 0;
                 return;
-            case reflection::FieldKind::INT32:
+            case FieldKind::INT32:
                 *reinterpret_cast<int32*>(at) =
                     static_cast<int32>(luaL_checknumber(lua, value_index));
                 return;
-            case reflection::FieldKind::UINT32:
+            case FieldKind::UINT32:
                 *reinterpret_cast<uint32*>(at) =
                     static_cast<uint32>(luaL_checknumber(lua, value_index));
                 return;
-            case reflection::FieldKind::INT64:
+            case FieldKind::INT64:
                 *reinterpret_cast<int64*>(at) =
                     static_cast<int64>(luaL_checknumber(lua, value_index));
                 return;
-            case reflection::FieldKind::UINT64:
+            case FieldKind::UINT64:
                 *reinterpret_cast<uint64*>(at) =
                     static_cast<uint64>(luaL_checknumber(lua, value_index));
                 return;
-            case reflection::FieldKind::FLOAT:
+            case FieldKind::FLOAT:
                 *reinterpret_cast<float*>(at) =
                     static_cast<float>(luaL_checknumber(lua, value_index));
                 return;
-            case reflection::FieldKind::DOUBLE:
+            case FieldKind::DOUBLE:
                 *reinterpret_cast<double*>(at) = luaL_checknumber(lua, value_index);
                 return;
-            case reflection::FieldKind::STRING:
+            case FieldKind::STRING:
                 *reinterpret_cast<std::string*>(at) = luaL_checkstring(lua, value_index);
                 return;
-            case reflection::FieldKind::VEC2:
+            case FieldKind::VEC2:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec2*>(at)->x, XYZW_KEYS, 2);
                 return;
-            case reflection::FieldKind::VEC3:
+            case FieldKind::VEC3:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec3*>(at)->x, XYZW_KEYS, 3);
                 return;
-            case reflection::FieldKind::VEC4:
+            case FieldKind::VEC4:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec4*>(at)->x, XYZW_KEYS, 4);
                 return;
-            case reflection::FieldKind::QUAT:
+            case FieldKind::QUAT:
                 read_vector_table(lua, value_index, &reinterpret_cast<Quat*>(at)->x, XYZW_KEYS, 4);
                 return;
-            case reflection::FieldKind::COLOR:
+            case FieldKind::COLOR:
                 read_vector_table(lua, value_index, &reinterpret_cast<Color*>(at)->r, RGBA_KEYS, 4);
                 return;
-            case reflection::FieldKind::UUID:
+            case FieldKind::UUID:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
                 return;
-            case reflection::FieldKind::ASSET:
+            case FieldKind::ASSET:
             {
                 auto text = std::string(luaL_checkstring(lua, value_index));
                 auto stripped = text;
@@ -233,13 +233,13 @@ namespace tbx::scripts
                     field.write_asset(block, id, std::string());
                 return;
             }
-            case reflection::FieldKind::ENUM:
+            case FieldKind::ENUM:
             {
                 const auto raw = static_cast<uint64>(luaL_checknumber(lua, value_index));
                 std::memcpy(at, &raw, field.size_bytes);
                 return;
             }
-            case reflection::FieldKind::ASSET_LIST:
+            case FieldKind::ASSET_LIST:
             {
                 luaL_checktype(lua, value_index, LUA_TTABLE);
                 auto ids = std::vector<Uuid>();
@@ -253,8 +253,8 @@ namespace tbx::scripts
                 field.write_asset_list(block, ids);
                 return;
             }
-            case reflection::FieldKind::TYPE:
-            case reflection::FieldKind::TYPE_LIST:
+            case FieldKind::TYPE:
+            case FieldKind::TYPE_LIST:
                 TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 return;
         }
@@ -264,7 +264,7 @@ namespace tbx::scripts
 
     static std::byte* fetch_block(const BlockUserdata& data)
     {
-        const auto type = reflection::describe(data.type_hash);
+        const auto type = describe_type(data.type_hash);
         if (!type || !type->get().get_block)
             return nullptr;
         return Toy(*data.sandbox, data.entity).get_block_bytes(data.type_hash);
@@ -274,11 +274,11 @@ namespace tbx::scripts
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = reflection::describe(data.type_hash);
+        const auto type = describe_type(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
-        for (const reflection::FieldInfo& field : type->get().fields)
+        for (const FieldInfo& field : type->get().fields)
             if (field.name == field_name)
                 return push_field_value(lua, field, block);
         luaL_error(lua, "block '%s' has no field '%s'", type->get().name.c_str(), field_name);
@@ -289,11 +289,11 @@ namespace tbx::scripts
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = reflection::describe(data.type_hash);
+        const auto type = describe_type(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
-        for (const reflection::FieldInfo& field : type->get().fields)
+        for (const FieldInfo& field : type->get().fields)
         {
             if (field.name == field_name)
             {
@@ -331,7 +331,7 @@ namespace tbx::scripts
             return 1;
         lua_pop(lua, 1);
 
-        const auto type = reflection::describe(hash(key));
+        const auto type = describe_type(hash(key));
         if (!type || !type->get().has_block
             || !Toy(*data.sandbox, data.entity).has_block_named(hash(key)))
         {
@@ -350,7 +350,7 @@ namespace tbx::scripts
         const ToyUserdata& data = check_toy(lua, 1);
         const char* key = luaL_checkstring(lua, 2);
         const uint64 hashed = hash(key);
-        const auto type = reflection::describe(hashed);
+        const auto type = describe_type(hashed);
         if (!type || !type->get().add_block)
         {
             luaL_error(lua, "'%s' is not a registered block type", key);
@@ -362,7 +362,7 @@ namespace tbx::scripts
             return 0;
         }
         std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hashed);
-        for (const reflection::FieldInfo& field : type->get().fields)
+        for (const FieldInfo& field : type->get().fields)
         {
             lua_getfield(lua, 3, field.name.c_str());
             if (!lua_isnil(lua, -1))
@@ -411,7 +411,7 @@ namespace tbx::scripts
     {
         const ToyUserdata& data = check_toy(lua, 1);
         const char* key = luaL_checkstring(lua, 2);
-        const auto type = reflection::describe(hash(key));
+        const auto type = describe_type(hash(key));
         if (!type || !type->get().add_block)
         {
             luaL_error(lua, "'%s' is not a registered block type", key);
@@ -420,7 +420,7 @@ namespace tbx::scripts
         std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hash(key));
         if (lua_istable(lua, 3))
         {
-            for (const reflection::FieldInfo& field : type->get().fields)
+            for (const FieldInfo& field : type->get().fields)
             {
                 lua_getfield(lua, 3, field.name.c_str());
                 if (!lua_isnil(lua, -1))
@@ -547,7 +547,7 @@ namespace tbx::scripts
         const auto spawned = state.sandbox.spawn(
             state.assets,
             state.events,
-            assets::Handle<Kit>(reference),
+            AssetHandle<Kit>(reference),
             position);
         if (!spawned)
         {
@@ -571,7 +571,7 @@ namespace tbx::scripts
         const Vec3 origin = check_vector3(lua, 1);
         const Vec3 direction = check_vector3(lua, 2);
         const auto max_distance = static_cast<float>(luaL_optnumber(lua, 3, 1000.0));
-        const auto hit = physics::raycast(state.physics, origin, direction, max_distance);
+        const auto hit = raycast(state.physics, origin, direction, max_distance);
         if (!hit)
         {
             lua_pushnil(lua);
@@ -733,7 +733,7 @@ namespace tbx::scripts
         // tbx.ui.bind(hud, "kills", "kills"): the property on the left (hud.kills — Lua
         // cannot pass scalars by reference, so the table+key pair IS the property), the
         // target tag on the right. Scripts just mutate the table and the UI follows. The
-        // table pins in the VM registry; the VM outlives the UI (ui::reset clears bindings
+        // table pins in the VM registry; the VM outlives the UI (reset clears bindings
         // before scripts tear down).
         luaL_checktype(lua, 1, LUA_TTABLE);
         const auto key = std::string(luaL_checkstring(lua, 2));
@@ -741,7 +741,7 @@ namespace tbx::scripts
         lua_pushvalue(lua, 1);
         const int table_ref = lua_ref(lua, -1);
         lua_pop(lua, 1);
-        ui::bind(
+        bind(
             bound_runtime(lua).ui,
             {.name = name,
              .source = [lua, table_ref, key]() -> std::string
@@ -779,13 +779,13 @@ namespace tbx::scripts
     struct KeyEntry
     {
         const char* name;
-        input::Key key;
+        Key key;
     };
 
 #define TBX_KEY_ENTRY(name)                                                                        \
     KeyEntry                                                                                       \
     {                                                                                              \
-        #name, input::Key::name                                                                    \
+        #name, Key::name                                                                    \
     }
     static constexpr KeyEntry KEY_TABLE[] = {
         TBX_KEY_ENTRY(A),
@@ -873,31 +873,31 @@ namespace tbx::scripts
 
     /// @brief
     /// Purpose: Input takes tbx.Key/tbx.MouseButton enum values — strongly typed, no strings.
-    static input::Key check_key(lua_State* lua, const int index)
+    static Key check_key(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value <= 0 || value >= static_cast<int>(input::Key::COUNT))
+        if (value <= 0 || value >= static_cast<int>(Key::COUNT))
             luaL_error(lua, "expected a tbx.Key value");
-        return static_cast<input::Key>(value);
+        return static_cast<Key>(value);
     }
 
-    static input::MouseButton check_mouse_button(lua_State* lua, const int index)
+    static MouseButton check_mouse_button(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(input::MouseButton::COUNT))
+        if (value < 0 || value >= static_cast<int>(MouseButton::COUNT))
             luaL_error(lua, "expected a tbx.MouseButton value");
-        return static_cast<input::MouseButton>(value);
+        return static_cast<MouseButton>(value);
     }
 
     static int input_is_down(lua_State* lua)
     {
-        lua_pushboolean(lua, input::is_down(bound_runtime(lua).input, check_key(lua, 1)));
+        lua_pushboolean(lua, is_down(bound_runtime(lua).input, check_key(lua, 1)));
         return 1;
     }
 
     static int input_is_pressed(lua_State* lua)
     {
-        lua_pushboolean(lua, input::is_pressed(bound_runtime(lua).input, check_key(lua, 1)));
+        lua_pushboolean(lua, is_pressed(bound_runtime(lua).input, check_key(lua, 1)));
         return 1;
     }
 
@@ -905,7 +905,7 @@ namespace tbx::scripts
     {
         lua_pushboolean(
             lua,
-            input::is_mouse_down(bound_runtime(lua).input, check_mouse_button(lua, 1)));
+            is_mouse_down(bound_runtime(lua).input, check_mouse_button(lua, 1)));
         return 1;
     }
 
@@ -913,34 +913,34 @@ namespace tbx::scripts
     {
         lua_pushboolean(
             lua,
-            input::is_mouse_pressed(bound_runtime(lua).input, check_mouse_button(lua, 1)));
+            is_mouse_pressed(bound_runtime(lua).input, check_mouse_button(lua, 1)));
         return 1;
     }
 
     static int input_get_mouse_delta(lua_State* lua)
     {
-        const Vec2 delta = input::get_mouse_delta(bound_runtime(lua).input);
+        const Vec2 delta = get_mouse_delta(bound_runtime(lua).input);
         push_vector_table(lua, &delta.x, XYZW_KEYS, 2);
         return 1;
     }
 
-    static input::CursorMode check_cursor_mode(lua_State* lua, const int index)
+    static CursorMode check_cursor_mode(lua_State* lua, const int index)
     {
         const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(input::CursorMode::COUNT))
+        if (value < 0 || value >= static_cast<int>(CursorMode::COUNT))
             luaL_error(lua, "expected a tbx.CursorMode value");
-        return static_cast<input::CursorMode>(value);
+        return static_cast<CursorMode>(value);
     }
 
     static int input_get_cursor_mode(lua_State* lua)
     {
-        lua_pushinteger(lua, static_cast<int>(input::get_cursor_mode(bound_runtime(lua).input)));
+        lua_pushinteger(lua, static_cast<int>(get_cursor_mode(bound_runtime(lua).input)));
         return 1;
     }
 
     static int input_set_cursor_mode(lua_State* lua)
     {
-        input::set_cursor_mode(bound_runtime(lua).input, check_cursor_mode(lua, 1));
+        set_cursor_mode(bound_runtime(lua).input, check_cursor_mode(lua, 1));
         return 0;
     }
 
@@ -996,7 +996,7 @@ namespace tbx::scripts
         lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
-        // Block metatable: field access straight through reflection::TypeInfo.
+        // Block metatable: field access straight through TypeInfo.
         luaL_newmetatable(lua, BLOCK_METATABLE);
         lua_pushcfunction(lua, block_index, "block_index");
         lua_setfield(lua, -2, "__index");
@@ -1076,20 +1076,20 @@ namespace tbx::scripts
         lua_setfield(lua, -2, "Key");
 
         lua_createtable(lua, 0, 3);
-        lua_pushinteger(lua, static_cast<int>(input::MouseButton::LEFT));
+        lua_pushinteger(lua, static_cast<int>(MouseButton::LEFT));
         lua_setfield(lua, -2, "LEFT");
-        lua_pushinteger(lua, static_cast<int>(input::MouseButton::RIGHT));
+        lua_pushinteger(lua, static_cast<int>(MouseButton::RIGHT));
         lua_setfield(lua, -2, "RIGHT");
-        lua_pushinteger(lua, static_cast<int>(input::MouseButton::MIDDLE));
+        lua_pushinteger(lua, static_cast<int>(MouseButton::MIDDLE));
         lua_setfield(lua, -2, "MIDDLE");
         lua_setfield(lua, -2, "MouseButton");
 
         lua_createtable(lua, 0, 3);
-        lua_pushinteger(lua, static_cast<int>(input::CursorMode::NORMAL));
+        lua_pushinteger(lua, static_cast<int>(CursorMode::NORMAL));
         lua_setfield(lua, -2, "NORMAL");
-        lua_pushinteger(lua, static_cast<int>(input::CursorMode::HIDDEN));
+        lua_pushinteger(lua, static_cast<int>(CursorMode::HIDDEN));
         lua_setfield(lua, -2, "HIDDEN");
-        lua_pushinteger(lua, static_cast<int>(input::CursorMode::LOCKED));
+        lua_pushinteger(lua, static_cast<int>(CursorMode::LOCKED));
         lua_setfield(lua, -2, "LOCKED");
         lua_setfield(lua, -2, "CursorMode");
 

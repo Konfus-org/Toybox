@@ -17,15 +17,15 @@ namespace tbx::tests
         Sandbox& sandbox = runtime.sandbox;
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
-            .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
         Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)})
-                       .with(physics::Collider {})
-                       .with(physics::RigidBody {});
+                       .with(Collider {})
+                       .with(RigidBody {});
 
         // Act: ~3 simulated seconds — plenty to fall from 5 units and settle.
         for (int i = 0; i < 180; ++i)
-            physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
         const float resting_y = cube.get_block<Transform>().position.y;
@@ -40,13 +40,13 @@ namespace tbx::tests
         Sandbox& sandbox = runtime.sandbox;
         Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
-                       .with(physics::Collider {});
+                       .with(Collider {});
 
         // Act
         for (int i = 0; i < 60; ++i)
-            physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
-        // Assert: no physics::RigidBody means scenery — gravity does not apply.
+        // Assert: no RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
     }
 
@@ -59,21 +59,21 @@ namespace tbx::tests
         auto collisions = std::vector<std::pair<uint32, uint32>>();
         runtime.events.collision.subscribe(
             &collisions,
-            [&collisions](const events::CollisionEvent& hit)
+            [&collisions](const CollisionEvent& hit)
             { collisions.push_back({hit.toy_a, hit.toy_b}); });
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
-            .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
         Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
-                       .with(physics::Collider {})
-                       .with(physics::RigidBody {});
+                       .with(Collider {})
+                       .with(RigidBody {});
 
         // Act: fall to impact, then drain — collision delivery happens at the pump.
         for (int i = 0; i < 120; ++i)
-            physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
         const auto before_drain = collisions.size();
-        events::update(runtime.events);
+        update_events(runtime.events);
 
         // Assert
         EXPECT_EQ(before_drain, 0u);
@@ -91,14 +91,14 @@ namespace tbx::tests
         Sandbox& sandbox = runtime.sandbox;
         Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
-                         .with(physics::Collider {});
-        physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in
+                         .with(Collider {});
+        update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in
 
         // Act
         const auto hit =
-            physics::raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), 50.0f);
+            raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), 50.0f);
         const auto miss =
-            physics::raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), 50.0f);
+            raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), 50.0f);
 
         // Assert: the front face sits at z = -4.5, 4.5 units down the ray.
         ASSERT_TRUE(hit.has_value());

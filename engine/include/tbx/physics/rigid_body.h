@@ -2,7 +2,7 @@
 #include "tbx/api.h"
 #include "tbx/ecs/block.h"
 
-namespace tbx::physics
+namespace tbx
 {
     /// @brief
     /// Purpose: Makes a collider toy dynamic: it falls, collides, and writes its simulated

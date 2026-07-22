@@ -10,11 +10,11 @@
 #include <string>
 #include <utility>
 
-namespace tbx::serialization
+namespace tbx
 {
     /// @brief
-    /// Purpose: What Format::TEXT requires of a type: the file's whole text lives in a
-    /// `std::string text` member (gpu::ShaderSource, ui::Document, ...).
+    /// Purpose: What SerializerFormat::TEXT requires of a type: the file's whole text lives in a
+    /// `std::string text` member (gpu::ShaderSource, Document, ...).
     template <typename T>
     concept HasTextPayload =
         requires(T value) { requires std::is_same_v<decltype(value.text), std::string>; };
@@ -26,47 +26,47 @@ namespace tbx::serialization
     // fields (id/version/type) the asset system mints.
     TBX_API Result<void> deserialize_object(
         const std::filesystem::path& path,
-        const reflection::TypeInfo& type,
+        const TypeInfo& type,
         std::byte* object,
         std::span<const std::string> meta_fields);
     TBX_API Result<void> serialize_object(
         const std::filesystem::path& path,
-        const reflection::TypeInfo& type,
+        const TypeInfo& type,
         const std::byte* object,
         std::span<const std::string> meta_fields);
     TBX_API Result<void> deserialize_meta_fields(
         const std::filesystem::path& path,
-        const reflection::TypeInfo& type,
+        const TypeInfo& type,
         std::byte* object,
         std::span<const std::string> meta_fields);
     TBX_API Result<void> serialize_meta_fields(
         const std::filesystem::path& path,
-        const reflection::TypeInfo& type,
+        const TypeInfo& type,
         const std::byte* object,
         std::span<const std::string> meta_fields);
 
     /// @brief
-    /// Purpose: THE read entry: serialization::deserialize<gpu::Texture>(path) and friends. Dispatches
+    /// Purpose: THE read entry: deserialize<gpu::Texture>(path) and friends. Dispatches
     /// on the type's registered serializer (register_serializer<T>): DEFAULT decodes through
     /// reflection, TEXT reads the file into `text`, CUSTOM calls the registered reader.
     template <typename T>
     Result<T> deserialize(const std::filesystem::path& path)
     {
-        const Info* serializer = Slot<T>::info;
+        const SerializerInfo* serializer = SerializerSlot<T>::info;
         if (!serializer)
             return fail(
-                "no serializer registered for '{}' (tbx::serialization::register_serializer<T> it "
+                "no serializer registered for '{}' (tbx::register_serializer<T> it "
                 "first)",
                 path.string());
         switch (serializer->format)
         {
-            case Format::DEFAULT:
+            case SerializerFormat::DEFAULT:
             {
-                const auto type = reflection::describe<T>();
+                const auto type = describe_type<T>();
                 if (!type)
                     return fail(
                         "cannot read '{}': its type is not reflected "
-                        "(tbx::reflection::register_type)",
+                        "(tbx::register_type)",
                         path.string());
                 auto value = T();
                 if (auto object = deserialize_object(
@@ -78,7 +78,7 @@ namespace tbx::serialization
                     return std::unexpected(object.error());
                 return ok(std::move(value));
             }
-            case Format::TEXT:
+            case SerializerFormat::TEXT:
             {
                 if constexpr (HasTextPayload<T>)
                 {
@@ -89,7 +89,7 @@ namespace tbx::serialization
                     value.text = std::move(*text);
                     if (!serializer->meta_fields.empty())
                     {
-                        const auto type = reflection::describe<T>();
+                        const auto type = describe_type<T>();
                         if (!type)
                             return fail(
                                 "cannot read '{}' meta: its type is not reflected",
@@ -109,38 +109,38 @@ namespace tbx::serialization
                         "cannot read '{}': TEXT format needs a std::string text member",
                         path.string());
             }
-            case Format::CUSTOM:
+            case SerializerFormat::CUSTOM:
             {
-                if (!Slot<T>::deserializer)
+                if (!SerializerSlot<T>::deserializer)
                     return fail("no reader registered for '{}'", path.string());
-                return Slot<T>::deserializer(path);
+                return SerializerSlot<T>::deserializer(path);
             }
         }
         return fail("'{}' has an unknown serializer format", path.string());
     }
 
     /// @brief
-    /// Purpose: THE write entry: serialization::serialize(material, path) and friends. write
+    /// Purpose: THE write entry: serialize(material, path) and friends. write
     /// ALWAYS means write-to-disk; a CUSTOM type registered without a writer asserts (and
     /// fails) here.
     template <typename T>
     Result<void> serialize(const T& value, const std::filesystem::path& path)
     {
-        const Info* serializer = Slot<T>::info;
+        const SerializerInfo* serializer = SerializerSlot<T>::info;
         if (!serializer)
             return fail(
-                "no serializer registered for '{}' (tbx::serialization::register_serializer<T> it "
+                "no serializer registered for '{}' (tbx::register_serializer<T> it "
                 "first)",
                 path.string());
         switch (serializer->format)
         {
-            case Format::DEFAULT:
+            case SerializerFormat::DEFAULT:
             {
-                const auto type = reflection::describe<T>();
+                const auto type = describe_type<T>();
                 if (!type)
                     return fail(
                         "cannot write '{}': its type is not reflected "
-                        "(tbx::reflection::register_type)",
+                        "(tbx::register_type)",
                         path.string());
                 return serialize_object(
                     path,
@@ -148,7 +148,7 @@ namespace tbx::serialization
                     reinterpret_cast<const std::byte*>(&value),
                     serializer->meta_fields);
             }
-            case Format::TEXT:
+            case SerializerFormat::TEXT:
             {
                 if constexpr (HasTextPayload<T>)
                 {
@@ -156,7 +156,7 @@ namespace tbx::serialization
                         return written;
                     if (serializer->meta_fields.empty())
                         return ok();
-                    const auto type = reflection::describe<T>();
+                    const auto type = describe_type<T>();
                     if (!type)
                         return fail(
                             "cannot write '{}' meta: its type is not reflected",
@@ -172,14 +172,14 @@ namespace tbx::serialization
                         "cannot write '{}': TEXT format needs a std::string text member",
                         path.string());
             }
-            case Format::CUSTOM:
+            case SerializerFormat::CUSTOM:
             {
-                if (!Slot<T>::serializer)
+                if (!SerializerSlot<T>::serializer)
                 {
                     TBX_ASSERT(false, "no writer registered for this type");
                     return fail("no writer registered for '{}'", path.string());
                 }
-                return Slot<T>::serializer(value, path);
+                return SerializerSlot<T>::serializer(value, path);
             }
         }
         return fail("'{}' has an unknown serializer format", path.string());

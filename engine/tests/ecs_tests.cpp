@@ -25,13 +25,13 @@ namespace tbx::tests
         if (g_registered)
             return;
         g_registered = true;
-        reflection::register_type<TestHealth>("TestHealth")
+        register_type<TestHealth>("TestHealth")
             .field("hp", &TestHealth::hp)
             .field("armor", &TestHealth::armor);
     }
 
     /// @brief
-    /// Purpose: A temp asset root per test: kits written via serialization::write resolve
+    /// Purpose: A temp asset root per test: kits written via write resolve
     /// through the same asset system a shipped game uses — no in-memory shortcuts.
     struct TestWorld
     {
@@ -45,7 +45,7 @@ namespace tbx::tests
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
             std::filesystem::create_directories(root);
-            assets::set_root(runtime.assets, runtime.events, runtime.jobs, root);
+            set_asset_root(runtime.assets, runtime.events, runtime.jobs, root);
         }
 
         /// @brief
@@ -70,7 +70,7 @@ namespace tbx::tests
 
     /// @brief
     /// Purpose: Strips per-instantiation uuids so two writes of the same content compare equal.
-    static serialization::Json normalize_kit(serialization::Json kit)
+    static Json normalize_kit(Json kit)
     {
         auto ordinal_by_uuid = std::map<std::string, int>();
         for (auto& toy : kit["toys"])
@@ -87,10 +87,10 @@ namespace tbx::tests
 
     /// @brief
     /// Purpose: A written kit file parsed back, normalized for comparison.
-    static serialization::Json parse_kit_file(const std::filesystem::path& path)
+    static Json parse_kit_file(const std::filesystem::path& path)
     {
         const auto text = read_text(path);
-        return text ? serialization::Json::parse(*text, nullptr, false) : serialization::Json();
+        return text ? Json::parse(*text, nullptr, false) : Json();
     }
 
     TEST(Sandbox, SpawnBuildsFluentToyWithBlocksAndStickers)
@@ -172,10 +172,10 @@ namespace tbx::tests
                               .sticker("level");
         Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         child.set_parent(parent);
-        ASSERT_TRUE(serialization::serialize(source, world.root / "world.kit").has_value());
+        ASSERT_TRUE(serialize(source, world.root / "world.kit").has_value());
 
         // Act
-        const auto kit = serialization::deserialize<Kit>(world.root / "world.kit");
+        const auto kit = deserialize<Kit>(world.root / "world.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
         const auto loaded = target.spawn(world.runtime.assets, world.runtime.events, *kit);
@@ -201,14 +201,14 @@ namespace tbx::tests
         auto world = TestWorld();
         auto source = Sandbox();
         source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
-        ASSERT_TRUE(serialization::serialize(source, world.root / "first.kit").has_value());
+        ASSERT_TRUE(serialize(source, world.root / "first.kit").has_value());
 
         // Act: read the kit back and write it again. (Instantiating into a world and
         // re-capturing is deliberately NOT identity — a captured instance collapses back to
         // a KitInstance reference — so the stable round trip is kit -> read -> write.)
-        const auto kit = serialization::deserialize<Kit>(world.root / "first.kit");
+        const auto kit = deserialize<Kit>(world.root / "first.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
-        ASSERT_TRUE(serialization::serialize(*kit, world.root / "second.kit").has_value());
+        ASSERT_TRUE(serialize(*kit, world.root / "second.kit").has_value());
 
         // Assert: identical content modulo per-instantiation uuids.
         EXPECT_EQ(
@@ -224,28 +224,28 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         author.spawn("Pickup");
-        ASSERT_TRUE(serialization::serialize(author, world.root / "prefab.kit").has_value());
+        ASSERT_TRUE(serialize(author, world.root / "prefab.kit").has_value());
 
         auto room = Kit();
         room.spawn("prefab_ref")
-            .with(KitInstance {.kit = Handle<Kit>("prefab.kit")})
+            .with(KitInstance {.kit = AssetHandle<Kit>("prefab.kit")})
             .get_transform()
             .position = Vec3(1.0f, 0.0f, 0.0f);
-        ASSERT_TRUE(serialization::serialize(room, world.root / "room.kit").has_value());
+        ASSERT_TRUE(serialize(room, world.root / "room.kit").has_value());
 
         auto level = Kit();
         level.spawn("room_ref")
-            .with(KitInstance {.kit = Handle<Kit>("room.kit")})
+            .with(KitInstance {.kit = AssetHandle<Kit>("room.kit")})
             .get_transform()
             .position = Vec3(10.0f, 0.0f, 0.0f);
-        ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
+        ASSERT_TRUE(serialize(level, world.root / "level.kit").has_value());
 
         // Act
         auto sandbox = Sandbox();
         const auto loaded = sandbox.spawn(
             world.runtime.assets,
             world.runtime.events,
-            Handle<Kit>("level.kit"),
+            AssetHandle<Kit>("level.kit"),
             Vec3(100.0f, 0.0f, 0.0f));
 
         // Assert: the parent chain composes 100 + 10 + 1 in world space.
@@ -262,16 +262,16 @@ namespace tbx::tests
         auto world = TestWorld();
         auto a = Kit();
         a.spawn("InsideA");
-        a.spawn("a_to_b").with(KitInstance {.kit = Handle<Kit>("b.kit")});
-        ASSERT_TRUE(serialization::serialize(a, world.root / "a.kit").has_value());
+        a.spawn("a_to_b").with(KitInstance {.kit = AssetHandle<Kit>("b.kit")});
+        ASSERT_TRUE(serialize(a, world.root / "a.kit").has_value());
         auto b = Kit();
-        b.spawn("b_to_a").with(KitInstance {.kit = Handle<Kit>("a.kit")});
-        ASSERT_TRUE(serialization::serialize(b, world.root / "b.kit").has_value());
+        b.spawn("b_to_a").with(KitInstance {.kit = AssetHandle<Kit>("a.kit")});
+        ASSERT_TRUE(serialize(b, world.root / "b.kit").has_value());
         auto sandbox = Sandbox();
 
         // Act
         const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, Handle<Kit>("a.kit"));
+            sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -284,15 +284,15 @@ namespace tbx::tests
         // Arrange: a child kit that references an asset that does not exist.
         auto world = TestWorld();
         auto broken = Kit();
-        broken.spawn("bad_ref").with(KitInstance {.kit = Handle<Kit>("missing.kit")});
-        ASSERT_TRUE(serialization::serialize(broken, world.root / "broken.kit").has_value());
+        broken.spawn("bad_ref").with(KitInstance {.kit = AssetHandle<Kit>("missing.kit")});
+        ASSERT_TRUE(serialize(broken, world.root / "broken.kit").has_value());
         auto sandbox = Sandbox();
 
         // Act
         const auto loaded = sandbox.spawn(
             world.runtime.assets,
             world.runtime.events,
-            Handle<Kit>("broken.kit"));
+            AssetHandle<Kit>("broken.kit"));
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -312,7 +312,7 @@ namespace tbx::tests
         auto sandbox = Sandbox();
 
         // Act
-        const auto kit = serialization::deserialize<Kit>(world.root / "widget.kit");
+        const auto kit = deserialize<Kit>(world.root / "widget.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         const auto loaded =
             sandbox.spawn(world.runtime.assets, world.runtime.events, *kit);
@@ -331,10 +331,10 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         author.spawn("RoomToy");
-        ASSERT_TRUE(serialization::serialize(author, world.root / "room.kit").has_value());
+        ASSERT_TRUE(serialize(author, world.root / "room.kit").has_value());
         auto level = Kit();
         level.spawn("far_room")
-            .with(KitInstance {.kit = Handle<Kit>("room.kit"), .streamed = true});
+            .with(KitInstance {.kit = AssetHandle<Kit>("room.kit"), .streamed = true});
         auto sandbox = Sandbox();
         sandbox.open(level);
         world.flush_open(sandbox);
@@ -345,7 +345,7 @@ namespace tbx::tests
             for (int i = 0; i < 500 && sandbox.find("RoomToy").has_value() != present; ++i)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                jobs::update(world.runtime.jobs);
+                update_jobs(world.runtime.jobs);
             }
         };
 
@@ -359,13 +359,13 @@ namespace tbx::tests
         // load volume but inside the +15 unload volume, so hysteresis keeps it loaded.
         const auto glancing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f, 0.0f, 20.0f))};
         sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
-        jobs::update(world.runtime.jobs);
+        update_jobs(world.runtime.jobs);
         const bool kept = sandbox.find("RoomToy").has_value();
 
         // Far away and looking away — out of every volume: unloads.
         const auto blind = std::array {look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f))};
         sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
-        jobs::update(world.runtime.jobs);
+        update_jobs(world.runtime.jobs);
         const bool unloaded = sandbox.find("RoomToy").has_value();
 
         // ANY-frustum semantics: one blind camera plus one seeing camera loads it again.
@@ -389,9 +389,9 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         author.spawn("Skybox");
-        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
+        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         auto sandbox = Sandbox();
 
         // Act: open defers; the first stream tick (even with no cameras) spawns the level.
@@ -408,13 +408,13 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         author.spawn("Skybox");
-        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
-        ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
+        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
+        ASSERT_TRUE(serialize(level, world.root / "level.kit").has_value());
 
         // Act
-        auto from_kit = serialization::deserialize<Sandbox>(world.root / "level.kit");
+        auto from_kit = deserialize<Sandbox>(world.root / "level.kit");
         ASSERT_TRUE(from_kit.has_value()) << from_kit.error();
         world.flush_open(*from_kit);
 
@@ -429,10 +429,10 @@ namespace tbx::tests
         auto source = Sandbox();
         Toy toy = source.spawn("Lamp");
         toy.set_enabled(false);
-        ASSERT_TRUE(serialization::serialize(source, world.root / "lamp.kit").has_value());
+        ASSERT_TRUE(serialize(source, world.root / "lamp.kit").has_value());
 
         // Act
-        const auto kit = serialization::deserialize<Kit>(world.root / "lamp.kit");
+        const auto kit = deserialize<Kit>(world.root / "lamp.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
         ASSERT_TRUE(target.spawn(world.runtime.assets, world.runtime.events, *kit).has_value());
@@ -450,9 +450,9 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         author.spawn("Skybox");
-        ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
+        ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
+        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         auto sandbox = Sandbox();
         sandbox.open(level);
         world.flush_open(sandbox);

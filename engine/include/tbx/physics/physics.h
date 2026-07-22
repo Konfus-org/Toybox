@@ -11,7 +11,7 @@
 // The concrete physics boundary (see cmake/tbx_backend.cmake): physics/jolt/ implements it
 // and its library types never escape that folder. The state is runtime.physics; gravity is a
 // plain field applied every update.
-namespace tbx::physics
+namespace tbx
 {
     /// @brief
     /// Purpose: What a raycast hit: the toy, where, and how far along the ray.
@@ -26,13 +26,13 @@ namespace tbx::physics
     /// Purpose: The physics module's state, held by value on the Runtime. The simulation
     /// itself lives behind the backend seam (physics/jolt/ defines Simulation; library types
     /// never escape that folder) and is built lazily on the first update.
-    struct TBX_API State
+    struct TBX_API PhysicsState
     {
-        State();
-        ~State();
+        PhysicsState();
+        ~PhysicsState();
 
-        State(const State&) = delete;
-        State& operator=(const State&) = delete;
+        PhysicsState(const PhysicsState&) = delete;
+        PhysicsState& operator=(const PhysicsState&) = delete;
 
         Vec3 gravity = Vec3(0.0f, -9.81f, 0.0f);
         struct Simulation; // defined by the physics backend's .cpp
@@ -42,7 +42,7 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Casts a ray against the simulated world; empty when nothing is hit.
     TBX_API std::optional<RaycastHit> raycast(
-        State& physics,
+        PhysicsState& physics,
         const Vec3& origin,
         const Vec3& direction,
         float max_distance);
@@ -52,10 +52,10 @@ namespace tbx::physics
     /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
     /// gpu::Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
     /// to Transforms, and emits collision events (delivered at the next pump drain).
-    TBX_API void update(
-        State& physics,
+    TBX_API void update_physics(
+        PhysicsState& physics,
         Sandbox& sandbox,
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         float fixed_delta_time);
 }

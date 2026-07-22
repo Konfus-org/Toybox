@@ -7,7 +7,7 @@ namespace tbx::gpu
 {
     //// HELPERS ////
 
-    static bool read_floats(const serialization::Json& value, const std::span<float> out)
+    static bool read_floats(const Json& value, const std::span<float> out)
     {
         if (!value.is_array() || value.size() < out.size())
             return false;
@@ -22,7 +22,7 @@ namespace tbx::gpu
 
     //// APPLY (backend-agnostic: reflection types the values, set_uniform does the work) ////
 
-    void apply_uniforms(const Shader& shader, const serialization::Json& values)
+    void apply_uniforms(const Shader& shader, const Json& values)
     {
         // The empty bag is the per-draw common case: bail before the GL reflection query.
         if (!values.is_object() || values.empty())
@@ -33,7 +33,7 @@ namespace tbx::gpu
             const auto it = values.find(uniform.name);
             if (it == values.end())
                 continue; // the shader keeps its current/default value
-            const serialization::Json& value = *it;
+            const Json& value = *it;
             const char* name = uniform.name.c_str();
             float floats[16] = {};
             bool applied = true;

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::input
+namespace tbx
 {
     /// @brief
     /// Purpose: Engine-owned key identities; platform backends translate their native codes

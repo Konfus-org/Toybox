@@ -24,7 +24,7 @@
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui_block.h"
 
-namespace tbx::reflection
+namespace tbx
 {
 
     /// @brief
@@ -49,31 +49,31 @@ namespace tbx::reflection
         register_type<gpu::DirectionalLight>("DirectionalLight")
             .field("color", &gpu::DirectionalLight::color)
             .field("intensity", &gpu::DirectionalLight::intensity);
-        register_type<physics::RigidBody>("RigidBody")
-            .field("mass", &physics::RigidBody::mass)
-            .field("is_kinematic", &physics::RigidBody::is_kinematic);
-        register_type<physics::Collider>("Collider")
-            .field("shape", &physics::Collider::shape)
-            .field("half_extents", &physics::Collider::half_extents)
-            .field("radius", &physics::Collider::radius)
-            .field("height", &physics::Collider::height);
-        register_type<ui::Ui>("Ui")
-            .field("document", &ui::Ui::document)
-            .field("vertex", &ui::Ui::vertex)
-            .field("fragment", &ui::Ui::fragment)
-            .field("is_world_anchored", &ui::Ui::is_world_anchored);
+        register_type<RigidBody>("RigidBody")
+            .field("mass", &RigidBody::mass)
+            .field("is_kinematic", &RigidBody::is_kinematic);
+        register_type<Collider>("Collider")
+            .field("shape", &Collider::shape)
+            .field("half_extents", &Collider::half_extents)
+            .field("radius", &Collider::radius)
+            .field("height", &Collider::height);
+        register_type<Ui>("Ui")
+            .field("document", &Ui::document)
+            .field("vertex", &Ui::vertex)
+            .field("fragment", &Ui::fragment)
+            .field("is_world_anchored", &Ui::is_world_anchored);
         register_type<gpu::Sky>("Sky")
             .field("texture", &gpu::Sky::texture)
             .field("tint", &gpu::Sky::tint);
         register_type<gpu::PostProcessing>("PostProcessing")
             .field("shaders", &gpu::PostProcessing::shaders);
-        register_type<scripts::Script>("Script").field("source", &scripts::Script::source);
-        register_type<audio::Listener>("AudioListener").field("volume", &audio::Listener::volume);
-        register_type<audio::Source>("AudioSource")
-            .field("clip", &audio::Source::clip)
-            .field("volume", &audio::Source::volume)
-            .field("is_looping", &audio::Source::is_looping)
-            .field("is_playing", &audio::Source::is_playing);
+        register_type<Script>("Script").field("source", &Script::source);
+        register_type<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
+        register_type<AudioSource>("AudioSource")
+            .field("clip", &AudioSource::clip)
+            .field("volume", &AudioSource::volume)
+            .field("is_looping", &AudioSource::is_looping)
+            .field("is_playing", &AudioSource::is_playing);
         // A toy wearing this block is a nested kit; its children are the kit's contents.
         register_type<KitInstance>("KitInstance")
             .field("kit", &KitInstance::kit)
@@ -91,10 +91,10 @@ namespace tbx::reflection
         register_type<gpu::Texture>("Texture");
         register_type<gpu::Model>("Model");
         register_type<gpu::ShaderSource>("ShaderSource");
-        register_type<audio::Clip>("AudioClip");
-        register_type<scripts::Source>("ScriptSource");
-        register_type<ui::Document>("UiDocument");
-        register_type<ui::Font>("Font");
+        register_type<AudioClip>("AudioClip");
+        register_type<ScriptSource>("ScriptSource");
+        register_type<Document>("UiDocument");
+        register_type<Font>("Font");
         register_type<Kit>("Kit");
         register_type<gpu::Material>("Material")
             .field("vertex", &gpu::Material::vertex)
@@ -140,7 +140,7 @@ namespace tbx::reflection
         register_type<App>("App").field("config", &App::config).field("settings", &App::settings);
     }
 
-    void initialize()
+    void initialize_reflection()
     {
         static bool g_registered = false;
         if (g_registered)
@@ -150,7 +150,7 @@ namespace tbx::reflection
         register_builtin_assets();
         register_app_types();
         // Shapes first, serializers second — Format::DEFAULT validates reflection exists.
-        serialization::register_builtin_serializers();
+        register_builtin_serializers();
 
         g_registered = true;
     }

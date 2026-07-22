@@ -9,8 +9,8 @@
 
 // The only events that exist, as named signals over one pump-drained queue — the state is
 // runtime.events: emit and subscribe on its members directly (runtime.events.key.emit(...))
-// and events::update dispatches everything queued once per frame.
-namespace tbx::events
+// and update_events dispatches everything queued once per frame.
+namespace tbx
 {
     /// @brief
     /// Purpose: Fired when the OS window's pixel size changes.
@@ -24,7 +24,7 @@ namespace tbx::events
     /// Purpose: Key transition for text/UI-style consumers; gameplay polls Input instead.
     struct TBX_API KeyEvent
     {
-        input::Key key = input::Key::UNKNOWN;
+        Key key = Key::UNKNOWN;
         bool is_down = false;
         bool is_repeat = false;
     };
@@ -68,7 +68,7 @@ namespace tbx::events
     /// @brief
     /// Purpose: The events module's state, held by value on the Runtime; adding an event
     /// means adding a member, deliberately.
-    struct TBX_API State
+    struct TBX_API EventsState
     {
         Queue queue;
         Signal<KeyEvent> key {queue};
@@ -83,5 +83,5 @@ namespace tbx::events
     /// Purpose: Dispatches everything queued since the last update, in emission order — the
     /// events module's per-frame verb; tbx::run() calls it during the pump. Events emitted
     /// during an update land in the next one.
-    TBX_API void update(State& state);
+    TBX_API void update_events(EventsState& state);
 }

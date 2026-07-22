@@ -10,7 +10,7 @@ namespace tbx::gpu
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
-    struct TBX_API Texture : assets::Asset
+    struct TBX_API Texture : Asset
     {
         int width = 0;
         int height = 0;
@@ -19,11 +19,11 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: Texture's registered reader (stb: PNG/JPG/BMP/...) — call it through
-    /// serialization::deserialize<Texture>(path).
+    /// deserialize<Texture>(path).
     TBX_API Result<Texture> deserialize_texture(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Texture's registered writer — a 32-bit BMP (screenshots and tooling; the
-    /// reader takes it back). Call it through serialization::serialize(texture, path).
+    /// reader takes it back). Call it through serialize(texture, path).
     TBX_API Result<void> serialize_texture(const Texture& texture, const std::filesystem::path& path);
 }

@@ -14,21 +14,21 @@
 
 // Thread pool plus coroutine scheduling — the engine's one parallelism mechanism. The state
 // is runtime.jobs; the pool spins up on first use. Everything is callable from any thread
-// except update(), which the main loop owns. The frame is phase-structured: structural
+// except update_jobs(), which the main loop owns. The frame is phase-structured: structural
 // sandbox mutation happens on the main thread only, jobs read/write disjoint data within a
 // phase — the schedule points are the synchronization.
-namespace tbx::jobs
+namespace tbx
 {
     /// @brief
     /// Purpose: The jobs module's state, held by value on the Runtime: the pool and both
     /// queues. Workers spin up on first use and the destructor joins them.
-    struct TBX_API State
+    struct TBX_API JobsState
     {
-        State() = default;
-        ~State();
+        JobsState() = default;
+        ~JobsState();
 
-        State(const State&) = delete;
-        State& operator=(const State&) = delete;
+        JobsState(const JobsState&) = delete;
+        JobsState& operator=(const JobsState&) = delete;
 
         std::mutex worker_mutex;
         std::condition_variable_any worker_signal;
@@ -39,7 +39,7 @@ namespace tbx::jobs
     };
 
     /// @brief
-    /// Purpose: Awaitable returned by jobs::on_worker() / jobs::on_main(); resumes the
+    /// Purpose: Awaitable returned by on_worker() / on_main(); resumes the
     /// coroutine on the chosen thread of the pool it was made from.
     struct TBX_API ScheduleOn
     {
@@ -51,57 +51,57 @@ namespace tbx::jobs
         void await_suspend(std::coroutine_handle<> handle) const;
         void await_resume() const noexcept {}
 
-        std::reference_wrapper<State> jobs;
+        std::reference_wrapper<JobsState> jobs;
         bool resume_on_main = false;
     };
 
     /// @brief
     /// Purpose: Runs queued main-thread continuations. Called once per frame by the runtime's
     /// pump; work posted during a drain runs on the next drain.
-    TBX_API void update(State& jobs);
+    TBX_API void update_jobs(JobsState& jobs);
 
     /// @brief
     /// Purpose: Number of pool threads (excluding the main thread).
-    TBX_API size get_worker_count(State& jobs);
+    TBX_API size get_worker_count(JobsState& jobs);
 
     /// @brief
-    /// Purpose: Schedule point: `co_await jobs::on_main(runtime)` resumes on the main thread
-    /// at the next update().
-    TBX_API ScheduleOn on_main(State& jobs);
+    /// Purpose: Schedule point: `co_await on_main(runtime)` resumes on the main thread
+    /// at the next update_jobs().
+    TBX_API ScheduleOn on_main(JobsState& jobs);
 
     /// @brief
-    /// Purpose: Schedule point: `co_await jobs::on_worker(runtime)` resumes on a pool thread.
-    TBX_API ScheduleOn on_worker(State& jobs);
+    /// Purpose: Schedule point: `co_await on_worker(runtime)` resumes on a pool thread.
+    TBX_API ScheduleOn on_worker(JobsState& jobs);
 
     /// @brief
     /// Purpose: Runs fn(0..count-1) across the pool and blocks until every index ran. The
     /// calling thread participates, so nesting inside a worker is safe.
-    TBX_API void parallel_for(State& jobs, size count, const std::function<void(size)>& action);
+    TBX_API void parallel_for(JobsState& jobs, size count, const std::function<void(size)>& action);
 
     /// @brief
-    /// Purpose: Posts a callable to the main-thread queue (runs at the next update()) —
+    /// Purpose: Posts a callable to the main-thread queue (runs at the next update_jobs()) —
     /// how background threads (watcher, streaming) marshal work back safely.
-    TBX_API void post_main(State& jobs, std::function<void()> job);
+    TBX_API void post_main(JobsState& jobs, std::function<void()> job);
 
     /// @brief
     /// Purpose: Posts a callable straight onto the worker pool.
-    TBX_API void post_worker(State& jobs, std::function<void()> job);
+    TBX_API void post_worker(JobsState& jobs, std::function<void()> job);
 
     /// @brief
     /// Purpose: Runs a callable on a worker thread; await the returned task for its result.
     template <typename Fn>
-    auto run(State& jobs, Fn fn) -> Task<std::invoke_result_t<Fn>>;
+    auto run_on_worker(JobsState& jobs, Fn fn) -> Task<std::invoke_result_t<Fn>>;
 
     /// @brief
     /// Purpose: Fire-and-forget: the coroutine owns itself and self-destroys when done.
     /// Exceptions escaping a detached task are logged, never propagated.
-    TBX_API void start(Task<void> task);
+    TBX_API void start_detached(Task<void> task);
 
     /// @brief
     /// Purpose: Blocks the calling thread until the task completes and returns its result.
     /// For main()-loop boundaries and tests — inside coroutines, co_await instead.
     template <typename T>
-    T wait(Task<T> task);
+    T wait_for_task(Task<T> task);
 }
 
 #include "tbx/jobs/jobs.inl"

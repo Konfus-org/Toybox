@@ -11,12 +11,12 @@
 #include <typeinfo>
 #include <utility>
 
-namespace tbx::serialization
+namespace tbx
 {
     /// @brief
     /// Purpose: Fluent registration builder — the disk half of a type's registration, like
     /// reflection's TypeRegistration is the shape half:
-    /// tbx::serialization::register_serializer<gpu::Material>().format(Format::DEFAULT)
+    /// tbx::register_serializer<gpu::Material>().format(SerializerFormat::DEFAULT)
     ///     .meta(&gpu::Material::some_property)...
     /// DEFAULT round-trips through the type's reflection (so the type must be
     /// register_type'd first); TEXT reads/writes the file as raw text through a
@@ -30,7 +30,7 @@ namespace tbx::serialization
         explicit Registration()
             : _info(get_serializer_registry().add(make_info()))
         {
-            Slot<T>::info = &_info.get();
+            SerializerSlot<T>::info = &_info.get();
             stamp_facets();
         }
 
@@ -38,25 +38,25 @@ namespace tbx::serialization
         /// @brief
         /// Purpose: Declares how the type moves between memory and disk. DEFAULT errors when
         /// the type has no reflection; TEXT errors when it has no `std::string text` member.
-        Registration& format(const Format format)
+        Registration& format(const SerializerFormat format)
         {
             _info.get().format = format;
-            if (format == Format::DEFAULT && !reflection::describe<T>())
+            if (format == SerializerFormat::DEFAULT && !describe_type<T>())
             {
                 TBX_ERROR(
-                    "'{}' registered with Format::DEFAULT but is not reflected — "
-                    "tbx::reflection::register_type it first",
+                    "'{}' registered with SerializerFormat::DEFAULT but is not reflected — "
+                    "tbx::register_type it first",
                     _info.get().name);
-                TBX_ASSERT(false, "Format::DEFAULT needs reflection");
+                TBX_ASSERT(false, "SerializerFormat::DEFAULT needs reflection");
             }
             if constexpr (!HasTextPayload<T>)
             {
-                if (format == Format::TEXT)
+                if (format == SerializerFormat::TEXT)
                 {
                     TBX_ERROR(
-                        "'{}' registered with Format::TEXT but has no std::string text member",
+                        "'{}' registered with SerializerFormat::TEXT but has no std::string text member",
                         _info.get().name);
-                    TBX_ASSERT(false, "Format::TEXT needs a text member");
+                    TBX_ASSERT(false, "SerializerFormat::TEXT needs a text member");
                 }
             }
             return *this;
@@ -68,7 +68,7 @@ namespace tbx::serialization
         template <typename TField>
         Registration& meta(TField T::* member)
         {
-            const auto type = reflection::describe<T>();
+            const auto type = describe_type<T>();
             if (!type)
             {
                 TBX_ERROR("'{}' .meta needs reflection — register_type it first", _info.get().name);
@@ -80,7 +80,7 @@ namespace tbx::serialization
             const auto offset = static_cast<size>(
                 reinterpret_cast<const char*>(&(probe.*member))
                 - reinterpret_cast<const char*>(&probe));
-            for (const reflection::FieldInfo& field : type->get().fields)
+            for (const FieldInfo& field : type->get().fields)
             {
                 if (field.offset != offset)
                     continue;
@@ -97,7 +97,7 @@ namespace tbx::serialization
         /// (gpu::deserialize_texture, ...).
         Registration& deserializer(Result<T> (*read_file)(const std::filesystem::path&))
         {
-            Slot<T>::deserializer = read_file;
+            SerializerSlot<T>::deserializer = read_file;
             return *this;
         }
 
@@ -105,16 +105,16 @@ namespace tbx::serialization
         /// Purpose: The CUSTOM-format write function; omit it and write<T> asserts.
         Registration& serializer(Result<void> (*write_file)(const T&, const std::filesystem::path&))
         {
-            Slot<T>::serializer = write_file;
+            SerializerSlot<T>::serializer = write_file;
             return *this;
         }
 
       private:
-        static Info make_info()
+        static SerializerInfo make_info()
         {
-            auto info = Info {};
+            auto info = SerializerInfo {};
             info.type_hash = typeid(T).hash_code();
-            const auto type = reflection::describe<T>();
+            const auto type = describe_type<T>();
             info.name = type ? type->get().name : typeid(T).name();
             return info;
         }
@@ -123,7 +123,7 @@ namespace tbx::serialization
         {
             if constexpr (std::derived_from<T, Asset>)
             {
-                Info& info = _info.get();
+                SerializerInfo& info = _info.get();
                 info.asset_shape = typeid(T).hash_code();
                 info.deserialize_asset = [](const std::filesystem::path& disk_path,
                                      const Uuid& id,
@@ -140,7 +140,7 @@ namespace tbx::serialization
         }
 
       private:
-        std::reference_wrapper<Info> _info;
+        std::reference_wrapper<SerializerInfo> _info;
     };
 
     /// @brief

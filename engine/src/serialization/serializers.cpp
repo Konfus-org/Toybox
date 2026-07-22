@@ -12,33 +12,33 @@
 #include "tbx/ui/font.h"
 #include "tbx/ui/document.h"
 
-namespace tbx::serialization
+namespace tbx
 {
     void register_builtin_serializers()
     {
         // Types with real codecs bring a reader (and a writer when writing makes sense);
-        // text assets are Format::TEXT; plain data types round-trip through their reflection.
+        // text assets are SerializerFormat::TEXT; plain data types round-trip through their reflection.
         register_serializer<gpu::Texture>()
-            .format(Format::CUSTOM)
+            .format(SerializerFormat::CUSTOM)
             .deserializer(gpu::deserialize_texture)
             .serializer(gpu::serialize_texture);
-        register_serializer<gpu::Model>().format(Format::CUSTOM).deserializer(gpu::deserialize_model);
-        register_serializer<gpu::ShaderSource>().format(Format::TEXT);
-        register_serializer<audio::Clip>().format(Format::CUSTOM).deserializer(audio::deserialize_clip);
-        register_serializer<scripts::Source>()
-            .format(Format::CUSTOM)
-            .deserializer(scripts::deserialize_script_source);
-        register_serializer<ui::Document>().format(Format::TEXT);
-        register_serializer<ui::Font>().format(Format::CUSTOM).deserializer(ui::deserialize_font);
+        register_serializer<gpu::Model>().format(SerializerFormat::CUSTOM).deserializer(gpu::deserialize_model);
+        register_serializer<gpu::ShaderSource>().format(SerializerFormat::TEXT);
+        register_serializer<AudioClip>().format(SerializerFormat::CUSTOM).deserializer(deserialize_clip);
+        register_serializer<ScriptSource>()
+            .format(SerializerFormat::CUSTOM)
+            .deserializer(deserialize_script_source);
+        register_serializer<Document>().format(SerializerFormat::TEXT);
+        register_serializer<Font>().format(SerializerFormat::CUSTOM).deserializer(deserialize_font);
         register_serializer<Kit>()
-            .format(Format::CUSTOM)
+            .format(SerializerFormat::CUSTOM)
             .deserializer(deserialize_kit)
             .serializer(serialize_kit);
         register_serializer<Sandbox>()
-            .format(Format::CUSTOM)
+            .format(SerializerFormat::CUSTOM)
             .deserializer(deserialize_sandbox)
             .serializer(serialize_sandbox);
-        register_serializer<gpu::Material>().format(Format::DEFAULT);
-        register_serializer<App>().format(Format::DEFAULT);
+        register_serializer<gpu::Material>().format(SerializerFormat::DEFAULT);
+        register_serializer<App>().format(SerializerFormat::DEFAULT);
     }
 }

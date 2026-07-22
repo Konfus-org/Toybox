@@ -5,20 +5,20 @@
 #include <filesystem>
 #include <string>
 
-namespace tbx::scripts
+namespace tbx
 {
     /// @brief
     /// Purpose: Script source loaded from a script file (name = the file name) — an ordinary
     /// asset like any other; load it through the assets handle API or
-    /// serialization::deserialize<Source>(path).
-    struct TBX_API Source : assets::Asset
+    /// deserialize<ScriptSource>(path).
+    struct TBX_API ScriptSource : Asset
     {
         std::string name = {};
         std::string source = {};
     };
 
     /// @brief
-    /// Purpose: Source's registered reader — the file's text plus its file name (which
+    /// Purpose: ScriptSource's registered reader — the file's text plus its file name (which
     /// is why this is a custom reader and not Format::TEXT).
-    TBX_API Result<Source> deserialize_script_source(const std::filesystem::path& path);
+    TBX_API Result<ScriptSource> deserialize_script_source(const std::filesystem::path& path);
 }

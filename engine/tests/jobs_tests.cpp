@@ -9,10 +9,10 @@ namespace tbx::tests
     TEST(Jobs, RunReturnsCallableResultOnSuccess)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
 
         // Act
-        const int result = jobs::wait(jobs::run(pool, [] { return 41 + 1; }));
+        const int result = wait_for_task(run_on_worker(pool, [] { return 41 + 1; }));
 
         // Assert
         EXPECT_EQ(result, 42);
@@ -21,25 +21,25 @@ namespace tbx::tests
     TEST(Jobs, WaitRethrowsWhenTaskThrows)
     {
         // Arrange
-        auto pool = jobs::State();
-        auto throwing = [&]() -> jobs::Task<void>
+        auto pool = JobsState();
+        auto throwing = [&]() -> Task<void>
         {
-            co_await jobs::on_worker(pool);
+            co_await on_worker(pool);
             throw std::runtime_error("boom");
         };
 
         // Act / Assert
-        EXPECT_THROW(jobs::wait(throwing()), std::runtime_error);
+        EXPECT_THROW(wait_for_task(throwing()), std::runtime_error);
     }
 
     TEST(Jobs, RunExecutesOffTheCallingThread)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
         const auto main_thread = std::this_thread::get_id();
 
         // Act
-        const auto worker_thread = jobs::wait(jobs::run(pool, [] { return std::this_thread::get_id(); }));
+        const auto worker_thread = wait_for_task(run_on_worker(pool, [] { return std::this_thread::get_id(); }));
 
         // Assert
         EXPECT_NE(worker_thread, main_thread);
@@ -48,13 +48,13 @@ namespace tbx::tests
     TEST(Jobs, TaskResultsChainAcrossAwaits)
     {
         // Arrange
-        auto pool = jobs::State();
-        auto inner = [&]() -> jobs::Task<int>
+        auto pool = JobsState();
+        auto inner = [&]() -> Task<int>
         {
-            co_await jobs::on_worker(pool);
+            co_await on_worker(pool);
             co_return 10;
         };
-        auto outer = [&]() -> jobs::Task<int>
+        auto outer = [&]() -> Task<int>
         {
             const int a = co_await inner();
             const int b = co_await inner();
@@ -62,7 +62,7 @@ namespace tbx::tests
         };
 
         // Act
-        const int result = jobs::wait(outer());
+        const int result = wait_for_task(outer());
 
         // Assert
         EXPECT_EQ(result, 20);
@@ -71,15 +71,15 @@ namespace tbx::tests
     TEST(Jobs, TaskCarriesMoveOnlyResults)
     {
         // Arrange
-        auto pool = jobs::State();
-        auto make = [&]() -> jobs::Task<std::unique_ptr<int>>
+        auto pool = JobsState();
+        auto make = [&]() -> Task<std::unique_ptr<int>>
         {
-            co_await jobs::on_worker(pool);
+            co_await on_worker(pool);
             co_return std::make_unique<int>(7);
         };
 
         // Act
-        auto result = jobs::wait(make());
+        auto result = wait_for_task(make());
 
         // Assert
         ASSERT_TRUE(result != nullptr);
@@ -89,21 +89,21 @@ namespace tbx::tests
     TEST(Jobs, MainHopResumesOnDrain)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
         auto hopped = std::atomic<bool>(false);
-        auto task = [&]() -> jobs::Task<void>
+        auto task = [&]() -> Task<void>
         {
-            co_await jobs::on_worker(pool);
-            co_await jobs::on_main(pool);
+            co_await on_worker(pool);
+            co_await on_main(pool);
             hopped = true;
         };
 
         // Act: the coroutine parks itself on the main queue; nothing runs until we drain.
-        jobs::start(task());
+        start_detached(task());
         for (int i = 0; i < 200 && !hopped; ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            jobs::update(pool);
+            update_jobs(pool);
         }
 
         // Assert
@@ -113,33 +113,33 @@ namespace tbx::tests
     TEST(Jobs, MainHopDoesNotRunWithoutDrain)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
         auto ran = std::atomic<bool>(false);
-        auto task = [&]() -> jobs::Task<void>
+        auto task = [&]() -> Task<void>
         {
-            co_await jobs::on_worker(pool);
-            co_await jobs::on_main(pool);
+            co_await on_worker(pool);
+            co_await on_main(pool);
             ran = true;
         };
 
         // Act: give the worker ample time to park the continuation, but never drain.
-        jobs::start(task());
+        start_detached(task());
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         // Assert
         EXPECT_FALSE(ran);
-        jobs::update(pool); // let it finish before teardown
+        update_jobs(pool); // let it finish before teardown
     }
 
     TEST(Jobs, ParallelForCoversEveryIndexExactlyOnce)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
         constexpr size COUNT = 10'000;
         auto hits = std::vector<std::atomic<int>>(COUNT);
 
         // Act
-        jobs::parallel_for(pool, COUNT, [&hits](size i) { hits[i].fetch_add(1); });
+        parallel_for(pool, COUNT, [&hits](size i) { hits[i].fetch_add(1); });
 
         // Assert
         for (size i = 0; i < COUNT; ++i)
@@ -149,11 +149,11 @@ namespace tbx::tests
     TEST(Jobs, ParallelForWithZeroCountRunsNothing)
     {
         // Arrange
-        auto pool = jobs::State();
+        auto pool = JobsState();
         auto calls = std::atomic<int>(0);
 
         // Act
-        jobs::parallel_for(pool, 0, [&calls](size) { calls.fetch_add(1); });
+        parallel_for(pool, 0, [&calls](size) { calls.fetch_add(1); });
 
         // Assert
         EXPECT_EQ(calls.load(), 0);
@@ -162,17 +162,17 @@ namespace tbx::tests
     TEST(Jobs, ParallelForNestsInsideWorker)
     {
         // Arrange
-        auto pool = jobs::State();
-        auto nested = [&]() -> jobs::Task<size>
+        auto pool = JobsState();
+        auto nested = [&]() -> Task<size>
         {
-            co_await jobs::on_worker(pool);
+            co_await on_worker(pool);
             auto sum = std::atomic<size>(0);
-            jobs::parallel_for(pool, 100, [&sum](size i) { sum.fetch_add(i); });
+            parallel_for(pool, 100, [&sum](size i) { sum.fetch_add(i); });
             co_return sum.load();
         };
 
         // Act
-        const size result = jobs::wait(nested());
+        const size result = wait_for_task(nested());
 
         // Assert
         EXPECT_EQ(result, 4950u);
@@ -181,15 +181,15 @@ namespace tbx::tests
     TEST(Jobs, DetachedTaskExceptionIsSwallowed)
     {
         // Arrange
-        auto pool = jobs::State();
-        auto throwing = [&]() -> jobs::Task<void>
+        auto pool = JobsState();
+        auto throwing = [&]() -> Task<void>
         {
-            co_await jobs::on_worker(pool);
+            co_await on_worker(pool);
             throw std::runtime_error("detached boom");
         };
 
         // Act: logged, never propagated — surviving to the assert IS the behavior.
-        jobs::start(throwing());
+        start_detached(throwing());
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         // Assert

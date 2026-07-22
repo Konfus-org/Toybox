@@ -9,7 +9,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace tbx::scripts
+namespace tbx
 {
     /// @brief
     /// Purpose: One compiled source this backend runs: bytecode plus its diagnostics name and
@@ -34,7 +34,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: The Luau scripting backend. VM types never escape this folder; other language
     /// backends (csharp/...) sit beside it and run simultaneously.
-    class LuauBackend final : public Backend
+    class LuauBackend final : public ScriptBackend
     {
       public:
         explicit LuauBackend(RuntimeState& runtime)
@@ -232,7 +232,7 @@ namespace tbx::scripts
 
 
 
-    std::unique_ptr<Backend> make_luau_backend(RuntimeState& runtime)
+    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime)
     {
         return std::make_unique<LuauBackend>(runtime);
     }

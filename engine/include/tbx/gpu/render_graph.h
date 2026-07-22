@@ -25,11 +25,11 @@ namespace tbx::gpu
     {
         gpu::State& renderer;
         Sandbox& sandbox;
-        assets::State& assets;
-        events::State& events;
-        ui::State& ui;
-        const debug::view::State& debug;
-        const windows::Window& window;
+        AssetsState& assets;
+        EventsState& events;
+        UiState& ui;
+        const DebugViewState& debug;
+        const Window& window;
         bool is_main = true;
     };
 
@@ -102,7 +102,7 @@ namespace tbx::gpu
     TBX_API RenderPass make_post_pass();
 
     /// @brief
-    /// Purpose: Shows every enabled ui::Ui block's document and renders the UI on top.
+    /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
     TBX_API RenderPass make_ui_pass();
 
     /// @brief

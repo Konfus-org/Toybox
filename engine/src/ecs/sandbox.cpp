@@ -9,7 +9,7 @@ namespace tbx
 {
     Sandbox::Sandbox()
     {
-        reflection::initialize();
+        initialize_reflection();
     }
 
     void Sandbox::open(Kit level)
@@ -24,7 +24,7 @@ namespace tbx
         clear(); // every toy (ToyContainer)
     }
 
-    void Sandbox::open_pending(assets::State& assets, events::State& events)
+    void Sandbox::open_pending(AssetsState& assets, EventsState& events)
     {
         if (!_pending_level)
             return;
@@ -35,9 +35,9 @@ namespace tbx
     }
 
     void Sandbox::stream(
-        assets::State& assets,
-        events::State& events,
-        jobs::State& jobs,
+        AssetsState& assets,
+        EventsState& events,
+        JobsState& jobs,
         const std::span<const Frustum> frustums)
     {
         // The pending level spawns here — the one place with the asset system in hand every
@@ -77,19 +77,19 @@ namespace tbx
                 // thread. The Sandbox is engine-owned and outlives in-flight streams; the
                 // handle is copied into the task and the body is copied out so the asset cache
                 // may drop its copy.
-                jobs::start(
-                    [](assets::State& assets,
-                       events::State& events,
-                       jobs::State& jobs,
+                start_detached(
+                    [](AssetsState& assets,
+                       EventsState& events,
+                       JobsState& jobs,
                        Sandbox& sandbox,
                        size index,
-                       assets::Handle<Kit> kit) -> jobs::Task<void>
+                       AssetHandle<Kit> kit) -> Task<void>
                     {
-                        co_await jobs::on_worker(jobs);
-                        auto loaded = assets::load_now(assets, events, kit);
+                        co_await on_worker(jobs);
+                        auto loaded = load_asset_now(assets, events, kit);
                         auto body = loaded ? Result<Kit>(loaded->get())
                                            : Result<Kit>(std::unexpected(loaded.error()));
-                        co_await jobs::on_main(jobs);
+                        co_await on_main(jobs);
                         StreamedKit& target = sandbox._streamed_kits[index];
                         target.is_loading = false;
                         auto instance = Toy(sandbox, target.instance);

@@ -9,19 +9,19 @@
 // The concrete audio boundary (see cmake/tbx_backend.cmake): audio/steamaudio/ implements
 // it and its library types never escape that folder. The state is runtime.audio; the master
 // volume is a plain (atomic) field.
-namespace tbx::audio
+namespace tbx
 {
     /// @brief
     /// Purpose: The audio module's state, held by value on the Runtime. The spatializer and
     /// output device live behind the backend seam (audio/steamaudio/ defines Backend; library
     /// types never escape that folder) and are built lazily on the first update.
-    struct TBX_API State
+    struct TBX_API AudioState
     {
-        State();
-        ~State();
+        AudioState();
+        ~AudioState();
 
-        State(const State&) = delete;
-        State& operator=(const State&) = delete;
+        AudioState(const AudioState&) = delete;
+        AudioState& operator=(const AudioState&) = delete;
 
         // Written on the main thread, read on the audio thread.
         std::atomic<float> master_volume = 1.0f;
@@ -34,10 +34,10 @@ namespace tbx::audio
     /// Purpose: Advances audio one frame: mirrors the sandbox's listener/source toys into
     /// the spatializer (clips resolve through the asset states) and keeps the output device
     /// fed. Called by tbx::run() every frame.
-    TBX_API void update(
-        State& audio,
+    TBX_API void update_audio(
+        AudioState& audio,
         Sandbox& sandbox,
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         float delta_time);
 }

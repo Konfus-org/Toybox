@@ -219,7 +219,7 @@ namespace tbx::gpu
     {
         if (renderer.lit_shader)
             return renderer;
-        reflection::initialize();
+        initialize_reflection();
         const auto lit_vertex = read_builtin_shader("pbr.vert");
         const auto lit_fragment = read_builtin_shader("pbr.frag");
         const auto depth_vertex = read_builtin_shader("depth.vert");
@@ -310,16 +310,16 @@ namespace tbx::gpu
 
     static ResolvedMesh resolve_mesh(RenderContext& context, State& state, const Renderer& renderer)
     {
-        if (!renderer.model.is_set() || renderer.model.id == builtin::CUBE.id)
+        if (!renderer.model.is_set() || renderer.model.id == Builtin::CUBE.id)
             return {.mesh = *state.cube};
-        if (renderer.model.id == builtin::PLANE.id)
+        if (renderer.model.id == Builtin::PLANE.id)
             return {.mesh = *state.plane};
-        if (renderer.model.id == builtin::SPHERE.id)
+        if (renderer.model.id == Builtin::SPHERE.id)
             return {.mesh = *state.sphere};
 
         // Ask the asset system every frame — the reference keeps the asset resident; the GPU
         // upload is only a cache over it (dropped via forget_asset when the asset goes).
-        const auto model = assets::load_now(context.assets, context.events, renderer.model);
+        const auto model = load_asset_now(context.assets, context.events, renderer.model);
         if (!model)
         {
             warn_once(state, renderer.model.id, "model unavailable: " + model.error());
@@ -337,14 +337,14 @@ namespace tbx::gpu
     static ResolvedTexture resolve_texture_handle(
         RenderContext& context,
         State& state,
-        const assets::Handle<Texture>& handle)
+        const AssetHandle<Texture>& handle)
     {
         if (!handle.is_set())
             return {.texture = *state.white};
         const auto cached = state.textures_by_asset.find(handle.id);
         if (cached != state.textures_by_asset.end())
             return {.texture = *cached->second};
-        if (const auto texture = assets::load_now(context.assets, context.events, handle))
+        if (const auto texture = load_asset_now(context.assets, context.events, handle))
         {
             auto uploaded =
                 upload_texture(texture->get().width, texture->get().height, texture->get().pixels);
@@ -390,7 +390,7 @@ namespace tbx::gpu
         auto fragment_text = std::string();
         if (material.vertex.is_set())
         {
-            const auto source = assets::load_now(context.assets, context.events, material.vertex);
+            const auto source = load_asset_now(context.assets, context.events, material.vertex);
             if (!source)
             {
                 warn_once(state, material.vertex.id, "material vertex shader: " + source.error());
@@ -404,7 +404,7 @@ namespace tbx::gpu
             vertex_text = state.pbr_vertex_text;
         if (material.fragment.is_set())
         {
-            const auto source = assets::load_now(context.assets, context.events, material.fragment);
+            const auto source = load_asset_now(context.assets, context.events, material.fragment);
             if (!source)
             {
                 warn_once(
@@ -450,7 +450,7 @@ namespace tbx::gpu
         if (!renderer.material.is_set())
             return surface; // the builtin white PBR surface
 
-        const auto material = assets::load_now(context.assets, context.events, renderer.material);
+        const auto material = load_asset_now(context.assets, context.events, renderer.material);
         if (!material)
         {
             warn_once(state, renderer.material.id, "material unavailable: " + material.error());
@@ -517,7 +517,7 @@ namespace tbx::gpu
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
         RenderContext& context,
         State& state,
-        const assets::Handle<ShaderSource>& handle)
+        const AssetHandle<ShaderSource>& handle)
     {
         if (!handle.is_set())
             return {};
@@ -528,7 +528,7 @@ namespace tbx::gpu
                 return {};
             return cached->second;
         }
-        const auto source = assets::load_now(context.assets, context.events, handle);
+        const auto source = load_asset_now(context.assets, context.events, handle);
         if (!source)
         {
             warn_once(state, handle.id, "post shader unavailable: " + source.error());
@@ -759,7 +759,7 @@ namespace tbx::gpu
                     if (has_post)
                         return; // the first PostProcessing toy wins
                     has_post = true;
-                    for (const assets::Handle<ShaderSource>& handle : post.shaders)
+                    for (const AssetHandle<ShaderSource>& handle : post.shaders)
                         if (const auto stage = resolve_post_shader(context, state, handle))
                             frame.post_chain.push_back(*stage);
                 });
@@ -849,7 +849,7 @@ namespace tbx::gpu
     }
 
     /// @brief
-    /// Purpose: The composite pipeline for one ui::Ui block's custom stages (vertex vs the
+    /// Purpose: The composite pipeline for one Ui block's custom stages (vertex vs the
     /// builtin fullscreen stage, fragment vs the builtin ui composite), cached by pair.
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_ui_composite(
         State& state,
@@ -920,29 +920,29 @@ namespace tbx::gpu
                 state.ui_layer_targets.clear();
         }
 
-        // No queues: each layer (every enabled ui::Ui block, plus the debug overlay) draws to
+        // No queues: each layer (every enabled Ui block, plus the debug overlay) draws to
         // its own target and composites through its own gpu pipeline — custom stages when
         // the block names them, the builtin ui composite otherwise.
         const auto composite_layer = [&](const uint32 layer_key,
-                                         const ui::Document& document,
+                                         const Document& document,
                                          const std::string& vertex_source,
                                          const std::string& fragment_source)
         {
             auto& target = state.ui_layer_targets[layer_key];
             if (!target)
                 target = make_render_target(width, height);
-            ui::draw(context.ui, document, *target);
+            draw_ui(context.ui, document, *target);
             if (const auto composite = resolve_ui_composite(state, vertex_source, fragment_source))
                 composite_ui_texture(state, *target, composite->get());
         };
 
-        sandbox.each<ui::Ui>(
-            [&](Toy toy, ui::Ui& ui_block)
+        sandbox.each<Ui>(
+            [&](Toy toy, Ui& ui_block)
             {
             if (!ui_block.document.is_set() || !toy.is_enabled())
                 return;
             const auto document =
-                assets::load_now(context.assets, context.events, ui_block.document);
+                load_asset_now(context.assets, context.events, ui_block.document);
             if (!document)
             {
                 const Uuid key = ui_block.document.is_valid()
@@ -983,7 +983,7 @@ namespace tbx::gpu
             if (ui_block.vertex.is_set())
             {
                 if (const auto source =
-                        assets::load_now(context.assets, context.events, ui_block.vertex))
+                        load_asset_now(context.assets, context.events, ui_block.vertex))
                     vertex_source = source->get().text;
                 else
                     warn_once(state, ui_block.vertex.id, "ui vertex shader: " + source.error());
@@ -991,7 +991,7 @@ namespace tbx::gpu
             if (ui_block.fragment.is_set())
             {
                 if (const auto source =
-                        assets::load_now(context.assets, context.events, ui_block.fragment))
+                        load_asset_now(context.assets, context.events, ui_block.fragment))
                     fragment_source = source->get().text;
                 else
                     warn_once(state, ui_block.fragment.id, "ui fragment shader: " + source.error());
@@ -1004,7 +1004,7 @@ namespace tbx::gpu
             });
 
         // The engine overlay is just one more layer with the builtin composite.
-        const debug::view::State& overlay = context.debug;
+        const DebugViewState& overlay = context.debug;
         if (overlay.is_open && !overlay.document.text.empty())
             composite_layer(0xFFFFFFFFu, overlay.document, {}, {});
     }

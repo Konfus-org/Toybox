@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::reflection
+namespace tbx
 {
     /// @brief
     /// Purpose: Per-C++-type registration slot; register_type<T>() fills it so fields of type T can
@@ -59,22 +59,22 @@ namespace tbx::reflection
     /// Purpose: The process-wide registry instance.
     TBX_API TypeRegistry& get_type_registry();
 
-    // The read half of reflection: register_type() writes a description, describe() reads
+    // The read half of reflection: register_type() writes a description, describe_type() reads
     // one back.
 
     /// @brief
     /// Purpose: The description of a registered type by name hash; empty when unregistered.
-    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe(uint64 name_hash);
+    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe_type(uint64 name_hash);
 
     /// @brief
     /// Purpose: The description of a registered type by name; empty when unregistered.
-    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe(std::string_view name);
+    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe_type(std::string_view name);
 
     /// @brief
     /// Purpose: The description of a registered type; empty when unregistered.
     template <typename T>
-    std::optional<std::reference_wrapper<const TypeInfo>> describe()
+    std::optional<std::reference_wrapper<const TypeInfo>> describe_type()
     {
-        return describe(TypeSlot<T>::hash);
+        return describe_type(TypeSlot<T>::hash);
     }
 }

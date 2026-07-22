@@ -19,7 +19,7 @@ namespace tbx
     /// Purpose: THE world container: a ToyContainer that also opens a level kit and streams
     /// its streamed child kits by camera sight. Every toy query/mutation goes through the
     /// shared ToyContainer surface (spawn/find/each/despawn/...); the registry is hidden.
-    /// Serialization lives on serialization::read/write — write(sandbox, path) saves the
+    /// Serialization lives on read/write — write(sandbox, path) saves the
     /// world as a kit, read<Sandbox>(kit_path) loads one.
     /// @details
     /// Movable so read<Sandbox> can hand one over — move it only while no streamed loads are
@@ -53,17 +53,17 @@ namespace tbx
         /// immediate kits expand recursively; nested streamed kits register for streaming.
         /// Returns the root toy; despawn_subtree(root) removes the whole instance.
         Result<Toy> spawn(
-            assets::State& assets,
-            events::State& events,
-            const assets::Handle<Kit>& kit,
+            AssetsState& assets,
+            EventsState& events,
+            const AssetHandle<Kit>& kit,
             const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
         /// @brief
         /// Purpose: Spawns an in-memory kit (the handle overload resolves through assets and
         /// lands here).
         Result<Toy> spawn(
-            assets::State& assets,
-            events::State& events,
+            AssetsState& assets,
+            EventsState& events,
             const Kit& kit,
             const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
@@ -73,9 +73,9 @@ namespace tbx
         /// sight of ALL of them. Also flushes a pending open() first. Load-only: streaming
         /// never writes disk.
         void stream(
-            assets::State& assets,
-            events::State& events,
-            jobs::State& jobs,
+            AssetsState& assets,
+            EventsState& events,
+            JobsState& jobs,
             std::span<const Frustum> frustums);
 
       private:
@@ -87,7 +87,7 @@ namespace tbx
         struct StreamedKit
         {
             ToyId instance = NULL_TOY; // the KitInstance toy whose children stream in/out
-            assets::Handle<Kit> kit = {};
+            AssetHandle<Kit> kit = {};
             Vec3 bounds_center = Vec3(0.0f, 0.0f, 0.0f);
             float bounds_radius = 0.0f;
             bool is_loading = false;
@@ -98,15 +98,15 @@ namespace tbx
         /// @brief
         /// Purpose: Spawns the pending level (open() defers so opening never needs the asset
         /// system in hand).
-        void open_pending(assets::State& assets, events::State& events);
+        void open_pending(AssetsState& assets, EventsState& events);
 
         /// @brief
         /// Purpose: Copies a kit's toys under `parent`, expanding nested immediate kits and
         /// registering nested streamed kits — the shared body of spawn() and stream-in.
         /// (Defined in kit.cpp with the kit machinery.)
         Result<void> instantiate_under(
-            assets::State& assets,
-            events::State& events,
+            AssetsState& assets,
+            EventsState& events,
             Toy parent,
             const Kit& kit,
             std::vector<uint64>& reference_stack,
@@ -115,10 +115,10 @@ namespace tbx
         /// @brief
         /// Purpose: Records a streamed KitInstance toy (peeks the referenced kit's bounds).
         void register_streamed_kit(
-            assets::State& assets,
-            events::State& events,
+            AssetsState& assets,
+            EventsState& events,
             Toy instance,
-            const assets::Handle<Kit>& kit);
+            const AssetHandle<Kit>& kit);
 
       private:
         std::vector<StreamedKit> _streamed_kits;
@@ -128,11 +128,11 @@ namespace tbx
     /// @brief
     /// Purpose: Sandbox's registered reader — a level file IS a sandbox: reads a .kit and
     /// opens it as a fresh world (its toys spawn on the first stream() tick). Call it through
-    /// serialization::deserialize<Sandbox>(path).
+    /// deserialize<Sandbox>(path).
     TBX_API Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Sandbox's registered writer — every live toy captured as a kit file. Call it
-    /// through serialization::serialize(sandbox, path).
+    /// through serialize(sandbox, path).
     TBX_API Result<void> serialize_sandbox(const Sandbox& sandbox, const std::filesystem::path& path);
 }

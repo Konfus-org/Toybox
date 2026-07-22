@@ -5,7 +5,7 @@
 #include <utility>
 #include <variant>
 
-namespace tbx::jobs
+namespace tbx
 {
     /// @brief
     /// Purpose: Shared promise plumbing for Task<T>: lazy start plus symmetric transfer to the

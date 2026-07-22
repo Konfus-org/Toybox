@@ -10,15 +10,15 @@
 //   -number N            how many screenshots (default 1; files numbered _1.._N when N > 1)
 //   -delay F             frames between captures (default 8 — warm-up so first-frame asset
 //                        loads land before the first capture)
-namespace tbx::cmdline
+namespace tbx
 {
     /// @brief
     /// Purpose: Applies parse-time options onto the app (window size overrides) — the
     /// Runtime constructor calls it before the window is created.
-    TBX_API void apply(App& app);
+    TBX_API void apply_cmdline(App& app);
 
     /// @brief
     /// Purpose: Per-frame command handling (--screenshot captures) — run() calls it at
     /// frame start, while the backbuffer still holds the previous frame's image.
-    TBX_API void update(RuntimeState& state);
+    TBX_API void update_cmdline(RuntimeState& state);
 }

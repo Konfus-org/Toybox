@@ -20,9 +20,9 @@ int main(int argc, char** argv)
     // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in
     // the .tapp; this file is only the loop and the selftest checks. The .tapp decodes
     // generically through the reflected App schema, so registration comes first.
-    tbx::reflection::initialize();
+    tbx::initialize_reflection();
     const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
-    auto loaded = tbx::serialization::deserialize<tbx::App>(tapp);
+    auto loaded = tbx::deserialize<tbx::App>(tapp);
     if (!loaded)
     {
         TBX_ERROR("Toom.tapp: {}", loaded.error());

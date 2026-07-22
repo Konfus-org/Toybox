@@ -15,7 +15,7 @@
 // The scripting coordinator: routes sources to the backend that owns their extension
 // (extensionless names go to the first backend) and fans update() out to all. The state is
 // runtime.scripts. Main thread only.
-namespace tbx::scripts
+namespace tbx
 {
     /// @brief
     /// Purpose: One scripting language. Backends coexist — C++, Lua, and C# can all run at
@@ -23,10 +23,10 @@ namespace tbx::scripts
     /// (scripting/luau/, later csharp/...) implements it and claims sources by extension.
     /// @details
     /// Ownership: Owned by Scripts. Thread Safety: Main thread only.
-    class TBX_API Backend
+    class TBX_API ScriptBackend
     {
       public:
-        virtual ~Backend() = default;
+        virtual ~ScriptBackend() = default;
 
       public:
         /// @brief
@@ -67,31 +67,31 @@ namespace tbx::scripts
     /// (VMs), built lazily against the runtime's sandbox, plus which script-source assets
     /// were acquired. Declared after the sandbox in RuntimeState, so the VMs die before
     /// their world.
-    struct TBX_API State
+    struct TBX_API ScriptsState
     {
-        State() = default;
-        ~State() = default;
+        ScriptsState() = default;
+        ~ScriptsState() = default;
 
-        State(const State&) = delete;
-        State& operator=(const State&) = delete;
+        ScriptsState(const ScriptsState&) = delete;
+        ScriptsState& operator=(const ScriptsState&) = delete;
 
-        std::vector<std::unique_ptr<Backend>> backends;
+        std::vector<std::unique_ptr<ScriptBackend>> backends;
         std::unordered_set<Uuid> acquired_sources;
     };
 
     /// @brief
     /// Purpose: Registers an additional backend (e.g. the game exe's own C++ "scripting").
-    TBX_API void add_backend(State& state, std::unique_ptr<Backend> backend);
+    TBX_API void add_backend(ScriptsState& state, std::unique_ptr<ScriptBackend> backend);
 
     /// @brief
     /// Purpose: Runs every backend's fixed-cadence hook; called from the fixed step alongside
     /// physics so scripts can do physics-rate work.
-    TBX_API void fixed_update(State& state, float fixed_delta_time);
+    TBX_API void fixed_update_scripts(ScriptsState& state, float fixed_delta_time);
 
     /// @brief
     /// Purpose: Registers a source under an explicit asset id (the asset pipeline path).
     TBX_API Result<void> load_source(
-        State& state,
+        ScriptsState& state,
         const Uuid& id,
         const std::string& name,
         std::string_view source);
@@ -99,20 +99,20 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Compiles a source under a deterministic id derived from its name and returns
     /// the handle Script blocks use — the manual/test path.
-    TBX_API Result<assets::Handle<Source>> load_source(
-        State& state,
+    TBX_API Result<AssetHandle<ScriptSource>> load_source(
+        ScriptsState& state,
         const std::string& name,
         std::string_view source);
 
     /// @brief
     /// Purpose: True when some backend runs files with the given extension (".luau") —
     /// listeners use it to filter asset events down to script sources.
-    TBX_API bool owns(const State& state, std::string_view extension);
+    TBX_API bool owns_script_extension(const ScriptsState& state, std::string_view extension);
 
     /// @brief
     /// Purpose: Hot reload under an explicit asset id.
     TBX_API Result<void> reload_source(
-        State& state,
+        ScriptsState& state,
         const Uuid& id,
         const std::string& name,
         std::string_view source);
@@ -120,7 +120,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Hot reload under the name-derived id (the manual/test path).
     TBX_API Result<void> reload_source(
-        State& state,
+        ScriptsState& state,
         const std::string& name,
         std::string_view source);
 
@@ -128,10 +128,10 @@ namespace tbx::scripts
     /// Purpose: Runs every scripted toy across every backend, first loading (once) every
     /// script-source asset a spawned toy references — the store announces it and the reload
     /// glue hands it to the owning backend. Called by tbx::run() every frame.
-    TBX_API void update(
-        State& state,
+    TBX_API void update_scripts(
+        ScriptsState& state,
         Sandbox& sandbox,
-        assets::State& assets,
-        events::State& events,
+        AssetsState& assets,
+        EventsState& events,
         float delta_time);
 }

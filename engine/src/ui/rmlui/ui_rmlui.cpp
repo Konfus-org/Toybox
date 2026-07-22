@@ -15,14 +15,14 @@
 #include <unordered_map>
 #include <vector>
 
-namespace tbx::ui
+namespace tbx
 {
     // Style note: the PascalCase methods below (GetElapsedTime, CompileGeometry, ...) are
     // RmlUi's required virtual signatures — third-party shape, not ours. Everything we name
     // in this file follows the Toybox standard.
 
     /// @brief
-    /// Purpose: RmlUi's clock (fed by update()) and log bridge.
+    /// Purpose: RmlUi's clock (fed by update_ui()) and log bridge.
     class SystemInterface final : public Rml::SystemInterface
     {
       public:
@@ -143,7 +143,7 @@ namespace tbx::ui
         }
 
       public:
-        // Set once when the pipeline compiles; non-owning views of State members with the
+        // Set once when the pipeline compiles; non-owning views of UiState members with the
         // exact same lifetime (raw at the RmlUi library boundary, like the contexts).
         const gpu::Shader* shader = nullptr;
         const gpu::Texture2d* white_texture = nullptr;
@@ -156,7 +156,7 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: One drawn document: its own Rml context (so draw() can render it right now,
+    /// Purpose: One drawn document: its own Rml context (so draw_ui() can render it right now,
     /// alone), keyed by content hash — a changed asset hashes to a fresh instance.
     struct DocumentEntry
     {
@@ -170,7 +170,7 @@ namespace tbx::ui
     /// @brief
     /// Purpose: The document/render stack behind the boundary, built lazily on the first
     /// draw.
-    struct State::Backend
+    struct UiState::Backend
     {
         SystemInterface system = {};
         RenderInterface renderer = {};
@@ -191,18 +191,18 @@ namespace tbx::ui
         }
     };
 
-    State::State() = default;
-    State::~State() = default;
-    State::State(State&& other) noexcept = default;
-    State& State::operator=(State&& other) noexcept = default;
+    UiState::UiState() = default;
+    UiState::~UiState() = default;
+    UiState::UiState(UiState&& other) noexcept = default;
+    UiState& UiState::operator=(UiState&& other) noexcept = default;
 
     static constexpr uint64 UNDRAWN_FRAMES_BEFORE_CLOSE = 600;
 
-    static std::optional<std::reference_wrapper<State::Backend>> ensure_ui_ready(State& ui_state)
+    static std::optional<std::reference_wrapper<UiState::Backend>> ensure_ui_ready(UiState& ui_state)
     {
         if (ui_state.backend)
             return *ui_state.backend;
-        auto state = std::make_unique<State::Backend>();
+        auto state = std::make_unique<UiState::Backend>();
         Rml::SetSystemInterface(&state->system);
         Rml::SetRenderInterface(&state->renderer);
         if (!Rml::Initialise())
@@ -224,7 +224,7 @@ namespace tbx::ui
     /// Purpose: Pushes binding values into one element tree: data-text fills inner text,
     /// data-style replaces the style attribute. Applied values cache on the element so
     /// unchanged bindings never force relayout.
-    static void apply_bindings(const State& state, Rml::Element* element)
+    static void apply_bindings(const UiState& state, Rml::Element* element)
     {
         if (const Rml::Variant* text_binding = element->GetAttribute("data-text"))
         {
@@ -297,7 +297,7 @@ namespace tbx::ui
     /// Purpose: The cached (context, document) pair for one document at one drawable size,
     /// created on first draw.
     static DocumentEntry* ensure_document(
-        State::Backend& state,
+        UiState::Backend& state,
         const Document& document,
         const uint64 key,
         const int width,
@@ -337,7 +337,7 @@ namespace tbx::ui
         return &entry;
     }
 
-    static bool ensure_ui_pipeline(State::Backend& state)
+    static bool ensure_ui_pipeline(UiState::Backend& state)
     {
         if (state.pipeline)
             return true;
@@ -377,12 +377,12 @@ namespace tbx::ui
 
     //// BOUNDARY ////
 
-    void draw(State& ui_state, const Document& document, const gpu::RenderTarget& target)
+    void draw_ui(UiState& ui_state, const Document& document, const gpu::RenderTarget& target)
     {
         const auto ready = ensure_ui_ready(ui_state);
         if (!ready)
             return;
-        State::Backend* state = &ready->get();
+        UiState::Backend* state = &ready->get();
         if (!ensure_ui_pipeline(*state))
             return;
 
@@ -409,12 +409,12 @@ namespace tbx::ui
         gpu::end_render_pass();
     }
 
-    void set_font(State& ui_state, const Font& font, const std::string& family)
+    void set_font(UiState& ui_state, const Font& font, const std::string& family)
     {
         const auto ready = ensure_ui_ready(ui_state);
         if (!ready)
             return;
-        State::Backend* state = &ready->get();
+        UiState::Backend* state = &ready->get();
         // The copy lands in the state first: RmlUi references the memory face until
         // Rml::Shutdown (which the state destructor runs before releasing these bytes).
         state->font_faces.push_back(font.data);
@@ -434,12 +434,12 @@ namespace tbx::ui
         }
     }
 
-    void bind(State& state, Binding binding)
+    void bind(UiState& state, Binding binding)
     {
         state.live_bindings[binding.name] = std::move(binding);
     }
 
-    void update(State& ui_state, const float delta_time)
+    void update_ui(UiState& ui_state, const float delta_time)
     {
         // Live bindings feed their slots once per frame; apply_bindings diffs per element.
         for (const auto& [name, binding] : ui_state.live_bindings)
@@ -448,7 +448,7 @@ namespace tbx::ui
 
         if (!ui_state.backend)
             return;
-        State::Backend& state = *ui_state.backend;
+        UiState::Backend& state = *ui_state.backend;
         state.system.elapsed += delta_time;
 
         // What stopped being drawn retires; a changed asset simply hashes to a new entry.

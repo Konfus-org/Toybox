@@ -1,14 +1,14 @@
 #include "tbx/scripting/source.h"
 #include "tbx/files/files.h"
 
-namespace tbx::scripts
+namespace tbx
 {
-    Result<Source> deserialize_script_source(const std::filesystem::path& path)
+    Result<ScriptSource> deserialize_script_source(const std::filesystem::path& path)
     {
         auto text = read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        auto source = Source();
+        auto source = ScriptSource();
         source.name = path.filename().string();
         source.source = std::move(*text);
         return ok(std::move(source));

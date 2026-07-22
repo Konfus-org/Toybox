@@ -8,9 +8,9 @@
 #include <filesystem>
 #include <string>
 
-namespace tbx::cmdline
+namespace tbx
 {
-    void apply(App& app)
+    void apply_cmdline(App& app)
     {
         // -w/-h override the configured window size per launch (screenshot tooling, quick
         // resolution checks).
@@ -18,7 +18,7 @@ namespace tbx::cmdline
         app.config.height = app.commands.get<int>("h", app.config.height);
     }
 
-    void update(RuntimeState& state)
+    void update_cmdline(RuntimeState& state)
     {
         // --screenshot[=path] -number N -delay F: pre-present captures of real rendered
         // frames (at run() entry the backbuffer still holds the frame the previous call
@@ -29,9 +29,9 @@ namespace tbx::cmdline
         const auto delay = static_cast<uint64>(std::max(app.commands.get<int>("delay", 8), 1));
         const auto number = static_cast<uint64>(std::max(app.commands.get<int>("number", 1), 1));
         const uint64 shot = state.frame.index / delay;
-        windows::Window& window = state.windows.windows.front();
+        Window& window = state.windows.windows.front();
         if (state.frame.index % delay != 0 || shot < 1 || shot > number
-            || window.status != windows::WindowStatus::OPEN || !window.backend)
+            || window.status != WindowStatus::OPEN || !window.backend)
             return;
 
         auto path =
@@ -42,12 +42,12 @@ namespace tbx::cmdline
             path.replace_filename(
                 path.stem().string() + "_" + std::to_string(shot) + path.extension().string());
 
-        windows::make_current(window);
+        make_current(window);
         gpu::set_viewport(window.width, window.height);
         auto capture = gpu::Texture();
         if (const auto read = gpu::screenshot(capture); !read)
             TBX_ERROR("screenshot: {}", read.error());
-        else if (const auto saved = serialization::serialize(capture, path); !saved)
+        else if (const auto saved = serialize(capture, path); !saved)
             TBX_ERROR("screenshot '{}': {}", path.string(), saved.error());
         else
             TBX_INFO("saved screenshot '{}'", path.string());

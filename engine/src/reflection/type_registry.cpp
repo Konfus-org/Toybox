@@ -1,14 +1,14 @@
 #include "tbx/reflection/reflection.h"
 #include "tbx/debug/log.h"
 
-namespace tbx::reflection
+namespace tbx
 {
     //// TYPE REGISTRY ////
 
     TypeInfo& TypeRegistry::add(TypeInfo info)
     {
         // Idempotent on purpose: a name registered twice keeps its one record, so repeated
-        // lazy initialize() calls (app, renderer, sandbox, ...) all land on the same table.
+        // lazy initialize_reflection() calls (app, renderer, sandbox, ...) all land on the same table.
         for (auto& existing : _types)
             if (existing->name_hash == info.name_hash)
                 return *existing;
@@ -46,12 +46,12 @@ namespace tbx::reflection
         return g_registry;
     }
 
-    std::optional<std::reference_wrapper<const TypeInfo>> describe(const uint64 name_hash)
+    std::optional<std::reference_wrapper<const TypeInfo>> describe_type(const uint64 name_hash)
     {
         return get_type_registry().find(name_hash);
     }
 
-    std::optional<std::reference_wrapper<const TypeInfo>> describe(const std::string_view name)
+    std::optional<std::reference_wrapper<const TypeInfo>> describe_type(const std::string_view name)
     {
         return get_type_registry().find(name);
     }

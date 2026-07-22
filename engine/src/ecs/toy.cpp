@@ -121,7 +121,7 @@ namespace tbx
 
     std::byte* Toy::get_block_bytes(const uint64 type_hash) const
     {
-        const auto type = reflection::describe(type_hash);
+        const auto type = describe_type(type_hash);
         if (!type || !type->get().get_block)
             return nullptr;
         return type->get().get_block(_registry->get(), _id);
@@ -129,7 +129,7 @@ namespace tbx
 
     std::byte* Toy::add_block_bytes(const uint64 type_hash)
     {
-        const auto type = reflection::describe(type_hash);
+        const auto type = describe_type(type_hash);
         if (!type || !type->get().add_block)
             return nullptr;
         return type->get().add_block(_registry->get(), _id);
@@ -137,13 +137,13 @@ namespace tbx
 
     bool Toy::has_block_named(const uint64 type_hash) const
     {
-        const auto type = reflection::describe(type_hash);
+        const auto type = describe_type(type_hash);
         return type && type->get().has_block && type->get().has_block(_registry->get(), _id);
     }
 
     void Toy::remove_block_named(const uint64 type_hash)
     {
-        const auto type = reflection::describe(type_hash);
+        const auto type = describe_type(type_hash);
         if (type && type->get().remove_block)
             type->get().remove_block(_registry->get(), _id);
     }

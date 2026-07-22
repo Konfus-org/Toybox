@@ -3,10 +3,10 @@
 #include "tbx/runtime.h"
 #include <lua.h>
 
-// Private glue between the Luau VM and the engine. Bindings are generic over reflection::TypeInfo — never
+// Private glue between the Luau VM and the engine. Bindings are generic over TypeInfo — never
 // per-type code — plus a thin hand-written tbx.* service API. Other language backends
 // (scripting/csharp/...) follow the same rule inside their own folders.
-namespace tbx::scripts
+namespace tbx
 {
     /// @brief
     /// Purpose: Installs the global `tbx` table (sandbox/input) and the Toy/Block metatables;

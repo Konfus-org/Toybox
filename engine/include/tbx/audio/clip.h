@@ -8,11 +8,11 @@
 #include <span>
 #include <vector>
 
-namespace tbx::audio
+namespace tbx
 {
     /// @brief
     /// Purpose: Decoded audio asset: interleaved float samples.
-    struct TBX_API Clip : assets::Asset
+    struct TBX_API AudioClip : Asset
     {
         int channels = 0;
         int sample_rate = 0;
@@ -20,12 +20,12 @@ namespace tbx::audio
     };
 
     /// @brief
-    /// Purpose: Decodes a RIFF/WAV payload (PCM16 or float32, mono/stereo) into a Clip —
+    /// Purpose: Decodes a RIFF/WAV payload (PCM16 or float32, mono/stereo) into a AudioClip —
     /// pure over bytes so it unit-tests without files.
-    TBX_API Result<Clip> parse_wav(std::span<const std::byte> bytes);
+    TBX_API Result<AudioClip> parse_wav(std::span<const std::byte> bytes);
 
     /// @brief
-    /// Purpose: Clip's registered reader (WAV) — call it through
-    /// serialization::deserialize<Clip>(path).
-    TBX_API Result<Clip> deserialize_clip(const std::filesystem::path& path);
+    /// Purpose: AudioClip's registered reader (WAV) — call it through
+    /// deserialize<AudioClip>(path).
+    TBX_API Result<AudioClip> deserialize_clip(const std::filesystem::path& path);
 }

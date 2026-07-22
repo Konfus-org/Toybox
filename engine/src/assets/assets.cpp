@@ -12,12 +12,12 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace tbx::assets
+namespace tbx
 {
     /// @brief
     /// Purpose: The tracked path for an id, if any — the reverse of the identity map. The
     /// caller holds the state mutex.
-    static std::optional<std::string> find_path_of_locked(const State& state, const Uuid& id)
+    static std::optional<std::string> find_path_of_locked(const AssetsState& state, const Uuid& id)
     {
         for (const auto& [path, tracked] : state.assets)
             if (tracked == id)
@@ -28,7 +28,7 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Reads a sidecar id: ours are 32-hex uuids, v1 sidecars use bare numbers (kept
     /// as Uuid{0, number}); dashed guids tolerate too.
-    static Uuid parse_meta_id(const serialization::Json& meta)
+    static Uuid parse_meta_id(const Json& meta)
     {
         const auto it = meta.find("id");
         if (it == meta.end())
@@ -44,9 +44,9 @@ namespace tbx::assets
 
     /// @brief
     /// Purpose: Stamps an AssetReloaded event's fixed extension buffer from a path.
-    static events::AssetReloaded make_reloaded_event(const Uuid& id, const std::string& relative_path)
+    static AssetReloaded make_reloaded_event(const Uuid& id, const std::string& relative_path)
     {
-        auto event = events::AssetReloaded {.id = id};
+        auto event = AssetReloaded {.id = id};
         const auto extension = std::filesystem::path(relative_path).extension().string();
         const auto length = std::min(extension.size(), event.extension.size() - 1);
         extension.copy(event.extension.data(), length);
@@ -57,7 +57,7 @@ namespace tbx::assets
     /// Purpose: One-time read-only walk of both roots for existing *.meta sidecars (never
     /// writes one) so kit uuid references resolve without something having loaded the asset
     /// by path first. The caller holds the state mutex.
-    static void index_meta_sidecars(State& state)
+    static void index_meta_sidecars(AssetsState& state)
     {
         const auto index_root = [&state](const std::filesystem::path& root)
         {
@@ -71,9 +71,9 @@ namespace tbx::assets
                 if (!it->is_regular_file() || it->path().extension() != ".meta")
                     continue;
                 const auto text = read_text(it->path());
-                if (!text || !serialization::Json::accept(*text))
+                if (!text || !Json::accept(*text))
                     continue;
-                const serialization::Json meta = serialization::Json::parse(*text, nullptr, false);
+                const Json meta = Json::parse(*text, nullptr, false);
                 if (!meta.is_object())
                     continue;
                 const Uuid id = parse_meta_id(meta);
@@ -98,7 +98,7 @@ namespace tbx::assets
 
     /// @brief
     /// Purpose: The tracked relative path for an id, indexing the sidecars on a miss.
-    static std::optional<std::string> find_relative_path(State& state, const Uuid& id)
+    static std::optional<std::string> find_relative_path(AssetsState& state, const Uuid& id)
     {
         const std::scoped_lock lock(state.mutex);
         return find_path_of_locked(state, id);
@@ -108,10 +108,10 @@ namespace tbx::assets
     /// Purpose: Resolves a path to its id, minting an identity-only .meta sidecar
     /// ({id, version, type}) when missing — v1 sidecars in resources/ are honored, never
     /// rewritten — so renames move the id with the file instead of breaking references.
-    static Result<Uuid> prepare(State& state, const std::string& relative_path)
+    static Result<Uuid> prepare(AssetsState& state, const std::string& relative_path)
     {
         if (state.root.empty())
-            return fail("asset root is not set (assets::set_root)");
+            return fail("asset root is not set (set_asset_root)");
         {
             const std::scoped_lock lock(state.mutex);
             const auto tracked = state.assets.find(relative_path);
@@ -119,14 +119,14 @@ namespace tbx::assets
                 return tracked->second;
         }
 
-        const auto asset_path = resolve_path(state, relative_path);
+        const auto asset_path = resolve_asset_path(state, relative_path);
         const auto meta_path = asset_path.string() + ".meta";
         auto id = Uuid {};
         if (std::filesystem::exists(meta_path))
         {
             if (const auto text = read_text(meta_path))
             {
-                const serialization::Json meta = serialization::Json::parse(*text, nullptr, false);
+                const Json meta = Json::parse(*text, nullptr, false);
                 if (meta.is_object())
                     id = parse_meta_id(meta);
             }
@@ -136,7 +136,7 @@ namespace tbx::assets
         else
         {
             id = Uuid::generate();
-            const auto meta = serialization::Json {
+            const auto meta = Json {
                 {"id", id.to_string()},
                 {"version", 1},
                 {"type", asset_path.extension().string()}};
@@ -154,8 +154,8 @@ namespace tbx::assets
     /// assets re-decode and swap in place, tracked-but-idle ones just announce so subscribers
     /// pull fresh data themselves.
     static void handle_file_changed(
-        State& state,
-        events::State& events,
+        AssetsState& state,
+        EventsState& events,
         const std::filesystem::path& path)
     {
         auto ec = std::error_code {};
@@ -179,13 +179,13 @@ namespace tbx::assets
 
         // Identify the resident shape under the lock, decode OUTSIDE it (gpu::Material decode
         // re-enters prepare), then swap the result back in. The decoder is the asset facet
-        // on the registered serializer (serialization::register_serializer<TAsset>()).
+        // on the registered serializer (register_serializer<TAsset>()).
         Result<std::any> (*deserialize_asset)(
             const std::filesystem::path&, const Uuid&, const std::string&) = nullptr;
         {
             const std::scoped_lock lock(state.mutex);
             const size shape = state.loaded_assets[id].data.type().hash_code();
-            for (const auto& serializer : serialization::get_serializer_registry().get_all())
+            for (const auto& serializer : get_serializer_registry().get_all())
                 if (serializer.get().asset_shape == shape && serializer.get().deserialize_asset)
                 {
                     deserialize_asset = serializer.get().deserialize_asset;
@@ -196,7 +196,7 @@ namespace tbx::assets
         auto refreshed = deserialize_asset
             ? deserialize_asset(path, id, relative)
             : Result<std::any>(std::unexpected(std::string(
-                  "unregistered asset type (serialization::register_serializer<T>() is missing)")));
+                  "unregistered asset type (register_serializer<T>() is missing)")));
         if (!refreshed)
         {
             TBX_ERROR("hot reload of '{}' failed: {}", relative, refreshed.error());
@@ -211,8 +211,8 @@ namespace tbx::assets
 
     //// BOUNDARY ////
 
-    std::optional<std::reference_wrapper<std::any>> find(
-        State& state,
+    std::optional<std::reference_wrapper<std::any>> find_asset(
+        AssetsState& state,
         const Uuid& id)
     {
         const std::scoped_lock lock(state.mutex);
@@ -223,16 +223,16 @@ namespace tbx::assets
         return it->second.data;
     }
 
-    size get_loaded_count(const State& state)
+    size get_loaded_asset_count(const AssetsState& state)
     {
         const std::scoped_lock lock(state.mutex);
         return state.loaded_assets.size();
     }
 
-    void update(State& state, events::State& events)
+    void update_assets(AssetsState& state, EventsState& events)
     {
         const auto now = std::chrono::steady_clock::now();
-        auto unloaded = std::vector<events::AssetReloaded>(); // reuse the id+extension shape
+        auto unloaded = std::vector<AssetReloaded>(); // reuse the id+extension shape
         {
             const std::scoped_lock lock(state.mutex);
             const float throttle = std::min(1.0f, state.idle_lifetime_seconds);
@@ -253,15 +253,15 @@ namespace tbx::assets
                 it = state.loaded_assets.erase(it);
             }
         }
-        for (const events::AssetReloaded& gone : unloaded)
+        for (const AssetReloaded& gone : unloaded)
         {
-            auto event = events::AssetUnloaded {.id = gone.id, .extension = gone.extension};
+            auto event = AssetUnloaded {.id = gone.id, .extension = gone.extension};
             events.asset_unloaded.emit(event);
         }
     }
 
-    Result<ResolvedHandle> resolve_handle(
-        State& state,
+    Result<ResolvedAssetHandle> resolve_handle(
+        AssetsState& state,
         const Uuid& id,
         const std::string& path)
     {
@@ -269,7 +269,7 @@ namespace tbx::assets
         {
             // Resolved identity; the tracked path (meta index) is where re-decodes come from.
             const auto tracked = find_relative_path(state, id);
-            return ok(ResolvedHandle {
+            return ok(ResolvedAssetHandle {
                 .id = id,
                 .relative_path = tracked ? *tracked : path});
         }
@@ -278,10 +278,10 @@ namespace tbx::assets
         const auto prepared = prepare(state, path);
         if (!prepared)
             return std::unexpected(prepared.error());
-        return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
+        return ok(ResolvedAssetHandle {.id = *prepared, .relative_path = path});
     }
 
-    std::filesystem::path resolve_path(const State& state, const std::string& relative_path)
+    std::filesystem::path resolve_asset_path(const AssetsState& state, const std::string& relative_path)
     {
         // The app's asset root wins; the engine's resources folder is the second root, making
         // engine-shipped models/textures/shaders ordinary assets.
@@ -302,7 +302,7 @@ namespace tbx::assets
     /// Purpose: Walks the app root and mints/reads an id for every asset file (skipping .meta
     /// sidecars) so the identity map holds every asset's path and id — tooling can then
     /// reference any asset by id without a by-path load first.
-    static void discover_assets(State& state)
+    static void discover_assets(AssetsState& state)
     {
         if (state.root.empty() || !std::filesystem::exists(state.root))
             return;
@@ -324,21 +324,21 @@ namespace tbx::assets
         }
     }
 
-    void initialize(
-        State& state,
-        events::State& events,
-        jobs::State& jobs,
+    void initialize_assets(
+        AssetsState& state,
+        EventsState& events,
+        JobsState& jobs,
         std::filesystem::path root)
     {
-        reflection::initialize(); // reflection shapes + every serializer
-        set_root(state, events, jobs, std::move(root));
+        initialize_reflection(); // reflection shapes + every serializer
+        set_asset_root(state, events, jobs, std::move(root));
         discover_assets(state);
     }
 
-    void set_root(
-        State& state,
-        events::State& events,
-        jobs::State& jobs,
+    void set_asset_root(
+        AssetsState& state,
+        EventsState& events,
+        JobsState& jobs,
         std::filesystem::path root)
     {
         state.root = std::move(root);
@@ -350,21 +350,21 @@ namespace tbx::assets
         }
         // The watcher reports on its own thread; marshal to the main thread ourselves. The
         // captures reference value-held members of the heap-stable RuntimeState (never the
-        // Runtime handle) and the callback must touch nothing but jobs::post_main — the
+        // Runtime handle) and the callback must touch nothing but post_main — the
         // posted work runs on the main thread.
         state.watcher.emplace(
             state.root,
             [&state, &events, &jobs](const std::filesystem::path& path)
             {
-                jobs::post_main(
+                post_main(
                     jobs,
                     [&state, &events, path] { handle_file_changed(state, events, path); });
             });
     }
 
-    void store(
-        State& state,
-        events::State& events,
+    void store_asset(
+        AssetsState& state,
+        EventsState& events,
         const Uuid& id,
         const std::string& relative_path,
         std::any asset)

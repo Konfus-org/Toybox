@@ -45,7 +45,7 @@ namespace tbx::tests
         const auto bytes = build_wav({0, 16384, -16384, 32767});
 
         // Act
-        const auto clip = audio::parse_wav(bytes);
+        const auto clip = parse_wav(bytes);
 
         // Assert
         ASSERT_TRUE(clip.has_value()) << clip.error();
@@ -62,7 +62,7 @@ namespace tbx::tests
         const auto garbage = std::vector<std::byte>(64, std::byte {0x42});
 
         // Act
-        const auto clip = audio::parse_wav(garbage);
+        const auto clip = parse_wav(garbage);
 
         // Assert
         EXPECT_FALSE(clip.has_value());
@@ -72,16 +72,16 @@ namespace tbx::tests
     {
         // Arrange
         auto runtime = Runtime();
-        runtime.state->sandbox.spawn("Speaker").with(audio::Source {});
+        runtime.state->sandbox.spawn("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
-        audio::update(
+        update_audio(
             runtime.state->audio,
             runtime.state->sandbox,
             runtime.state->assets,
             runtime.state->events,
             0.016f);
-        audio::update(
+        update_audio(
             runtime.state->audio,
             runtime.state->sandbox,
             runtime.state->assets,

@@ -12,10 +12,10 @@ namespace tbx
         : state(std::make_unique<RuntimeState>())
     {
         // Parse-time command handling (-w/-h size overrides) before the window exists.
-        cmdline::apply(app);
+        apply_cmdline(app);
         if (!app.config.is_headless)
         {
-            auto window = windows::Window();
+            auto window = Window();
             window.title = app.config.title;
             window.width = app.config.width;
             window.height = app.config.height;

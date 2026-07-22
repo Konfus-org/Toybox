@@ -43,19 +43,19 @@ namespace tbx
     {
         App app = {};
         FrameState frame = {};
-        input::State input = {};
-        windows::State windows = {};
+        InputState input = {};
+        WindowsState windows = {};
         Sandbox sandbox = {};
         gpu::RenderGraph render_graph = {};
-        jobs::State jobs = {};
-        events::State events = {};
-        assets::State assets = {};
+        JobsState jobs = {};
+        EventsState events = {};
+        AssetsState assets = {};
         gpu::State renderer = {};
-        scripts::State scripts = {};
-        physics::State physics = {};
-        audio::State audio = {};
-        ui::State ui = {};
-        debug::view::State debug = {};
+        ScriptsState scripts = {};
+        PhysicsState physics = {};
+        AudioState audio = {};
+        UiState ui = {};
+        DebugViewState debug = {};
     };
 
     /// @brief

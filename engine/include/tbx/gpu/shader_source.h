@@ -8,7 +8,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Shader source asset — plain text (Format::TEXT), compiled by the gpu backend
     /// on use.
-    struct TBX_API ShaderSource : assets::Asset
+    struct TBX_API ShaderSource : Asset
     {
         std::string text = {};
     };

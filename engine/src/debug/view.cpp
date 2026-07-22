@@ -8,20 +8,20 @@
 #include <filesystem>
 #include <format>
 
-namespace tbx::debug::view
+namespace tbx
 {
-    void update(
-        State& state,
-        const input::State& input,
+    void update_debug_view(
+        DebugViewState& state,
+        const InputState& input,
         const Sandbox& sandbox,
-        const assets::State& assets,
-        const windows::State& windows,
-        ui::State& ui,
+        const AssetsState& assets,
+        const WindowsState& windows,
+        UiState& ui,
         const float delta_time)
     {
         ++state.frame;
         // The overlay owns its own hotkey.
-        if (input::is_pressed(input, input::Key::F3))
+        if (is_pressed(input, Key::F3))
             state.is_open = !state.is_open;
         if (!state.is_open)
             return;
@@ -29,7 +29,7 @@ namespace tbx::debug::view
         {
             // First open: the overlay document is an engine-shipped file.
             const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Ui" / "debug.rml";
-            if (auto document = serialization::deserialize<ui::Document>(path))
+            if (auto document = deserialize<Document>(path))
                 state.document = std::move(*document);
             else
             {
@@ -50,7 +50,7 @@ namespace tbx::debug::view
         ui.bindings["debug_fps"] = std::format("{:.0f} fps  ({:.2f} ms)", fps, state.smoothed_delta * 1000.0f);
         ui.bindings["debug_frame"] = std::format("frame {}", state.frame);
         ui.bindings["debug_toys"] = std::format("toys: {}", sandbox.get_toy_count());
-        ui.bindings["debug_assets"] = std::format("assets resident: {}", assets::get_loaded_count(assets));
+        ui.bindings["debug_assets"] = std::format("assets resident: {}", get_loaded_asset_count(assets));
         const int width = windows.windows.empty() ? 0 : windows.windows.front().width;
         const int height = windows.windows.empty() ? 0 : windows.windows.front().height;
         ui.bindings["debug_viewport"] = std::format("viewport: {}x{}", width, height);

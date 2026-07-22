@@ -79,8 +79,8 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::string title = "Toybox";
-        assets::Handle<Kit> sandbox = {}; // the level kit the boot opens as the world
-        assets::Handle<gpu::Texture> icon = {}; // the window/taskbar icon
+        AssetHandle<Kit> sandbox = {}; // the level kit the boot opens as the world
+        AssetHandle<gpu::Texture> icon = {}; // the window/taskbar icon
 
         // Derived, never serialized: where assets live — the host sets it (usually the
         // .tapp's folder) and the live value survives .tapp hot reloads. Boot requires it.
@@ -102,9 +102,9 @@ namespace tbx
     /// whole runtime is one loop — `while (tbx::run(app)) { gpu::begin_frame(); ... }` — and
     /// run() fills state each iteration. The App is itself an asset: a .tapp file IS a
     /// serialized App (config + settings; state stays runtime-only), decoded generically
-    /// through its reflected fields — serialization::deserialize<App>(path) after
-    /// reflection::initialize() — and re-applied live when the watched file changes.
-    struct TBX_API App : assets::Asset
+    /// through its reflected fields — deserialize<App>(path) after
+    /// initialize_reflection() — and re-applied live when the watched file changes.
+    struct TBX_API App : Asset
     {
         AppStatus status = AppStatus::CREATED;
         AppConfig config = {};

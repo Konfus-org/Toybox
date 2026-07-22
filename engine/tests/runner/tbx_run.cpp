@@ -40,7 +40,7 @@ static constexpr std::array<float, 21> TRIANGLE_VERTICES = {
 };
 
 /// @brief
-/// Purpose: A live-bound stat for the selftest's ui::bind smoke coverage.
+/// Purpose: A live-bound stat for the selftest's bind smoke coverage.
 struct SelftestStats
 {
     int frames = 0;
@@ -70,7 +70,7 @@ static int run_scene_selftest()
     bool reflection_works = false;
     tbx::Toy camera = {};
     auto stats = SelftestStats {};
-    tbx::ui::bind(runtime.state->ui, stats.frames, "scene_frames");
+    tbx::bind(runtime.state->ui, stats.frames, "scene_frames");
 
     while (tbx::run(runtime))
     {
@@ -81,14 +81,14 @@ static int run_scene_selftest()
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
-                .with(tbx::gpu::Renderer {.model = tbx::builtin::PLANE});
+                .with(tbx::gpu::Renderer {.model = tbx::Builtin::PLANE});
             sandbox.spawn("Cube")
                 .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
                 .with(
                     tbx::gpu::Renderer {
                         .material =
-                            tbx::assets::Handle<tbx::gpu::Material>("Materials/Tbx/red.mat"),
-                        .model = tbx::builtin::CUBE});
+                            tbx::AssetHandle<tbx::gpu::Material>("Materials/Tbx/red.mat"),
+                        .model = tbx::Builtin::CUBE});
             sandbox.spawn("Sun")
                 .with(tbx::Transform {.rotation = look_toward(tbx::Vec3(1.0f, -1.0f, 0.0f))})
                 .with(tbx::gpu::DirectionalLight {.intensity = 1.0f});
@@ -96,8 +96,8 @@ static int run_scene_selftest()
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
                          .with(tbx::gpu::Camera {});
             sandbox.spawn("Panel").with(
-                tbx::ui::Ui {
-                    .document = tbx::assets::Handle<tbx::ui::Document>("Ui/selftest_panel.rml")});
+                tbx::Ui {
+                    .document = tbx::AssetHandle<tbx::Document>("Ui/selftest_panel.rml")});
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
@@ -144,7 +144,7 @@ out vec4 c; void main() { c = vec4(1.0); })");
                 }
                 tbx::gpu::apply_uniforms(
                     **probe,
-                    tbx::serialization::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
+                    tbx::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
                 reflection_works = found == 3;
             }
         }

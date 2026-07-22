@@ -2,7 +2,7 @@
 #include "tbx/files/files.h"
 #include <cstring>
 
-namespace tbx::audio
+namespace tbx
 {
     //// WAV PARSING ////
 
@@ -20,13 +20,13 @@ namespace tbx::audio
         return value;
     }
 
-    Result<Clip> parse_wav(const std::span<const std::byte> bytes)
+    Result<AudioClip> parse_wav(const std::span<const std::byte> bytes)
     {
         if (bytes.size() < 12 || std::memcmp(bytes.data(), "RIFF", 4) != 0
             || std::memcmp(bytes.data() + 8, "WAVE", 4) != 0)
             return fail("not a RIFF/WAVE payload");
 
-        auto clip = Clip {};
+        auto clip = AudioClip {};
         uint16 format = 0;
         uint16 bits_per_sample = 0;
         bool has_format = false;
@@ -80,7 +80,7 @@ namespace tbx::audio
         return fail("WAV has no data chunk");
     }
 
-    Result<Clip> deserialize_clip(const std::filesystem::path& path)
+    Result<AudioClip> deserialize_clip(const std::filesystem::path& path)
     {
         auto bytes = read_bytes(path);
         if (!bytes)

@@ -14,11 +14,11 @@ namespace tbx::gpu
     /// sandbox (the first wins), usually on a dedicated environment toy.
     struct TBX_API Sky : Block
     {
-        assets::Handle<Texture> texture = {};
+        AssetHandle<Texture> texture = {};
         Color tint = {};
 
         // Fluent setters — each returns *this for one-chain construction.
-        Sky& set_texture(assets::Handle<Texture> value) { texture = std::move(value); return *this; }
+        Sky& set_texture(AssetHandle<Texture> value) { texture = std::move(value); return *this; }
         Sky& set_tint(Color value) { tint = value; return *this; }
     };
 }
