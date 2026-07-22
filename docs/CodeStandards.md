@@ -15,6 +15,7 @@
 - **Lifetimes**: Enforce strict resource safety and intent: use local values or standard references for guaranteed objects, smart pointers exclusively for heap ownership, and RAII for all resources. Replace all non-owning raw pointers with std::reference_wrapper or std::optional to explicitly communicate optionality and reassignability.
 - **Includes**: Depend exclusively on direct `#include` statements; do not use forward declarations, never use blanket namespace imports.
 - **Namespaces**: Ban blanket `using namespace` imports.
+- **Folder = Namespace**: Everything in a module folder lives in that folder's namespace (`ecs/` -> `tbx::ecs`, `gfx/` -> `tbx::gfx`, `assets/` -> `tbx::assets`, ...) or the module's established one (`platform/` -> `tbx::windows` + `tbx::input`, `scripting/` -> `tbx::scripts`, `assets/builtin.h` -> `tbx::builtin`). Only root-level headers (`app.h`, `runtime.h`) and the foundations in `math/` and `utils/` (`Vec3`, `Result`, `Uuid`, `Color`, ...) stay plain `tbx::` — the vocabulary every module shares.
 - **Static Globals**: Prefix mutable static global variables with `g_`; static `const` and `constexpr` constants are not globals for this rule and must use `ALL_CAPS`.
 - **Type Aliases**: Use `size` and `uint` from `common/typedefs.h` instead of raw `std::size_t`.
 - **Nesting**: Do not nest structs or classes within other types.
@@ -22,8 +23,9 @@
 - **Accessor Naming**: Getters use a `get_` prefix and setters a `set_` prefix — never bare-noun accessors (`get_width()`, not `width()`).
 - **Bool Naming**: Bool-returning methods and bool members use `is_` or another question-style prefix that reads naturally (`is_headless()`, `is_down`); never omit the prefix.
 - **Verbosity**: No shorthand names — verbose and descriptive wins (`register_type` not `reg`, `initialize` not `init`, `delta_time` not `dt`).
-- **Data-Oriented Modules**: Where a subsystem is plain state + queries, prefer a short namespace of free functions with state as statics in the module's `.cpp` (`tbx::input::is_down(key)`, `tbx::gpu::draw(...)`, `tbx::files::read_text(...)`) — no manager class ceremony. Keep classes where RAII genuinely earns it: resource owners with real teardown/ordering (`Engine`, `Jobs`, `Window`, `Sandbox`) and small data/handle types (`Task`, `Signal`, `Toy`, `Uuid`).
-- **RAII Over Create/Destroy**: Never expose create/destroy function pairs — creation returns an owning smart pointer (or value RAII type) whose destructor releases the resource (`Result<std::unique_ptr<gpu::Shader>>`, never `destroy_shader`).
+- **Data-Oriented Modules**: Where a subsystem is plain state + queries, prefer a short namespace of free functions with state as statics in the module's `.cpp` (`tbx::input::is_down(key)`, `tbx::gfx::draw(...)`, `tbx::files::read_text(...)`) — no manager class ceremony. Keep classes where RAII genuinely earns it: resource owners with real teardown/ordering (`Engine`, `Jobs`, `Window`, `Sandbox`) and small data/handle types (`Task`, `Signal`, `Toy`, `Uuid`).
+- **Module Ownership**: A setting belongs to the module that means it, not the surface that applies it — vsync is the gfx module's request (`gfx::set_vsync`/`gfx::is_vsync_enabled`); the platform backend reads it and applies the swap interval per window surface.
+- **RAII Over Create/Destroy**: Never expose create/destroy function pairs — creation returns an owning smart pointer (or value RAII type) whose destructor releases the resource (`Result<std::unique_ptr<gfx::Shader>>`, never `destroy_shader`).
 - **No Raw/Void Pointers**: Beyond the existing lifetimes rule, replace `void*` with modern alternatives — `std::span<std::byte>`/`std::byte*` for type-erased memory, `std::reference_wrapper`/`std::optional` for references; raw pointers only at true C boundaries (Lua userdata payloads), commented as such.
 - **Const By Default**: Locals, parameters, and methods are `const` unless mutation is the point.
 - **Third-Party Seams**: Every third-party library sits behind exactly one engine-owned boundary: compiled backends behind `tbx_backend()` folders (sdl/gl/jolt/luau), header-only libs behind one wrapper header (`core/math.h` = glm, `core/json.h` = nlohmann, `core/log.h` = spdlog, `ecs/registry.h` = entt). Importers are seams too: `src/gfx/model.cpp` is the assimp seam, `src/gfx/texture.cpp` the stb seam. Nothing else includes a third-party header directly — swapping a lib touches its one seam.
@@ -36,6 +38,7 @@ Deliberate, narrow deviations from the rules above — each is load-bearing; do 
 - **Cycle-breaking forward declarations**: `class Sandbox;` in `toy.h`/`kit.h` breaks a true circular pair; allowed only where two headers genuinely need each other.
 - **PCH**: `src/pch.h` may include third-party seam headers (including `<entt/entt.hpp>`) for build speed; all *usage* still goes through the seam headers.
 - **SteamAudio's SDL usage**: the steamaudio backend opens its output device through SDL directly (5 calls + 1 callback). A dedicated platform audio-output seam is the documented swap path if a non-SDL platform backend ever lands; until then the direct calls are the dead-simple choice.
+- **`assets::load` specialization blocks**: a `load<T>` specialization must live in `tbx::assets` (the primary's namespace — C2912 otherwise) but belongs next to its type, so spec-carrying headers/sources end with a second trailing `namespace tbx::assets { ... }` block — the ONLY sanctioned multi-namespace-block file shape.
 
 ## Writing Unit Tests
 
