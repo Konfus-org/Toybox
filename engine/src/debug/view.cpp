@@ -1,10 +1,10 @@
-#include "tbx/debug/view.h"
-#include "tbx/serialization/read_write.h"
-#include "tbx/platform/input.h"
+#include "view.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
-#include "tbx/ui/ui.h"
+#include "tbx/platform/input.h"
+#include "tbx/serialization/read_write.h"
 #include "tbx/ui/document.h"
+#include "tbx/ui/ui.h"
 #include <filesystem>
 #include <format>
 
@@ -28,7 +28,7 @@ namespace tbx
         if (state.document.text.empty())
         {
             // First open: the overlay document is an engine-shipped file.
-            const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Ui" / "debug.rml";
+            const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Ui" / "debug.html";
             if (auto document = deserialize<Document>(path))
                 state.document = std::move(*document);
             else
@@ -47,12 +47,14 @@ namespace tbx
         state.refresh_timer = 0.25f;
 
         const float fps = state.smoothed_delta > 0.0f ? 1.0f / state.smoothed_delta : 0.0f;
-        ui.bindings["debug_fps"] = std::format("{:.0f} fps  ({:.2f} ms)", fps, state.smoothed_delta * 1000.0f);
+        ui.bindings["debug_fps"] =
+            std::format("{:.0f} fps  ({:.2f} ms)", fps, state.smoothed_delta * 1000.0f);
         ui.bindings["debug_frame"] = std::format("frame {}", state.frame);
         ui.bindings["debug_toys"] = std::format("toys: {}", sandbox.get_toy_count());
-        ui.bindings["debug_assets"] = std::format("assets resident: {}", get_loaded_asset_count(assets));
-        const int width = windows.windows.empty() ? 0 : windows.windows.front().width;
-        const int height = windows.windows.empty() ? 0 : windows.windows.front().height;
+        ui.bindings["debug_assets"] =
+            std::format("assets resident: {}", get_loaded_asset_count(assets));
+        const int width = windows.open_windows.empty() ? 0 : windows.open_windows.front().width;
+        const int height = windows.open_windows.empty() ? 0 : windows.open_windows.front().height;
         ui.bindings["debug_viewport"] = std::format("viewport: {}x{}", width, height);
     }
 }

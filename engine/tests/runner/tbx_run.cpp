@@ -2,7 +2,7 @@
 #include "tbx/assets/builtin.h"
 #include "tbx/utils/command_list.h"
 #include "tbx/debug/log.h"
-#include "tbx/debug/view.h"
+#include "tbx/debug/debugging.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gpu/gpu.h"
 #include "tbx/runtime.h"
@@ -97,7 +97,7 @@ static int run_scene_selftest()
                          .with(tbx::Camera {});
             sandbox.spawn("Panel").with(
                 tbx::Ui {
-                    .document = tbx::AssetHandle<tbx::Document>("Ui/selftest_panel.rml")});
+                    .document = tbx::AssetHandle<tbx::Document>("Ui/selftest_panel.html")});
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
@@ -114,7 +114,7 @@ static int run_scene_selftest()
             runtime.state->debug.is_open = true; // the scene exercises the overlay path
 
         // run() already rendered through the builtin graph; probe the backbuffer directly.
-        const auto& window = runtime.state->windows.windows.front();
+        const auto& window = runtime.state->windows.open_windows.front();
         const tbx::Color center = tbx::gpu_read_pixel(window.width / 2, window.height / 2);
         if (frame == 2)
         {
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
         if (selftest)
         {
             // The triangle covers the framebuffer center; the clear color does not.
-            const auto& window = runtime.state->windows.windows.front();
+            const auto& window = runtime.state->windows.open_windows.front();
             const tbx::Color center = tbx::gpu_read_pixel(window.width / 2, window.height / 2);
             const tbx::Color corner = tbx::gpu_read_pixel(2, 2);
             const bool center_is_triangle = center.r + center.g + center.b > 0.5f;

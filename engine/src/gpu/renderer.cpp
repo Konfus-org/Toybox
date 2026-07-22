@@ -1,7 +1,7 @@
 #include "tbx/app.h"
 #include "tbx/assets/builtin.h"
 #include "tbx/debug/log.h"
-#include "tbx/debug/view.h"
+#include "tbx/debug/debugging.h"
 #include "tbx/ecs/block.h"
 #include "tbx/files/files.h"
 #include "tbx/gpu/camera.h"

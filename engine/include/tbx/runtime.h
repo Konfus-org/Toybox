@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/app.h"
 #include "tbx/audio/audio.h"
-#include "tbx/debug/view.h"
+#include "tbx/debug/debugging.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include "tbx/gpu/render_graph.h"

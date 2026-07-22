@@ -90,7 +90,7 @@ namespace tbx
 
     //// FRAME ////
 
-    void pump(InputState& input)
+    void update_input(InputState& input)
     {
         input.previous_keys = input.keys;
         input.previous_mouse = input.mouse;

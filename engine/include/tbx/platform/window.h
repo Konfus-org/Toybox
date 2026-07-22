@@ -55,7 +55,7 @@ namespace tbx
     /// window just closes that window.
     struct TBX_API WindowsState
     {
-        std::vector<Window> windows = {};
+        std::vector<Window> open_windows = {};
     };
 
     /// @brief

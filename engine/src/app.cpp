@@ -3,7 +3,7 @@
 #include "tbx/audio/audio.h"
 #include "tbx/audio/clip.h"
 #include "tbx/debug/log.h"
-#include "tbx/debug/view.h"
+#include "tbx/debug/debugging.h"
 #include "tbx/ecs/billboard.h"
 #include "tbx/gpu/camera.h"
 #include "tbx/gpu/gpu.h"
@@ -36,9 +36,9 @@ namespace tbx
     /// whenever the watched .tapp changes.
     static void apply_settings(const App& app, RuntimeState& state)
     {
-        if (!state.windows.windows.empty())
+        if (!state.windows.open_windows.empty())
         {
-            Window& window = state.windows.windows.front();
+            Window& window = state.windows.open_windows.front();
             window.title = app.config.title;
             if (app.config.icon.is_set())
             {
@@ -195,13 +195,13 @@ namespace tbx
 
         initialize(state);
 
-        if (state.windows.windows.empty())
+        if (state.windows.open_windows.empty())
             TBX_INFO("Toybox app up (headless)");
         else
             TBX_INFO(
                 "Toybox app up ({}x{})",
-                state.windows.windows.front().width,
-                state.windows.windows.front().height);
+                state.windows.open_windows.front().width,
+                state.windows.open_windows.front().height);
     }
 
     //// THE LOOP ////
@@ -214,7 +214,7 @@ namespace tbx
     static std::vector<Frustum> gather_camera_frustums(RuntimeState& state)
     {
         auto frustums = std::vector<Frustum>();
-        if (state.windows.windows.empty())
+        if (state.windows.open_windows.empty())
             return frustums; // headless: no views, no streaming decisions
         state.sandbox.each<Camera>(
             [&](Toy toy, Camera& camera)
@@ -222,9 +222,9 @@ namespace tbx
                 if (!toy.is_enabled())
                     return;
                 const Window* window = nullptr;
-                for (const Window& candidate : state.windows.windows)
+                for (const Window& candidate : state.windows.open_windows)
                 {
-                    const bool is_main = &candidate == &state.windows.windows.front();
+                    const bool is_main = &candidate == &state.windows.open_windows.front();
                     if (camera.window.empty() ? is_main : camera.window == candidate.name)
                     {
                         window = &candidate;
@@ -237,11 +237,10 @@ namespace tbx
                 const int height = static_cast<int>(camera.viewport.w * window->height);
                 if (width <= 0 || height <= 0)
                     return;
-                frustums.push_back(
-                    gpu_make_frustum(
-                        camera,
-                        toy.get_world_transform(),
-                        static_cast<float>(width) / height));
+                frustums.push_back(gpu_make_frustum(
+                    camera,
+                    toy.get_world_transform(),
+                    static_cast<float>(width) / height));
             });
         return frustums;
     }
@@ -277,11 +276,11 @@ namespace tbx
         // The windows present what was drawn since the last run() call, then pump OS events
         // (each window's first frame skips its present cleanly). The main window closing
         // stops the app; other windows just close.
-        pump(state.input);
+        update_input(state.input);
         update_windows(state.windows, state.input, state.events);
         const bool window_alive =
-            state.windows.windows.empty()
-            || state.windows.windows.front().status == WindowStatus::OPEN;
+            state.windows.open_windows.empty()
+            || state.windows.open_windows.front().status == WindowStatus::OPEN;
 
         update_jobs(state.jobs);
         update_events(state.events);
@@ -299,14 +298,10 @@ namespace tbx
         state.frame.previous = now;
         ++state.frame.index;
 
-        update_debug_view(
-            state.debug,
-            state.input,
-            state.sandbox,
-            state.assets,
-            state.windows,
-            state.ui,
-            state.frame.delta_time);
+#ifdef TBX_DEBUGGING
+        update_debugging(state);
+#endif
+
         update_assets(state.assets, state.events);
         update_scripts(
             state.scripts,
@@ -349,7 +344,7 @@ namespace tbx
         // the main one (shadow map, post chain, UI).
         if (!app.settings.graphics.is_custom_pipeline)
         {
-            for (Window& window : state.windows.windows)
+            for (Window& window : state.windows.open_windows)
             {
                 if (window.status != WindowStatus::OPEN || !window.backend)
                     continue;
@@ -363,7 +358,7 @@ namespace tbx
                     .ui = state.ui,
                     .debug = state.debug,
                     .window = window,
-                    .is_main = &window == &state.windows.windows.front()};
+                    .is_main = &window == &state.windows.open_windows.front()};
                 state.render_graph.render(context);
             }
         }

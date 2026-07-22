@@ -252,7 +252,7 @@ namespace tbx
         WindowsState& state,
         const SDL_WindowID id)
     {
-        for (Window& window : state.windows)
+        for (Window& window : state.open_windows)
             if (window.backend && window.backend->id == id)
                 return window;
         return {};
@@ -280,7 +280,7 @@ namespace tbx
         InputState& input,
         EventsState& events)
     {
-        for (Window& window : state.windows)
+        for (Window& window : state.open_windows)
         {
             if (window.status != WindowStatus::OPEN)
                 continue;
@@ -299,7 +299,7 @@ namespace tbx
         // Gameplay asks for a cursor mode through input; the main window owns the OS cursor.
         // LOCKED = SDL relative mode: invisible, pinned to the window, movement arriving
         // purely as deltas.
-        if (Window& main = state.windows.front(); main.backend)
+        if (Window& main = state.open_windows.front(); main.backend)
         {
             const CursorMode cursor_mode = input.cursor_mode;
             if (cursor_mode != main.backend->applied_cursor_mode)
@@ -321,7 +321,7 @@ namespace tbx
             switch (event.type)
             {
                 case SDL_EVENT_QUIT:
-                    for (Window& window : state.windows)
+                    for (Window& window : state.open_windows)
                         if (window.backend && window.status == WindowStatus::OPEN)
                             close_window(window);
                     break;
@@ -365,7 +365,7 @@ namespace tbx
                         window->get().height = event.window.data2;
                         // The engine's render loop re-sizes the gpu drawable per window;
                         // the mirror tracks the main window for custom-pipeline hosts.
-                        if (&window->get() == &state.windows.front())
+                        if (&window->get() == &state.open_windows.front())
                             gpu_set_viewport(event.window.data1, event.window.data2);
                         events.window_resized.emit(
                             {.width = event.window.data1, .height = event.window.data2});

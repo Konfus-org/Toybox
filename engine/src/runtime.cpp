@@ -19,7 +19,7 @@ namespace tbx
             window.title = app.config.title;
             window.width = app.config.width;
             window.height = app.config.height;
-            state->windows.windows.push_back(std::move(window));
+            state->windows.open_windows.push_back(std::move(window));
         }
         state->app = std::move(app);
     }

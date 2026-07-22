@@ -24,12 +24,12 @@ namespace tbx
         // frames (at run() entry the backbuffer still holds the frame the previous call
         // drew). Every F frames one lands, N in total, then the app quits.
         App& app = state.app;
-        if (!app.commands.has("screenshot") || state.windows.windows.empty())
+        if (!app.commands.has("screenshot") || state.windows.open_windows.empty())
             return;
         const auto delay = static_cast<uint64>(std::max(app.commands.get<int>("delay", 8), 1));
         const auto number = static_cast<uint64>(std::max(app.commands.get<int>("number", 1), 1));
         const uint64 shot = state.frame.index / delay;
-        Window& window = state.windows.windows.front();
+        Window& window = state.windows.open_windows.front();
         if (state.frame.index % delay != 0 || shot < 1 || shot > number
             || window.status != WindowStatus::OPEN || !window.backend)
             return;

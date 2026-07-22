@@ -85,7 +85,7 @@ namespace tbx
     /// @brief
     /// Purpose: Rolls per-frame state (held becomes previous, deltas clear). Called by the
     /// runtime's pump before OS events feed in.
-    TBX_API void pump(InputState& input);
+    TBX_API void update_input(InputState& input);
 
     /// @brief
     /// Purpose: Asks for a cursor mode — NORMAL frees the pointer, LOCKED grabs it for
