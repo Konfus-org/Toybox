@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/api.h"
 #include "tbx/utils/color.h"
-#include "tbx/gpu/render_target.h"
+#include "tbx/gfx/render_target.h"
 #include "tbx/math/math.h"
 #include "tbx/ui/document.h"
 #include "tbx/ui/font.h"
@@ -37,12 +37,12 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: The ui module's state, held by value on the Runtime: the binding tables are
-    /// plain data — push a value with runtime.ui.bindings["slot"] = value; the
-    /// document/render stack lives behind the backend seam (ui/rmlui/ defines Backend;
-    /// library types never escape that folder), built lazily on the first draw. Declared
-    /// before the scripts member in RuntimeState: Lua closures live in the bindings and must
-    /// die before their VM.
+    /// Purpose: The ui module's state, held by value on the Runtime: the global binding tables
+    /// are plain data — push a value with runtime.ui.bindings["slot"] = value (engine slots:
+    /// world-anchor labels, debug overlay). Per-document live values live on the owning UI
+    /// block instead (UI::bindings). The document/render stack lives behind the backend seam
+    /// (ui/rmlui/ defines Backend; library types never escape that folder), built lazily on the
+    /// first draw.
     struct TBX_API UiState
     {
         UiState();
@@ -64,8 +64,14 @@ namespace tbx
     /// Purpose: Rasters one document into one target right now (cleared to transparent,
     /// premultiplied alpha). Documents are cached by content behind the boundary — drawing
     /// every frame is the API; what is not drawn disappears. Shading is not the document's
-    /// business: passes set gpu pipelines around the textures this produces.
-    TBX_API void draw_ui(UiState& state, const Document& document, const RenderTarget& target);
+    /// business: passes set gpu pipelines around the textures this produces. `owner` is the UI
+    /// block this document belongs to: its per-block `bindings` are evaluated and resolve a
+    /// slot before the global bindings map (nullptr for engine layers like the debug overlay).
+    TBX_API void draw_ui(
+        UiState& state,
+        const Document& document,
+        const RenderTarget& target,
+        const UI* owner);
 
     /// @brief
     /// Purpose: Registers a font face under a family name — documents reference it via

@@ -1,4 +1,4 @@
-#include "tbx/gpu/shader_source.h"
+#include "tbx/gfx/shader_source.h"
 #include "tbx/serialization/json.h"
 #include "tbx/reflection/reflection.h"
 #include <gtest/gtest.h>

@@ -1,7 +1,7 @@
 #include "tbx/ui/ui.h"
 #include "tbx/debug/log.h"
 #include "tbx/files/files.h"
-#include "tbx/gpu/gpu.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/utils/hash.h"
 #include <RmlUi/Core.h>
 #include <array>
@@ -86,8 +86,7 @@ namespace tbx
                 return;
             gpu_set_uniform(*shader, "u_translation", Vec2(translation.x, translation.y));
             const auto found = _textures.find(texture);
-            const Texture2d& bound =
-                found != _textures.end() ? *found->second : *white_texture;
+            const Texture2d& bound = found != _textures.end() ? *found->second : *white_texture;
             const auto bindings =
                 std::array {TextureBinding {.slot = 0, .texture = std::cref(bound)}};
             gpu_draw(*mesh->second, bindings);
@@ -134,12 +133,7 @@ namespace tbx
         void SetScissorRegion(Rml::Rectanglei region) override
         {
             if (_scissor_enabled)
-                gpu_set_scissor(
-                    true,
-                    region.Left(),
-                    region.Top(),
-                    region.Width(),
-                    region.Height());
+                gpu_set_scissor(true, region.Left(), region.Top(), region.Width(), region.Height());
         }
 
       public:
@@ -198,7 +192,8 @@ namespace tbx
 
     static constexpr uint64 UNDRAWN_FRAMES_BEFORE_CLOSE = 600;
 
-    static std::optional<std::reference_wrapper<UiState::Backend>> ensure_ui_ready(UiState& ui_state)
+    static std::optional<std::reference_wrapper<UiState::Backend>> ensure_ui_ready(
+        UiState& ui_state)
     {
         if (ui_state.backend)
             return *ui_state.backend;
@@ -221,21 +216,40 @@ namespace tbx
     //// BINDINGS ////
 
     /// @brief
+    /// Purpose: Resolves a document slot to its value — the owning block's own bindings win,
+    /// then the global map (engine slots: world-anchor labels, debug overlay). Null when unbound.
+    static const std::string* resolve_binding(
+        const std::unordered_map<std::string, std::string>& local,
+        const UiState& state,
+        const std::string& name)
+    {
+        if (const auto found = local.find(name); found != local.end())
+            return &found->second;
+        if (const auto found = state.bindings.find(name); found != state.bindings.end())
+            return &found->second;
+        return nullptr;
+    }
+
+    /// @brief
     /// Purpose: Pushes binding values into one element tree: data-text fills inner text,
-    /// data-style replaces the style attribute. Applied values cache on the element so
-    /// unchanged bindings never force relayout.
-    static void apply_bindings(const UiState& state, Rml::Element* element)
+    /// data-style replaces the style attribute. `local` is the owning block's evaluated slots
+    /// (checked before the global map). Applied values cache on the element so unchanged
+    /// bindings never force relayout.
+    static void apply_bindings(
+        const std::unordered_map<std::string, std::string>& local,
+        const UiState& state,
+        Rml::Element* element)
     {
         if (const Rml::Variant* text_binding = element->GetAttribute("data-text"))
         {
-            const auto found = state.bindings.find(text_binding->Get<Rml::String>());
-            if (found != state.bindings.end())
+            if (const std::string* value =
+                    resolve_binding(local, state, text_binding->Get<Rml::String>()))
             {
                 const Rml::Variant* applied = element->GetAttribute("data-applied-text");
-                if (!applied || applied->Get<Rml::String>() != found->second)
+                if (!applied || applied->Get<Rml::String>() != *value)
                 {
-                    element->SetInnerRML(found->second);
-                    element->SetAttribute("data-applied-text", found->second);
+                    element->SetInnerRML(*value);
+                    element->SetAttribute("data-applied-text", *value);
                 }
             }
         }
@@ -257,14 +271,15 @@ namespace tbx
             const Rml::Variant* size_binding = element->GetAttribute(names.attribute);
             if (!size_binding)
                 continue;
-            const auto found = state.bindings.find(size_binding->Get<Rml::String>());
-            if (found == state.bindings.end())
+            const std::string* bound =
+                resolve_binding(local, state, size_binding->Get<Rml::String>());
+            if (!bound)
                 continue;
             auto scale = 1.0f;
             if (const Rml::Variant* scale_attribute = element->GetAttribute(names.scale_attribute))
                 scale = scale_attribute->Get<float>();
             auto value = 0.0f;
-            const std::string& text = found->second;
+            const std::string& text = *bound;
             std::from_chars(text.data(), text.data() + text.size(), value);
             const auto pixels = std::format("{}px", value * scale);
             const Rml::Variant* applied = element->GetAttribute(names.applied_attribute);
@@ -276,19 +291,19 @@ namespace tbx
         }
         if (const Rml::Variant* style_binding = element->GetAttribute("data-style"))
         {
-            const auto found = state.bindings.find(style_binding->Get<Rml::String>());
-            if (found != state.bindings.end())
+            if (const std::string* value =
+                    resolve_binding(local, state, style_binding->Get<Rml::String>()))
             {
                 const Rml::Variant* applied = element->GetAttribute("data-applied-style");
-                if (!applied || applied->Get<Rml::String>() != found->second)
+                if (!applied || applied->Get<Rml::String>() != *value)
                 {
-                    element->SetAttribute("style", found->second);
-                    element->SetAttribute("data-applied-style", found->second);
+                    element->SetAttribute("style", *value);
+                    element->SetAttribute("data-applied-style", *value);
                 }
             }
         }
         for (int child = 0; child < element->GetNumChildren(); ++child)
-            apply_bindings(state, element->GetChild(child));
+            apply_bindings(local, state, element->GetChild(child));
     }
 
     //// DRAW ////
@@ -349,14 +364,14 @@ namespace tbx
             TBX_ERROR("ui shaders missing under resources/Shaders/Tbx");
             return false;
         }
-        auto compiled = gpu_compile_shader(*vertex, *fragment);
+        auto compiled = compile_shader(*vertex, *fragment);
         if (!compiled)
         {
             TBX_ERROR("ui shaders failed: {}", compiled.error());
             return false;
         }
         state.shader = std::move(*compiled);
-        state.pipeline = gpu_make_pipeline(
+        state.pipeline = make_render_pipeline(
             {.shader = *state.shader,
              .is_depth_test_enabled = false,
              .is_depth_write_enabled = false,
@@ -377,7 +392,11 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void draw_ui(UiState& ui_state, const Document& document, const RenderTarget& target)
+    void draw_ui(
+        UiState& ui_state,
+        const Document& document,
+        const RenderTarget& target,
+        const UI* owner)
     {
         const auto ready = ensure_ui_ready(ui_state);
         if (!ready)
@@ -386,7 +405,15 @@ namespace tbx
         if (!ensure_ui_pipeline(*state))
             return;
 
-        gpu_begin_render_pass(
+        // Evaluate the owning block's live getters once for this draw; apply_bindings resolves a
+        // slot from these before the global map. The debug overlay (no owner) sees only globals.
+        auto local = std::unordered_map<std::string, std::string> {};
+        if (owner)
+            for (const auto& [slot, source] : owner->bindings)
+                if (source)
+                    local.emplace(slot, source());
+
+        begin_render_pass(
             {.color_target = target,
              .load = LoadOperation::CLEAR,
              .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
@@ -401,12 +428,12 @@ namespace tbx
                 ensure_document(*state, document, key, target.get_width(), target.get_height()))
         {
             cached->last_drawn_frame = state->frame;
-            apply_bindings(ui_state, cached->document);
+            apply_bindings(local, ui_state, cached->document);
             cached->context->Update();
             cached->context->Render();
         }
         gpu_set_scissor(false, 0, 0, 0, 0);
-        gpu_end_render_pass();
+        end_render_pass();
     }
 
     void set_font(UiState& ui_state, const Font& font, const std::string& family)

@@ -47,6 +47,9 @@ namespace tbx
 
         ~LuauBackend() override
         {
+            // Drop every script-registered event handler before the VM dies: they capture this
+            // lua_State, so any that survived to a later dispatch would call into freed memory.
+            unsubscribe_all(_runtime.get().events, _lua);
             lua_close(_lua); // releases every instance ref with it
         }
 
@@ -148,7 +151,10 @@ namespace tbx
             auto compiled = std::string(bytecode.get(), bytecode_size);
 
             // Compile errors only surface at load time — validate now so callers hear them.
-            if (luau_load(_lua, name.c_str(), compiled.data(), compiled.size(), 0) != 0)
+            // '@' marks the chunk name a file path, so diagnostics and print() report it as a
+            // clean "player.luau:12" rather than Lua's [string "..."] wrapper.
+            const std::string chunk_name = "@" + name;
+            if (luau_load(_lua, chunk_name.c_str(), compiled.data(), compiled.size(), 0) != 0)
             {
                 auto error =
                     fail("script '{}' failed to compile: {}", name, lua_tostring(_lua, -1));
@@ -179,7 +185,8 @@ namespace tbx
             lua_setmetatable(_lua, -2);
             const int environment = lua_gettop(_lua);
 
-            if (luau_load(_lua, source_name.c_str(), bytecode.data(), bytecode.size(), environment)
+            const std::string chunk_name = "@" + source_name; // '@' => clean file source in traces
+            if (luau_load(_lua, chunk_name.c_str(), bytecode.data(), bytecode.size(), environment)
                     != 0
                 || lua_pcall(_lua, 0, 0, 0) != 0)
             {

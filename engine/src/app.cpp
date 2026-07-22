@@ -2,15 +2,15 @@
 #include "scripting/builtin_backends.h"
 #include "tbx/audio/audio.h"
 #include "tbx/audio/clip.h"
-#include "tbx/debug/log.h"
 #include "tbx/debug/debugging.h"
+#include "tbx/debug/log.h"
 #include "tbx/ecs/billboard.h"
-#include "tbx/gpu/camera.h"
-#include "tbx/gpu/gpu.h"
-#include "tbx/gpu/material.h"
-#include "tbx/gpu/model.h"
-#include "tbx/gpu/shader_source.h"
-#include "tbx/gpu/texture.h"
+#include "tbx/gfx/camera.h"
+#include "tbx/gfx/gpu.h"
+#include "tbx/gfx/material.h"
+#include "tbx/gfx/model.h"
+#include "tbx/gfx/shader_source.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/reflection/reflection.h"
@@ -85,9 +85,9 @@ namespace tbx
         // Stands reflection + serializers up, sets the root, and discovers every asset.
         initialize_assets(state.assets, state.events, state.jobs, app.config.root_dir);
         apply_settings(app, state);
-        // RenderGraph is plain data now, so seed it with the standard passes (games may
-        // replace state.render_graph.passes to author their own rendering).
-        state.render_graph = make_default_render_graph();
+        // The render graph lives on the render state (plain data). Seed it with the standard
+        // passes (games may replace state.renderer.render_graph.passes to author their own).
+        state.renderer.render_graph = make_default_render_graph();
 
         // The engine ui font is an ordinary asset (resolved through the engine resources
         // root); games call set_font for their own faces.
@@ -151,7 +151,7 @@ namespace tbx
             &state,
             [&state](const AssetUnloaded& unloaded)
             {
-                gpu_forget_asset(state.renderer, unloaded.id);
+                gpu_purge(state.renderer, unloaded.id);
             });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
@@ -159,9 +159,8 @@ namespace tbx
             &state,
             [&state](const AssetReloaded& reloaded)
             {
-                gpu_forget_asset(
-                    state.renderer,
-                    reloaded.id); // re-upload GPU copies of the fresh data
+                gpu_purge(state.renderer,
+                          reloaded.id); // re-upload GPU copies of the fresh data
                 if (!owns_script_extension(state.scripts, reloaded.extension.data()))
                     return; // not a script source — nothing to (re)register
                 const auto script = load_asset_now(
@@ -193,7 +192,7 @@ namespace tbx
                 app.status = AppStatus::QUIT_REQUESTED;
             }
             else
-                state.sandbox.open(level->get());
+                open(state.sandbox, level->get());
         }
 
         initialize(state);
@@ -248,22 +247,6 @@ namespace tbx
         return frustums;
     }
 
-    /// @brief
-    /// Purpose: The world position of the first enabled camera, if any — what billboards
-    /// turn to face.
-    static std::optional<Vec3> primary_camera_position(RuntimeState& state)
-    {
-        auto position = std::optional<Vec3>();
-        state.sandbox.each<Camera>(
-            [&](Toy toy, Camera&)
-            {
-                if (position || !toy.is_enabled())
-                    return;
-                position = Vec3(toy.get_world_transform() * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
-            });
-        return position;
-    }
-
     bool run(Runtime& runtime)
     {
         auto& state = *runtime.state;
@@ -276,11 +259,13 @@ namespace tbx
         if (app.status == AppStatus::CREATED)
             boot(state);
 
-        // The windows present what was drawn since the last run() call, then pump OS events
-        // (each window's first frame skips its present cleanly). The main window closing
+        // The windows present what was drawn since the last run() call, then drain the window
+        // events they own (each window's first frame skips its present cleanly). Windows run
+        // first so SDL is initialized before update_input pumps — it rolls the input frame and
+        // then drains the remaining keyboard/mouse/controller events. The main window closing
         // stops the app; other windows just close.
-        update_input(state.input);
         update_windows(state.windows, state.input, state.events);
+        update_input(state.input, state.events);
         const bool window_alive =
             state.windows.open_windows.empty()
             || state.windows.open_windows.front().status == WindowStatus::OPEN;
@@ -331,16 +316,12 @@ namespace tbx
             update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 
-        // Billboards face the active camera (opt-in; nothing rotates without a Billboard
-        // block) — done after scripts/physics settle transforms, before rendering.
-        if (const auto camera_position = primary_camera_position(state))
-            update_billboards(state.sandbox, *camera_position);
-
-        // The engine pulls streaming: every enabled camera contributes a frustum (after
-        // scripts/physics settled the transforms), and the sandbox loads what any of them
-        // can see. Also flushes a pending open().
+        // The per-frame ECS tick: builtin components (billboards) face the active camera, then
+        // streaming loads what any enabled camera can see (also flushes a pending open()). Every
+        // enabled camera contributes a frustum, gathered here after scripts/physics settled the
+        // transforms and before rendering.
         const auto frustums = gather_camera_frustums(state);
-        state.sandbox.stream(state.assets, state.events, state.jobs, frustums);
+        update_ecs(state.sandbox, state.assets, state.events, state.jobs, frustums);
 
         // The engine renders by default; hosts with their own pipeline opt out and draw
         // between run() calls instead. Every open window gets a graph run; the first is
@@ -359,8 +340,9 @@ namespace tbx
                     .ui = state.ui,
                     .debug = state.debug,
                     .window = window,
-                    .is_main = &window == &state.windows.open_windows.front()};
-                render(state.render_graph, context);
+                    .is_main = &window == &state.windows.open_windows.front(),
+                };
+                render(context);
             }
         }
 

@@ -270,10 +270,55 @@ namespace tbx
         return Toy(*data.sandbox, data.entity).get_block_bytes(data.type_hash);
     }
 
+    /// @brief
+    /// Purpose: ui:bind(slot, getter) — links a document slot on THIS UI block to a live Lua
+    /// getter, evaluated each frame the ui pass draws the block. The value lives on the block
+    /// (UI::bindings), so two UIs never collide on a slot name. Only valid on a UI component.
+    static int block_bind(lua_State* lua)
+    {
+        const BlockUserdata& data = check_block(lua, 1);
+        if (data.type_hash != hash("UI"))
+            luaL_error(lua, "bind is only valid on a UI component");
+        const auto slot = std::string(luaL_checkstring(lua, 2));
+        luaL_checktype(lua, 3, LUA_TFUNCTION);
+        const int getter_ref = lua_ref(lua, 3); // refs the getter in place (Luau: no pop)
+        UI* ui = Toy(*data.sandbox, data.entity).try_block<UI>();
+        if (!ui)
+            luaL_error(lua, "bind: the UI component is gone");
+        ui->bindings[slot] = [lua, getter_ref]() -> std::string
+        {
+            lua_getref(lua, getter_ref);
+            if (!lua_isfunction(lua, -1))
+            {
+                lua_pop(lua, 1);
+                return {};
+            }
+            auto value = std::string();
+            if (lua_pcall(lua, 0, 1, 0) == 0)
+            {
+                if (const char* text = lua_tostring(lua, -1))
+                    value = text;
+            }
+            else
+            {
+                TBX_ERROR("ui bind getter error: {}", lua_tostring(lua, -1));
+            }
+            lua_pop(lua, 1);
+            return value;
+        };
+        return 0;
+    }
+
     static int block_index(lua_State* lua)
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
+        // Methods first (blocks currently expose just bind), then reflected fields.
+        if (std::strcmp(field_name, "bind") == 0)
+        {
+            lua_pushcfunction(lua, block_bind, "bind");
+            return 1;
+        }
         const auto type = describe_type(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
@@ -494,6 +539,33 @@ namespace tbx
         return 1;
     }
 
+    static int toy_get_parent(lua_State* lua)
+    {
+        const ToyUserdata& data = check_toy(lua, 1);
+        const auto parent = Toy(*data.sandbox, data.entity).get_parent();
+        if (!parent)
+        {
+            lua_pushnil(lua);
+            return 1;
+        }
+        push_toy(lua, *data.sandbox, parent->get_id());
+        return 1;
+    }
+
+    static int toy_get_children(lua_State* lua)
+    {
+        const ToyUserdata& data = check_toy(lua, 1);
+        const auto children = Toy(*data.sandbox, data.entity).get_children();
+        lua_createtable(lua, static_cast<int>(children.size()), 0);
+        int index = 1;
+        for (const Toy& child : children)
+        {
+            push_toy(lua, *data.sandbox, child.get_id());
+            lua_rawseti(lua, -2, index++); // append: children[index] = child
+        }
+        return 1;
+    }
+
     //// TBX TABLE ////
 
     // The closure upvalue is the heap-stable RuntimeState (raw pointer only at this Lua C
@@ -503,10 +575,12 @@ namespace tbx
         return *static_cast<RuntimeState*>(lua_tolightuserdata(lua, lua_upvalueindex(1)));
     }
 
+    // tbx.sandbox is the scene object: its queries are called with `:` (self = the sandbox
+    // table at index 1, runtime from the upvalue), so real arguments start at index 2.
     static int sandbox_spawn(lua_State* lua)
     {
         Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const Toy toy = sandbox.spawn(luaL_checkstring(lua, 1));
+        const Toy toy = sandbox.spawn(luaL_checkstring(lua, 2));
         push_toy(lua, sandbox, toy.get_id());
         return 1;
     }
@@ -514,7 +588,7 @@ namespace tbx
     static int sandbox_find(lua_State* lua)
     {
         Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const auto toy = sandbox.find(std::string_view(luaL_checkstring(lua, 1)));
+        const auto toy = sandbox.find(std::string_view(luaL_checkstring(lua, 2)));
         if (!toy)
         {
             lua_pushnil(lua);
@@ -524,9 +598,60 @@ namespace tbx
         return 1;
     }
 
+    static int sandbox_find_with_sticker(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_runtime(lua).sandbox;
+        const auto sticker = std::string(luaL_checkstring(lua, 2));
+        auto found = std::optional<ToyId>();
+        sandbox.for_each_sticker(
+            sticker,
+            [&](Toy toy)
+            {
+                if (!found)
+                    found = toy.get_id();
+            });
+        if (!found)
+        {
+            lua_pushnil(lua);
+            return 1;
+        }
+        push_toy(lua, sandbox, *found);
+        return 1;
+    }
+
+    static int sandbox_find_all_with_sticker(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_runtime(lua).sandbox;
+        const auto sticker = std::string(luaL_checkstring(lua, 2));
+        lua_newtable(lua);
+        int index = 1;
+        sandbox.for_each_sticker(
+            sticker,
+            [&](Toy toy)
+            {
+                push_toy(lua, sandbox, toy.get_id());
+                lua_rawseti(lua, -2, index++); // append into the result array
+            });
+        return 1;
+    }
+
+    static int sandbox_get_toys(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_runtime(lua).sandbox;
+        const auto toys = sandbox.get_toys();
+        lua_createtable(lua, static_cast<int>(toys.size()), 0);
+        int index = 1;
+        for (const Toy& toy : toys)
+        {
+            push_toy(lua, sandbox, toy.get_id());
+            lua_rawseti(lua, -2, index++);
+        }
+        return 1;
+    }
+
     static int sandbox_despawn(lua_State* lua)
     {
-        const ToyUserdata& data = check_toy(lua, 1);
+        const ToyUserdata& data = check_toy(lua, 2);
         data.sandbox->despawn(Toy(*data.sandbox, data.entity));
         return 0;
     }
@@ -542,9 +667,10 @@ namespace tbx
     static int sandbox_spawn_kit(lua_State* lua)
     {
         RuntimeState& state = bound_runtime(lua);
-        const char* reference = luaL_checkstring(lua, 1);
-        const Vec3 position = lua_istable(lua, 2) ? check_vector3(lua, 2) : Vec3(0.0f, 0.0f, 0.0f);
-        const auto spawned = state.sandbox.spawn(
+        const char* reference = luaL_checkstring(lua, 2);
+        const Vec3 position = lua_istable(lua, 3) ? check_vector3(lua, 3) : Vec3(0.0f, 0.0f, 0.0f);
+        const auto spawned = spawn(
+            state.sandbox,
             state.assets,
             state.events,
             AssetHandle<Kit>(reference),
@@ -560,7 +686,7 @@ namespace tbx
 
     static int sandbox_despawn_kit(lua_State* lua)
     {
-        const ToyUserdata& data = check_toy(lua, 1);
+        const ToyUserdata& data = check_toy(lua, 2);
         data.sandbox->despawn_subtree(Toy(*data.sandbox, data.entity));
         return 0;
     }
@@ -728,35 +854,6 @@ namespace tbx
         return push_quat(lua, quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
     }
 
-    static int ui_bind(lua_State* lua)
-    {
-        // tbx.ui.bind(hud, "kills", "kills"): the property on the left (hud.kills — Lua
-        // cannot pass scalars by reference, so the table+key pair IS the property), the
-        // target tag on the right. Scripts just mutate the table and the UI follows. The
-        // table pins in the VM registry; the VM outlives the UI (reset clears bindings
-        // before scripts tear down).
-        luaL_checktype(lua, 1, LUA_TTABLE);
-        const auto key = std::string(luaL_checkstring(lua, 2));
-        const auto name = std::string(luaL_checkstring(lua, 3));
-        lua_pushvalue(lua, 1);
-        const int table_ref = lua_ref(lua, -1);
-        lua_pop(lua, 1);
-        bind(
-            bound_runtime(lua).ui,
-            {.name = name,
-             .source = [lua, table_ref, key]() -> std::string
-             {
-                 lua_getref(lua, table_ref);
-                 lua_getfield(lua, -1, key.c_str());
-                 auto value = std::string();
-                 if (const char* text = lua_tostring(lua, -1))
-                     value = text;
-                 lua_pop(lua, 2);
-                 return value;
-             }});
-        return 0;
-    }
-
     static int ui_set_string(lua_State* lua)
     {
         // Numbers coerce to strings; documents bind via data-text / data-style attributes.
@@ -872,6 +969,58 @@ namespace tbx
 #undef TBX_KEY_ENTRY
 
     /// @brief
+    /// Purpose: One row of the script-facing controller enum tables (tbx.GamepadButton.NAME,
+    /// tbx.GamepadAxis.NAME).
+    struct GamepadButtonEntry
+    {
+        const char* name;
+        GamepadButton button;
+    };
+
+    struct GamepadAxisEntry
+    {
+        const char* name;
+        GamepadAxis axis;
+    };
+
+#define TBX_GAMEPAD_BUTTON_ENTRY(name)                                                             \
+    GamepadButtonEntry                                                                             \
+    {                                                                                              \
+        #name, GamepadButton::name                                                                 \
+    }
+    static constexpr GamepadButtonEntry GAMEPAD_BUTTON_TABLE[] = {
+        TBX_GAMEPAD_BUTTON_ENTRY(SOUTH),
+        TBX_GAMEPAD_BUTTON_ENTRY(EAST),
+        TBX_GAMEPAD_BUTTON_ENTRY(WEST),
+        TBX_GAMEPAD_BUTTON_ENTRY(NORTH),
+        TBX_GAMEPAD_BUTTON_ENTRY(BACK),
+        TBX_GAMEPAD_BUTTON_ENTRY(GUIDE),
+        TBX_GAMEPAD_BUTTON_ENTRY(START),
+        TBX_GAMEPAD_BUTTON_ENTRY(LEFT_STICK),
+        TBX_GAMEPAD_BUTTON_ENTRY(RIGHT_STICK),
+        TBX_GAMEPAD_BUTTON_ENTRY(LEFT_SHOULDER),
+        TBX_GAMEPAD_BUTTON_ENTRY(RIGHT_SHOULDER),
+        TBX_GAMEPAD_BUTTON_ENTRY(DPAD_UP),
+        TBX_GAMEPAD_BUTTON_ENTRY(DPAD_DOWN),
+        TBX_GAMEPAD_BUTTON_ENTRY(DPAD_LEFT),
+        TBX_GAMEPAD_BUTTON_ENTRY(DPAD_RIGHT)};
+#undef TBX_GAMEPAD_BUTTON_ENTRY
+
+#define TBX_GAMEPAD_AXIS_ENTRY(name)                                                               \
+    GamepadAxisEntry                                                                               \
+    {                                                                                              \
+        #name, GamepadAxis::name                                                                   \
+    }
+    static constexpr GamepadAxisEntry GAMEPAD_AXIS_TABLE[] = {
+        TBX_GAMEPAD_AXIS_ENTRY(LEFT_X),
+        TBX_GAMEPAD_AXIS_ENTRY(LEFT_Y),
+        TBX_GAMEPAD_AXIS_ENTRY(RIGHT_X),
+        TBX_GAMEPAD_AXIS_ENTRY(RIGHT_Y),
+        TBX_GAMEPAD_AXIS_ENTRY(LEFT_TRIGGER),
+        TBX_GAMEPAD_AXIS_ENTRY(RIGHT_TRIGGER)};
+#undef TBX_GAMEPAD_AXIS_ENTRY
+
+    /// @brief
     /// Purpose: Input takes tbx.Key/tbx.MouseButton enum values — strongly typed, no strings.
     static Key check_key(lua_State* lua, const int index)
     {
@@ -944,6 +1093,249 @@ namespace tbx
         return 0;
     }
 
+    static GamepadButton check_gamepad_button(lua_State* lua, const int index)
+    {
+        const auto value = luaL_checkinteger(lua, index);
+        if (value < 0 || value >= static_cast<int>(GamepadButton::COUNT))
+            luaL_error(lua, "expected a tbx.GamepadButton value");
+        return static_cast<GamepadButton>(value);
+    }
+
+    static GamepadAxis check_gamepad_axis(lua_State* lua, const int index)
+    {
+        const auto value = luaL_checkinteger(lua, index);
+        if (value < 0 || value >= static_cast<int>(GamepadAxis::COUNT))
+            luaL_error(lua, "expected a tbx.GamepadAxis value");
+        return static_cast<GamepadAxis>(value);
+    }
+
+    // Gamepad queries take the controller slot (0-based) first, then the button/axis enum.
+    static int input_is_gamepad_connected(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua,
+            is_gamepad_connected(
+                bound_runtime(lua).input,
+                static_cast<int>(luaL_checkinteger(lua, 1))));
+        return 1;
+    }
+
+    static int input_is_gamepad_down(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua,
+            is_gamepad_down(
+                bound_runtime(lua).input,
+                static_cast<int>(luaL_checkinteger(lua, 1)),
+                check_gamepad_button(lua, 2)));
+        return 1;
+    }
+
+    static int input_is_gamepad_pressed(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua,
+            is_gamepad_pressed(
+                bound_runtime(lua).input,
+                static_cast<int>(luaL_checkinteger(lua, 1)),
+                check_gamepad_button(lua, 2)));
+        return 1;
+    }
+
+    static int input_is_gamepad_released(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua,
+            is_gamepad_released(
+                bound_runtime(lua).input,
+                static_cast<int>(luaL_checkinteger(lua, 1)),
+                check_gamepad_button(lua, 2)));
+        return 1;
+    }
+
+    static int input_get_gamepad_axis(lua_State* lua)
+    {
+        lua_pushnumber(
+            lua,
+            get_gamepad_axis(
+                bound_runtime(lua).input,
+                static_cast<int>(luaL_checkinteger(lua, 1)),
+                check_gamepad_axis(lua, 2)));
+        return 1;
+    }
+
+    //// EVENTS ////
+
+    // Each event kind gets a pusher turning its POD payload into the Lua table the handler
+    // receives — the mirror of the push_field_value work, but for the fixed event structs.
+    static void push_key_event(lua_State* lua, RuntimeState&, const KeyEvent& event)
+    {
+        lua_createtable(lua, 0, 3);
+        lua_pushinteger(lua, static_cast<int>(event.key));
+        lua_setfield(lua, -2, "key");
+        lua_pushboolean(lua, event.is_down);
+        lua_setfield(lua, -2, "is_down");
+        lua_pushboolean(lua, event.is_repeat);
+        lua_setfield(lua, -2, "is_repeat");
+    }
+
+    static void push_window_resized(lua_State* lua, RuntimeState&, const WindowResized& event)
+    {
+        lua_createtable(lua, 0, 2);
+        lua_pushinteger(lua, event.width);
+        lua_setfield(lua, -2, "width");
+        lua_pushinteger(lua, event.height);
+        lua_setfield(lua, -2, "height");
+    }
+
+    static void push_asset_reloaded(lua_State* lua, RuntimeState&, const AssetReloaded& event)
+    {
+        lua_createtable(lua, 0, 2);
+        lua_pushstring(lua, event.id.to_string().c_str());
+        lua_setfield(lua, -2, "id");
+        lua_pushstring(lua, event.extension.data());
+        lua_setfield(lua, -2, "extension");
+    }
+
+    static void push_asset_unloaded(lua_State* lua, RuntimeState&, const AssetUnloaded& event)
+    {
+        lua_createtable(lua, 0, 2);
+        lua_pushstring(lua, event.id.to_string().c_str());
+        lua_setfield(lua, -2, "id");
+        lua_pushstring(lua, event.extension.data());
+        lua_setfield(lua, -2, "extension");
+    }
+
+    static void push_script_reloaded(lua_State* lua, RuntimeState&, const ScriptReloaded& event)
+    {
+        lua_createtable(lua, 0, 1);
+        lua_pushstring(lua, event.id.to_string().c_str());
+        lua_setfield(lua, -2, "id");
+    }
+
+    static void push_collision_event(lua_State* lua, RuntimeState& runtime, const CollisionEvent& event)
+    {
+        lua_createtable(lua, 0, 2);
+        push_toy(lua, runtime.sandbox, static_cast<ToyId>(event.toy_a));
+        lua_setfield(lua, -2, "toy_a");
+        push_toy(lua, runtime.sandbox, static_cast<ToyId>(event.toy_b));
+        lua_setfield(lua, -2, "toy_b");
+    }
+
+    static void push_input_device_connected(
+        lua_State* lua,
+        RuntimeState&,
+        const InputDeviceConnected& event)
+    {
+        lua_createtable(lua, 0, 1);
+        lua_pushinteger(lua, event.index);
+        lua_setfield(lua, -2, "index");
+    }
+
+    static void push_input_device_disconnected(
+        lua_State* lua,
+        RuntimeState&,
+        const InputDeviceDisconnected& event)
+    {
+        lua_createtable(lua, 0, 1);
+        lua_pushinteger(lua, event.index);
+        lua_setfield(lua, -2, "index");
+    }
+
+    /// @brief
+    /// Purpose: The shared body of every tbx.events.on_*(fn): refs the Lua handler and subscribes
+    /// a C++ bridge that, at dispatch, builds the event table and calls it. The owner tag is the
+    /// lua_State so the backend bulk-purges every handler before it closes the VM.
+    template <typename TEvent>
+    static int subscribe_lua_event(
+        lua_State* lua,
+        Signal<TEvent>& signal,
+        void (*push_event)(lua_State*, RuntimeState&, const TEvent&))
+    {
+        luaL_checktype(lua, 1, LUA_TFUNCTION);
+        const int callback_ref = lua_ref(lua, 1); // refs the function in place (Luau: no pop)
+        RuntimeState* runtime = &bound_runtime(lua);
+        signal.subscribe(
+            lua,
+            [lua, callback_ref, push_event, runtime](const TEvent& event)
+            {
+                lua_getref(lua, callback_ref);
+                if (!lua_isfunction(lua, -1))
+                {
+                    lua_pop(lua, 1);
+                    return;
+                }
+                push_event(lua, *runtime, event);
+                if (lua_pcall(lua, 1, 0, 0) != 0)
+                {
+                    TBX_ERROR("event handler error: {}", lua_tostring(lua, -1));
+                    lua_pop(lua, 1);
+                }
+            });
+        return 0;
+    }
+
+    static int events_on_key(lua_State* lua)
+    {
+        return subscribe_lua_event<KeyEvent>(lua, bound_runtime(lua).events.key, push_key_event);
+    }
+
+    static int events_on_window_resized(lua_State* lua)
+    {
+        return subscribe_lua_event<WindowResized>(
+            lua,
+            bound_runtime(lua).events.window_resized,
+            push_window_resized);
+    }
+
+    static int events_on_asset_reloaded(lua_State* lua)
+    {
+        return subscribe_lua_event<AssetReloaded>(
+            lua,
+            bound_runtime(lua).events.asset_reloaded,
+            push_asset_reloaded);
+    }
+
+    static int events_on_asset_unloaded(lua_State* lua)
+    {
+        return subscribe_lua_event<AssetUnloaded>(
+            lua,
+            bound_runtime(lua).events.asset_unloaded,
+            push_asset_unloaded);
+    }
+
+    static int events_on_script_reloaded(lua_State* lua)
+    {
+        return subscribe_lua_event<ScriptReloaded>(
+            lua,
+            bound_runtime(lua).events.script_reloaded,
+            push_script_reloaded);
+    }
+
+    static int events_on_collision(lua_State* lua)
+    {
+        return subscribe_lua_event<CollisionEvent>(
+            lua,
+            bound_runtime(lua).events.collision,
+            push_collision_event);
+    }
+
+    static int events_on_input_device_connected(lua_State* lua)
+    {
+        return subscribe_lua_event<InputDeviceConnected>(
+            lua,
+            bound_runtime(lua).events.input_device_connected,
+            push_input_device_connected);
+    }
+
+    static int events_on_input_device_disconnected(lua_State* lua)
+    {
+        return subscribe_lua_event<InputDeviceDisconnected>(
+            lua,
+            bound_runtime(lua).events.input_device_disconnected,
+            push_input_device_disconnected);
+    }
+
     //// OPEN ////
 
     void push_toy(lua_State* lua, Sandbox& sandbox, const ToyId entity)
@@ -957,6 +1349,31 @@ namespace tbx
     /// @brief
     /// Purpose: Registers one tbx.* binding on the table at the top of the stack — the
     /// closure carries the runtime as its light-userdata upvalue.
+    /// @brief
+    /// Purpose: Replaces Lua's stdout print — routes script output through the engine log so it
+    /// carries the same "[file:line]" source stamp as engine logs. Level 1 is the script frame
+    /// that called print; the '@'-prefixed chunk name makes short_src the clean script filename.
+    static int lua_print(lua_State* lua)
+    {
+        const int count = lua_gettop(lua);
+        std::string message;
+        for (int i = 1; i <= count; ++i)
+        {
+            if (i > 1)
+                message += ' ';
+            if (const char* text = lua_tostring(lua, i))
+                message += text;
+            else
+                message += luaL_typename(lua, i);
+        }
+        lua_Debug info = {};
+        if (lua_getinfo(lua, 1, "sl", &info))
+            write_log(LogLevel::INFO, message, info.short_src, info.currentline);
+        else
+            write_log(LogLevel::INFO, message, "luau", 0);
+        return 0;
+    }
+
     static void register_runtime_closure(
         lua_State* lua,
         RuntimeState& runtime,
@@ -976,18 +1393,20 @@ namespace tbx
         luaL_newmetatable(lua, TOY_METATABLE);
         lua_createtable(lua, 0, 13);
         const luaL_Reg toy_methods[] = {
-            {"get_name", toy_get_name},
-            {"set_name", toy_set_name},
-            {"is_enabled", toy_is_enabled},
-            {"set_enabled", toy_set_enabled},
+            {"getName", toy_get_name},
+            {"setName", toy_set_name},
+            {"isEnabled", toy_is_enabled},
+            {"setEnabled", toy_set_enabled},
             {"with", toy_with},
-            {"remove_block", toy_remove_block},
+            {"removeBlock", toy_remove_block},
             {"sticker", toy_sticker},
-            {"has_sticker", toy_has_sticker},
-            {"remove_sticker", toy_remove_sticker},
-            {"set_parent", toy_set_parent},
+            {"hasSticker", toy_has_sticker},
+            {"removeSticker", toy_remove_sticker},
+            {"setParent", toy_set_parent},
+            {"getParent", toy_get_parent},
+            {"getChildren", toy_get_children},
             {"despawn", toy_despawn},
-            {"is_alive", toy_is_alive},
+            {"isAlive", toy_is_alive},
             {nullptr, nullptr}};
         luaL_register(lua, nullptr, toy_methods);
         lua_pushcclosure(lua, toy_index, "toy_index", 1);
@@ -1004,67 +1423,163 @@ namespace tbx
         lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
+        // Route print() through the engine log so script output is source-stamped like the rest.
+        lua_pushcfunction(lua, lua_print, "print");
+        lua_setglobal(lua, "print");
+
         // Global tbx table.
         lua_createtable(lua, 0, 5);
 
-        lua_createtable(lua, 0, 5);
+        // tbx.sandbox is the scene object — its queries are called with `:` (methods).
+        lua_createtable(lua, 0, 8);
         register_runtime_closure(lua, runtime, sandbox_spawn, "sandbox_spawn", "spawn");
         register_runtime_closure(lua, runtime, sandbox_find, "sandbox_find", "find");
+        register_runtime_closure(
+            lua,
+            runtime,
+            sandbox_find_with_sticker,
+            "sandbox_find_with_sticker",
+            "findWithSticker");
+        register_runtime_closure(
+            lua,
+            runtime,
+            sandbox_find_all_with_sticker,
+            "sandbox_find_all_with_sticker",
+            "findAllWithSticker");
+        register_runtime_closure(lua, runtime, sandbox_get_toys, "sandbox_get_toys", "getToys");
         lua_pushcfunction(lua, sandbox_despawn, "sandbox_despawn");
         lua_setfield(lua, -2, "despawn");
-        register_runtime_closure(lua, runtime, sandbox_spawn_kit, "sandbox_spawn_kit", "spawn_kit");
+        register_runtime_closure(lua, runtime, sandbox_spawn_kit, "sandbox_spawn_kit", "spawnKit");
         register_runtime_closure(
             lua,
             runtime,
             sandbox_despawn_kit,
             "sandbox_despawn_kit",
-            "despawn_kit");
+            "despawnKit");
         // Streaming is engine-pulled from the scene's cameras — scripts never push a focus.
         lua_setfield(lua, -2, "sandbox");
 
-        lua_createtable(lua, 0, 5);
-        register_runtime_closure(lua, runtime, input_is_down, "input_is_down", "is_down");
-        register_runtime_closure(lua, runtime, input_is_pressed, "input_is_pressed", "is_pressed");
+        lua_createtable(lua, 0, 12);
+        register_runtime_closure(lua, runtime, input_is_down, "input_is_down", "isDown");
+        register_runtime_closure(lua, runtime, input_is_pressed, "input_is_pressed", "isPressed");
         register_runtime_closure(
             lua,
             runtime,
             input_is_mouse_down,
             "input_is_mouse_down",
-            "is_mouse_down");
+            "isMouseDown");
         register_runtime_closure(
             lua,
             runtime,
             input_is_mouse_pressed,
             "input_is_mouse_pressed",
-            "is_mouse_pressed");
+            "isMousePressed");
         register_runtime_closure(
             lua,
             runtime,
             input_get_mouse_delta,
             "input_get_mouse_delta",
-            "get_mouse_delta");
+            "getMouseDelta");
         register_runtime_closure(
             lua,
             runtime,
             input_get_cursor_mode,
             "input_get_cursor_mode",
-            "get_cursor_mode");
+            "getCursorMode");
         register_runtime_closure(
             lua,
             runtime,
             input_set_cursor_mode,
             "input_set_cursor_mode",
-            "set_cursor_mode");
+            "setCursorMode");
+        register_runtime_closure(
+            lua,
+            runtime,
+            input_is_gamepad_connected,
+            "input_is_gamepad_connected",
+            "isGamepadConnected");
+        register_runtime_closure(
+            lua,
+            runtime,
+            input_is_gamepad_down,
+            "input_is_gamepad_down",
+            "isGamepadDown");
+        register_runtime_closure(
+            lua,
+            runtime,
+            input_is_gamepad_pressed,
+            "input_is_gamepad_pressed",
+            "isGamepadPressed");
+        register_runtime_closure(
+            lua,
+            runtime,
+            input_is_gamepad_released,
+            "input_is_gamepad_released",
+            "isGamepadReleased");
+        register_runtime_closure(
+            lua,
+            runtime,
+            input_get_gamepad_axis,
+            "input_get_gamepad_axis",
+            "getGamepadAxis");
         lua_setfield(lua, -2, "input");
 
         lua_createtable(lua, 0, 1);
         register_runtime_closure(lua, runtime, physics_raycast, "physics_raycast", "raycast");
         lua_setfield(lua, -2, "physics");
 
-        lua_createtable(lua, 0, 2);
-        register_runtime_closure(lua, runtime, ui_bind, "ui_bind", "bind");
-        register_runtime_closure(lua, runtime, ui_set_string, "ui_set_string", "set_string");
+        // ui:bind lives on the UI component now; tbx.ui keeps only the global one-shot setter.
+        lua_createtable(lua, 0, 1);
+        register_runtime_closure(lua, runtime, ui_set_string, "ui_set_string", "setString");
         lua_setfield(lua, -2, "ui");
+
+        // tbx.events.on<Name>(fn): subscribe a script handler to an engine event. Naming mirrors
+        // the EventsState signals (asset_reloaded -> onAssetReloaded).
+        lua_createtable(lua, 0, 8);
+        register_runtime_closure(lua, runtime, events_on_key, "events_on_key", "onKey");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_window_resized,
+            "events_on_window_resized",
+            "onWindowResized");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_asset_reloaded,
+            "events_on_asset_reloaded",
+            "onAssetReloaded");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_asset_unloaded,
+            "events_on_asset_unloaded",
+            "onAssetUnloaded");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_script_reloaded,
+            "events_on_script_reloaded",
+            "onScriptReloaded");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_collision,
+            "events_on_collision",
+            "onCollision");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_input_device_connected,
+            "events_on_input_device_connected",
+            "onInputDeviceConnected");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_input_device_disconnected,
+            "events_on_input_device_disconnected",
+            "onInputDeviceDisconnected");
+        lua_setfield(lua, -2, "events");
 
         // Strongly typed input enums: tbx.Key.W, tbx.MouseButton.LEFT.
         lua_createtable(lua, 0, static_cast<int>(std::size(KEY_TABLE)));
@@ -1093,6 +1608,23 @@ namespace tbx
         lua_setfield(lua, -2, "LOCKED");
         lua_setfield(lua, -2, "CursorMode");
 
+        // Strongly typed controller enums: tbx.GamepadButton.SOUTH, tbx.GamepadAxis.LEFT_X.
+        lua_createtable(lua, 0, static_cast<int>(std::size(GAMEPAD_BUTTON_TABLE)));
+        for (const GamepadButtonEntry& entry : GAMEPAD_BUTTON_TABLE)
+        {
+            lua_pushinteger(lua, static_cast<int>(entry.button));
+            lua_setfield(lua, -2, entry.name);
+        }
+        lua_setfield(lua, -2, "GamepadButton");
+
+        lua_createtable(lua, 0, static_cast<int>(std::size(GAMEPAD_AXIS_TABLE)));
+        for (const GamepadAxisEntry& entry : GAMEPAD_AXIS_TABLE)
+        {
+            lua_pushinteger(lua, static_cast<int>(entry.axis));
+            lua_setfield(lua, -2, entry.name);
+        }
+        lua_setfield(lua, -2, "GamepadAxis");
+
         lua_createtable(lua, 0, 18);
         const luaL_Reg math_functions[] = {
             {"add", math_add},
@@ -1104,15 +1636,15 @@ namespace tbx
             {"distance", math_distance},
             {"normalize", math_normalize},
             {"lerp", math_lerp},
-            {"move_toward", math_move_toward},
+            {"moveToward", math_move_toward},
             {"reflect", math_reflect},
-            {"angle_axis", math_angle_axis},
+            {"angleAxis", math_angle_axis},
             {"multiply", math_multiply},
             {"rotate", math_rotate},
             {"slerp", math_slerp},
-            {"from_euler", math_from_euler},
-            {"to_euler", math_to_euler},
-            {"quat_look_at", math_quat_look_at},
+            {"fromEuler", math_from_euler},
+            {"toEuler", math_to_euler},
+            {"quatLookAt", math_quat_look_at},
             {nullptr, nullptr}};
         luaL_register(lua, nullptr, math_functions);
         lua_setfield(lua, -2, "math");

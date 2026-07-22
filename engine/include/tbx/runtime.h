@@ -4,8 +4,7 @@
 #include "tbx/debug/debugging.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/gpu/render_graph.h"
-#include "tbx/gpu/state.h"
+#include "tbx/gfx/state.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
@@ -46,11 +45,10 @@ namespace tbx
         InputState input = {};
         WindowsState windows = {};
         Sandbox sandbox = {};
-        RenderGraph render_graph = {};
         JobsState jobs = {};
         EventsState events = {};
         AssetsState assets = {};
-        GpuState renderer = {};
+        RenderState renderer = {};
         ScriptsState scripts = {};
         PhysicsState physics = {};
         AudioState audio = {};

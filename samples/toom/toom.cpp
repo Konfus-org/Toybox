@@ -1,7 +1,7 @@
 #include "tbx/app.h"
 #include "tbx/utils/command_list.h"
 #include "tbx/debug/log.h"
-#include "tbx/gpu/gpu.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/runtime.h"
 #include "tbx/serialization/read_write.h"

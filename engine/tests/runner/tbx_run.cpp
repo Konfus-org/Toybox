@@ -4,7 +4,7 @@
 #include "tbx/debug/log.h"
 #include "tbx/debug/debugging.h"
 #include "tbx/ecs/sandbox.h"
-#include "tbx/gpu/gpu.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/runtime.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/ui/ui.h"
@@ -96,7 +96,7 @@ static int run_scene_selftest()
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
                          .with(tbx::Camera {});
             sandbox.spawn("Panel").with(
-                tbx::Ui {
+                tbx::UI {
                     .document = tbx::AssetHandle<tbx::Document>("Ui/selftest_panel.html")});
         }
 

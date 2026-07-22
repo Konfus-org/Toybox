@@ -1,8 +1,9 @@
-#include "tbx/platform/window.h"
 #include "tbx/debug/log.h"
-#include "tbx/gpu/gpu.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/platform/input.h"
+#include "tbx/platform/window.h"
 #include <SDL3/SDL.h>
+#include <array>
 #include <optional>
 
 namespace tbx
@@ -51,108 +52,6 @@ namespace tbx
         bool is_first_frame = true;
     };
 
-    //// TRANSLATION ////
-
-    static Key translate_key(const SDL_Scancode scancode)
-    {
-        // Contiguous SDL ranges map onto contiguous Key ranges.
-        if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z)
-            return static_cast<Key>(static_cast<int>(Key::A) + (scancode - SDL_SCANCODE_A));
-        if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9)
-            return static_cast<Key>(static_cast<int>(Key::NUM_1) + (scancode - SDL_SCANCODE_1));
-        if (scancode == SDL_SCANCODE_0)
-            return Key::NUM_0;
-        if (scancode >= SDL_SCANCODE_F1 && scancode <= SDL_SCANCODE_F12)
-            return static_cast<Key>(static_cast<int>(Key::F1) + (scancode - SDL_SCANCODE_F1));
-
-        switch (scancode)
-        {
-            case SDL_SCANCODE_ESCAPE:
-                return Key::ESCAPE;
-            case SDL_SCANCODE_TAB:
-                return Key::TAB;
-            case SDL_SCANCODE_CAPSLOCK:
-                return Key::CAPS_LOCK;
-            case SDL_SCANCODE_SPACE:
-                return Key::SPACE;
-            case SDL_SCANCODE_RETURN:
-                return Key::ENTER;
-            case SDL_SCANCODE_BACKSPACE:
-                return Key::BACKSPACE;
-            case SDL_SCANCODE_DELETE:
-                return Key::DEL;
-            case SDL_SCANCODE_INSERT:
-                return Key::INSERT;
-            case SDL_SCANCODE_HOME:
-                return Key::HOME;
-            case SDL_SCANCODE_END:
-                return Key::END;
-            case SDL_SCANCODE_PAGEUP:
-                return Key::PAGE_UP;
-            case SDL_SCANCODE_PAGEDOWN:
-                return Key::PAGE_DOWN;
-            case SDL_SCANCODE_LEFT:
-                return Key::LEFT;
-            case SDL_SCANCODE_RIGHT:
-                return Key::RIGHT;
-            case SDL_SCANCODE_UP:
-                return Key::UP;
-            case SDL_SCANCODE_DOWN:
-                return Key::DOWN;
-            case SDL_SCANCODE_LSHIFT:
-                return Key::LEFT_SHIFT;
-            case SDL_SCANCODE_RSHIFT:
-                return Key::RIGHT_SHIFT;
-            case SDL_SCANCODE_LCTRL:
-                return Key::LEFT_CTRL;
-            case SDL_SCANCODE_RCTRL:
-                return Key::RIGHT_CTRL;
-            case SDL_SCANCODE_LALT:
-                return Key::LEFT_ALT;
-            case SDL_SCANCODE_RALT:
-                return Key::RIGHT_ALT;
-            case SDL_SCANCODE_MINUS:
-                return Key::MINUS;
-            case SDL_SCANCODE_EQUALS:
-                return Key::EQUALS;
-            case SDL_SCANCODE_LEFTBRACKET:
-                return Key::LEFT_BRACKET;
-            case SDL_SCANCODE_RIGHTBRACKET:
-                return Key::RIGHT_BRACKET;
-            case SDL_SCANCODE_BACKSLASH:
-                return Key::BACKSLASH;
-            case SDL_SCANCODE_SEMICOLON:
-                return Key::SEMICOLON;
-            case SDL_SCANCODE_APOSTROPHE:
-                return Key::APOSTROPHE;
-            case SDL_SCANCODE_GRAVE:
-                return Key::GRAVE;
-            case SDL_SCANCODE_COMMA:
-                return Key::COMMA;
-            case SDL_SCANCODE_PERIOD:
-                return Key::PERIOD;
-            case SDL_SCANCODE_SLASH:
-                return Key::SLASH;
-            default:
-                return Key::UNKNOWN;
-        }
-    }
-
-    static MouseButton translate_mouse_button(const Uint8 button)
-    {
-        switch (button)
-        {
-            case SDL_BUTTON_LEFT:
-                return MouseButton::LEFT;
-            case SDL_BUTTON_RIGHT:
-                return MouseButton::RIGHT;
-            case SDL_BUTTON_MIDDLE:
-                return MouseButton::MIDDLE;
-            default:
-                return MouseButton::COUNT;
-        }
-    }
-
     //// BACKEND LIFECYCLE ////
 
     static void open_backend(Window& window)
@@ -194,7 +93,7 @@ namespace tbx
                 TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
                 std::abort();
             }
-            gpu_initialize();
+            initialize_rendering();
         }
         SDL_GL_MakeCurrent(backend->window, g_gl_context);
         // The swap interval sticks per window surface, not per context.
@@ -275,10 +174,7 @@ namespace tbx
 
     //// WINDOWS ////
 
-    void update_windows(
-        WindowsState& state,
-        InputState& input,
-        EventsState& events)
+    void update_windows(WindowsState& state, InputState& input, EventsState& events)
     {
         for (Window& window : state.open_windows)
         {
@@ -315,65 +211,55 @@ namespace tbx
             }
         }
 
-        auto event = SDL_Event {};
-        while (SDL_PollEvent(&event))
+        // update_windows runs before update_input each frame and drains ONLY the window/quit
+        // band [SDL_EVENT_QUIT, SDL_EVENT_WINDOW_LAST] here — pumping the OS queue, taking the
+        // events it owns, and leaving keyboard/mouse/controller events for update_input's
+        // catch-all drain. (A single-poll drain here would consume input events before input
+        // ever saw them.) Handled types below act; the rest of the band is discarded.
+        SDL_PumpEvents();
+        auto events_buffer = std::array<SDL_Event, 64> {};
+        int count = 0;
+        while ((count = SDL_PeepEvents(
+                    events_buffer.data(),
+                    static_cast<int>(events_buffer.size()),
+                    SDL_GETEVENT,
+                    SDL_EVENT_QUIT,
+                    SDL_EVENT_WINDOW_LAST))
+               > 0)
         {
-            switch (event.type)
+            for (int i = 0; i < count; ++i)
             {
-                case SDL_EVENT_QUIT:
-                    for (Window& window : state.open_windows)
-                        if (window.backend && window.status == WindowStatus::OPEN)
-                            close_window(window);
-                    break;
-                case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                    if (const auto window = find_window(state, event.window.windowID))
-                        close_window(window->get());
-                    break;
-                case SDL_EVENT_KEY_DOWN:
-                case SDL_EVENT_KEY_UP:
+                const SDL_Event& event = events_buffer[static_cast<size>(i)];
+                switch (event.type)
                 {
-                    const Key key = translate_key(event.key.scancode);
-                    if (key == Key::UNKNOWN)
+                    case SDL_EVENT_QUIT:
+                        for (Window& window : state.open_windows)
+                            if (window.backend && window.status == WindowStatus::OPEN)
+                                close_window(window);
                         break;
-                    if (!event.key.repeat)
-                        feed_key(input, key, event.key.down);
-                    events.key.emit(
-                        {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
-                    break;
+                    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                        if (const auto window = find_window(state, event.window.windowID))
+                            close_window(window->get());
+                        break;
+                    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                        if (const auto window = find_window(state, event.window.windowID))
+                        {
+                            window->get().width = event.window.data1;
+                            window->get().height = event.window.data2;
+                            // The engine's render loop re-sizes the gpu drawable per window;
+                            // the mirror tracks the main window for custom-pipeline hosts.
+                            if (&window->get() == &state.open_windows.front())
+                                gpu_set_viewport(event.window.data1, event.window.data2);
+                            events.window_resized.emit(
+                                {.width = event.window.data1, .height = event.window.data2});
+                        }
+                        break;
+                    default:
+                        break;
                 }
-                case SDL_EVENT_MOUSE_MOTION:
-                    feed_mouse_move(
-                        input,
-                        Vec2(event.motion.x, event.motion.y),
-                        Vec2(event.motion.xrel, event.motion.yrel));
-                    break;
-                case SDL_EVENT_MOUSE_BUTTON_DOWN:
-                case SDL_EVENT_MOUSE_BUTTON_UP:
-                {
-                    const MouseButton button = translate_mouse_button(event.button.button);
-                    if (button != MouseButton::COUNT)
-                        feed_mouse_button(input, button, event.button.down);
-                    break;
-                }
-                case SDL_EVENT_MOUSE_WHEEL:
-                    feed_scroll(input, event.wheel.y);
-                    break;
-                case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                    if (const auto window = find_window(state, event.window.windowID))
-                    {
-                        window->get().width = event.window.data1;
-                        window->get().height = event.window.data2;
-                        // The engine's render loop re-sizes the gpu drawable per window;
-                        // the mirror tracks the main window for custom-pipeline hosts.
-                        if (&window->get() == &state.open_windows.front())
-                            gpu_set_viewport(event.window.data1, event.window.data2);
-                        events.window_resized.emit(
-                            {.width = event.window.data1, .height = event.window.data2});
-                    }
-                    break;
-                default:
-                    break;
             }
+            if (count < static_cast<int>(events_buffer.size()))
+                break;
         }
     }
 

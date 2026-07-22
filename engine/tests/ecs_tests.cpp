@@ -2,6 +2,7 @@
 #include "tbx/files/files.h"
 #include "tbx/utils/hash.h"
 #include "tbx/math/frustum.h"
+#include "tbx/reflection/reflection.h"
 #include "tbx/reflection/type_registration.h"
 #include "tbx/runtime.h"
 #include "tbx/serialization/json.h"
@@ -41,6 +42,10 @@ namespace tbx
 
         TestWorld()
         {
+            // Stand reflection + serializers up before anything touches the sandbox — the world
+            // is plain data now and no longer self-registers. set_asset_root (unlike
+            // initialize_assets) does not do this, so do it explicitly.
+            initialize_reflection();
             const auto* info = testing::UnitTest::GetInstance()->current_test_info();
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
@@ -53,7 +58,7 @@ namespace tbx
         /// making any streaming decisions.
         void flush_open(Sandbox& sandbox)
         {
-            sandbox.stream(runtime.assets, runtime.events, runtime.jobs, {});
+            stream(sandbox, runtime.assets, runtime.events, runtime.jobs, {});
         }
     };
 
@@ -178,7 +183,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "world.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        const auto loaded = target.spawn(world.runtime.assets, world.runtime.events, *kit);
+        const auto loaded = spawn(target, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -242,7 +247,8 @@ namespace tbx
 
         // Act
         auto sandbox = Sandbox();
-        const auto loaded = sandbox.spawn(
+        const auto loaded = spawn(
+            sandbox,
             world.runtime.assets,
             world.runtime.events,
             AssetHandle<Kit>("level.kit"),
@@ -271,7 +277,7 @@ namespace tbx
 
         // Act
         const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
+            spawn(sandbox, world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -289,7 +295,8 @@ namespace tbx
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(
+        const auto loaded = spawn(
+            sandbox,
             world.runtime.assets,
             world.runtime.events,
             AssetHandle<Kit>("broken.kit"));
@@ -315,7 +322,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "widget.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, *kit);
+            spawn(sandbox, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -336,7 +343,7 @@ namespace tbx
         level.spawn("far_room")
             .with(KitInstance {.kit = AssetHandle<Kit>("room.kit"), .streamed = true});
         auto sandbox = Sandbox();
-        sandbox.open(level);
+        open(sandbox, level);
         world.flush_open(sandbox);
         EXPECT_FALSE(sandbox.find("RoomToy").has_value()); // streamed contents do not preload
 
@@ -351,20 +358,20 @@ namespace tbx
 
         // Act: a camera looking straight at the origin — the kit streams in (async).
         const auto seeing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, seeing);
+        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, seeing);
         wait_for(true);
         const bool loaded = sandbox.find("RoomToy").has_value();
 
         // A camera close by but looking AWAY: the origin is ~10 behind it — outside the +5
         // load volume but inside the +15 unload volume, so hysteresis keeps it loaded.
         const auto glancing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f, 0.0f, 20.0f))};
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
+        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
         update_jobs(world.runtime.jobs);
         const bool kept = sandbox.find("RoomToy").has_value();
 
         // Far away and looking away — out of every volume: unloads.
         const auto blind = std::array {look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f))};
-        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
+        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
         update_jobs(world.runtime.jobs);
         const bool unloaded = sandbox.find("RoomToy").has_value();
 
@@ -372,8 +379,8 @@ namespace tbx
         const auto split_screen = std::array {
             look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f)),
             look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
-        sandbox
-            .stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, split_screen);
+        stream(
+            sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, split_screen);
         wait_for(true);
 
         // Assert
@@ -395,7 +402,7 @@ namespace tbx
         auto sandbox = Sandbox();
 
         // Act: open defers; the first stream tick (even with no cameras) spawns the level.
-        sandbox.open(level);
+        open(sandbox, level);
         world.flush_open(sandbox);
 
         // Assert
@@ -435,7 +442,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "lamp.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        ASSERT_TRUE(target.spawn(world.runtime.assets, world.runtime.events, *kit).has_value());
+        ASSERT_TRUE(spawn(target, world.runtime.assets, world.runtime.events, *kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");
@@ -454,16 +461,16 @@ namespace tbx
         auto level = Kit();
         level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         auto sandbox = Sandbox();
-        sandbox.open(level);
+        open(sandbox, level);
         world.flush_open(sandbox);
         ASSERT_TRUE(sandbox.find("Skybox").has_value());
 
         // Act
-        sandbox.close();
+        close(sandbox);
 
         // Assert: empty, and a fresh open works again.
         EXPECT_EQ(sandbox.get_toy_count(), 0u);
-        sandbox.open(level);
+        open(sandbox, level);
         world.flush_open(sandbox);
         EXPECT_TRUE(sandbox.find("Skybox").has_value());
     }

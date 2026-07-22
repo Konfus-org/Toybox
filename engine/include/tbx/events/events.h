@@ -30,6 +30,23 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Fired when a controller is plugged in and the engine has claimed a slot for it;
+    /// index is that slot [0, MAX_GAMEPADS). Anything wanting per-device setup (UI prompts,
+    /// player assignment) listens here rather than polling connection state.
+    struct TBX_API InputDeviceConnected
+    {
+        int index = 0;
+    };
+
+    /// @brief
+    /// Purpose: Fired when a controller is unplugged; index is the slot it vacated. The engine
+    /// has already released the device and cleared the slot's state by the time this dispatches.
+    struct TBX_API InputDeviceDisconnected
+    {
+        int index = 0;
+    };
+
+    /// @brief
     /// Purpose: Fired on the main thread after a watched asset file changed and re-decoded.
     struct TBX_API AssetReloaded
     {
@@ -77,7 +94,15 @@ namespace tbx
         Signal<AssetUnloaded> asset_unloaded {queue};
         Signal<ScriptReloaded> script_reloaded {queue};
         Signal<CollisionEvent> collision {queue};
+        Signal<InputDeviceConnected> input_device_connected {queue};
+        Signal<InputDeviceDisconnected> input_device_disconnected {queue};
     };
+
+    /// @brief
+    /// Purpose: Drops every subscription registered under the given owner tag from every signal
+    /// at once — the bulk teardown a language backend runs before it tears down (so no handler
+    /// capturing a dying VM survives to be dispatched). Extend this when adding a signal.
+    TBX_API void unsubscribe_all(EventsState& state, const void* owner);
 
     /// @brief
     /// Purpose: Dispatches everything queued since the last update, in emission order — the

@@ -8,7 +8,7 @@
 #include "tbx/ecs/sandbox.h"
 #include "tbx/physics/rigid_body.h"
 #include "tbx/physics/collider.h"
-#include "tbx/gpu/renderer.h"
+#include "tbx/gfx/renderer.h"
 #include "tbx/assets/assets.h"
 #include "tbx/math/transform.h"
 #include "tbx/assets/builtin.h"

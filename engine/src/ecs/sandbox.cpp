@@ -3,38 +3,41 @@
 #include "tbx/debug/log.h"
 #include "tbx/math/frustum.h"
 #include "tbx/reflection/reflection.h"
+#include "sandbox_internal.h"
 #include <algorithm>
 
 namespace tbx
 {
-    Sandbox::Sandbox()
+    static constexpr float STREAM_LOAD_MARGIN = 5.0f;
+    // Larger than the load margin on purpose: the hysteresis band is what keeps a camera
+    // turning in place from thrashing loads — raise it if turning still pops.
+    static constexpr float STREAM_UNLOAD_MARGIN = 15.0f;
+
+    void open(Sandbox& sandbox, Kit level)
     {
-        initialize_reflection();
+        sandbox.pending_level = std::move(level);
     }
 
-    void Sandbox::open(Kit level)
+    void close(Sandbox& sandbox)
     {
-        _pending_level = std::move(level);
+        sandbox.streamed_kits.clear();
+        sandbox.pending_level.reset();
+        sandbox.clear(); // every toy (ToyContainer)
     }
 
-    void Sandbox::close()
+    // Spawns the pending level (open() defers so opening never needs the asset system in hand).
+    static void open_pending(Sandbox& sandbox, AssetsState& assets, EventsState& events)
     {
-        _streamed_kits.clear();
-        _pending_level.reset();
-        clear(); // every toy (ToyContainer)
-    }
-
-    void Sandbox::open_pending(AssetsState& assets, EventsState& events)
-    {
-        if (!_pending_level)
+        if (!sandbox.pending_level)
             return;
-        const Kit level = std::move(*_pending_level);
-        _pending_level.reset();
-        if (auto opened = spawn(assets, events, level); !opened)
+        const Kit level = std::move(*sandbox.pending_level);
+        sandbox.pending_level.reset();
+        if (auto opened = spawn(sandbox, assets, events, level); !opened)
             TBX_ERROR("opened level: {}", opened.error());
     }
 
-    void Sandbox::stream(
+    void stream(
+        Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
         JobsState& jobs,
@@ -42,16 +45,16 @@ namespace tbx
     {
         // The pending level spawns here — the one place with the asset system in hand every
         // frame — so read<Sandbox>/open() never need it.
-        open_pending(assets, events);
+        open_pending(sandbox, assets, events);
 
         // No cameras (headless) = no streaming decisions; loaded kits stay put.
         if (frustums.empty())
             return;
 
-        for (size i = 0; i < _streamed_kits.size(); ++i)
+        for (size i = 0; i < sandbox.streamed_kits.size(); ++i)
         {
-            StreamedKit& entry = _streamed_kits[i];
-            auto instance = Toy(*this, entry.instance);
+            StreamedKit& entry = sandbox.streamed_kits[i];
+            auto instance = Toy(sandbox, entry.instance);
             if (!instance.is_alive())
                 continue; // its toy went away (a parent collapsed); the entry is pruned below
 
@@ -90,7 +93,7 @@ namespace tbx
                         auto body = loaded ? Result<Kit>(loaded->get())
                                            : Result<Kit>(std::unexpected(loaded.error()));
                         co_await on_main(jobs);
-                        StreamedKit& target = sandbox._streamed_kits[index];
+                        StreamedKit& target = sandbox.streamed_kits[index];
                         target.is_loading = false;
                         auto instance = Toy(sandbox, target.instance);
                         if (!body || !instance.is_alive())
@@ -101,8 +104,8 @@ namespace tbx
                         }
                         auto reference_stack = std::vector<uint64>();
                         auto spawned = std::vector<ToyId>();
-                        if (auto expanded = sandbox.instantiate_under(
-                                assets, events, instance, *body, reference_stack, spawned);
+                        if (auto expanded = instantiate_under(
+                                sandbox, assets, events, instance, *body, reference_stack, spawned);
                             !expanded)
                         {
                             TBX_ERROR("streamed kit '{}': {}", target.kit.path, expanded.error());
@@ -111,19 +114,19 @@ namespace tbx
                             co_return;
                         }
                         target.is_loaded = true;
-                    }(assets, events, jobs, *this, i, entry.kit));
+                    }(assets, events, jobs, sandbox, i, entry.kit));
             }
             else if (entry.is_loaded && !is_in_sight)
             {
-                despawn_children(instance); // keep the KitInstance toy, drop its contents
+                sandbox.despawn_children(instance); // keep the KitInstance toy, drop its contents
                 entry.is_loaded = false;
             }
         }
 
         // Prune entries whose KitInstance toy is gone (a parent kit collapsed above it).
         std::erase_if(
-            _streamed_kits,
-            [this](const StreamedKit& entry)
-            { return !Toy(*this, entry.instance).is_alive(); });
+            sandbox.streamed_kits,
+            [&sandbox](const StreamedKit& entry)
+            { return !Toy(sandbox, entry.instance).is_alive(); });
     }
 }

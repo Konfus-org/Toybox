@@ -5,15 +5,15 @@
 #include "tbx/audio/source.h"
 #include "tbx/ecs/billboard.h"
 #include "tbx/ecs/kit.h"
-#include "tbx/gpu/camera.h"
-#include "tbx/gpu/directional_light.h"
-#include "tbx/gpu/material.h"
-#include "tbx/gpu/model.h"
-#include "tbx/gpu/post_processing.h"
-#include "tbx/gpu/renderer.h"
-#include "tbx/gpu/shader_source.h"
-#include "tbx/gpu/sky.h"
-#include "tbx/gpu/texture.h"
+#include "tbx/gfx/camera.h"
+#include "tbx/gfx/directional_light.h"
+#include "tbx/gfx/material.h"
+#include "tbx/gfx/model.h"
+#include "tbx/gfx/post_processing.h"
+#include "tbx/gfx/renderer.h"
+#include "tbx/gfx/shader_source.h"
+#include "tbx/gfx/sky.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/rigid_body.h"
@@ -57,11 +57,11 @@ namespace tbx
             .field("half_extents", &Collider::half_extents)
             .field("radius", &Collider::radius)
             .field("height", &Collider::height);
-        register_type<Ui>("Ui")
-            .field("document", &Ui::document)
-            .field("vertex", &Ui::vertex)
-            .field("fragment", &Ui::fragment)
-            .field("is_world_anchored", &Ui::is_world_anchored);
+        register_type<UI>("UI")
+            .field("document", &UI::document)
+            .field("vertex", &UI::vertex)
+            .field("fragment", &UI::fragment)
+            .field("mode", &UI::mode);
         register_type<Sky>("Sky")
             .field("texture", &Sky::texture)
             .field("tint", &Sky::tint);

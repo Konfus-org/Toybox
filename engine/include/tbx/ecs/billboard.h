@@ -5,11 +5,10 @@
 
 namespace tbx
 {
-    class Sandbox;
-
     /// @brief
     /// Purpose: A toy wearing this block turns to face the camera each frame. Billboarding is
-    /// opt-in — nothing rotates toward the camera without a Billboard block.
+    /// opt-in — nothing rotates toward the camera without a Billboard block. The facing update
+    /// runs inside update_ecs() (see ecs.cpp) each frame before rendering.
     struct TBX_API Billboard : Block
     {
         // Upright: only yaw toward the camera (labels, sprites). Off = face it fully.
@@ -21,9 +20,4 @@ namespace tbx
             return *this;
         }
     };
-
-    /// @brief
-    /// Purpose: Turns every Billboard toy to face the given camera position (the caller passes
-    /// the active camera's world position; tbx::run() does this each frame before rendering).
-    TBX_API void update_billboards(Sandbox& sandbox, const Vec3& camera_position);
 }

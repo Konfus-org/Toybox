@@ -110,6 +110,47 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Gamepad button identities fed by the platform backend. The order matches SDL's
+    /// SDL_GamepadButton so the backend translator can range-map straight across. Face buttons
+    /// are named by position (SOUTH/EAST/WEST/NORTH), not letters, so layouts stay controller-
+    /// agnostic.
+    enum class GamepadButton : uint8
+    {
+        SOUTH = 0,
+        EAST,
+        WEST,
+        NORTH,
+        BACK,
+        GUIDE,
+        START,
+        LEFT_STICK,
+        RIGHT_STICK,
+        LEFT_SHOULDER,
+        RIGHT_SHOULDER,
+        DPAD_UP,
+        DPAD_DOWN,
+        DPAD_LEFT,
+        DPAD_RIGHT,
+
+        COUNT
+    };
+
+    /// @brief
+    /// Purpose: Gamepad analog axis identities fed by the platform backend. Order matches SDL's
+    /// SDL_GamepadAxis. Stick axes read in [-1, 1] (up/left negative); triggers read in [0, 1].
+    enum class GamepadAxis : uint8
+    {
+        LEFT_X = 0,
+        LEFT_Y,
+        RIGHT_X,
+        RIGHT_Y,
+        LEFT_TRIGGER,
+        RIGHT_TRIGGER,
+
+        COUNT
+    };
+
+    /// @brief
     /// Purpose: What the OS cursor does over the window: NORMAL is a visible free pointer,
     /// HIDDEN is a free pointer without the arrow, LOCKED grabs the cursor for mouse-look —
     /// invisible, pinned to the window, with movement still flowing as deltas.

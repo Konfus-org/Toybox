@@ -25,7 +25,7 @@ tbx_backend(MATH glm math)
 tbx_backend(SERIALIZATION nlohmann)
 tbx_backend(ECS entt)
 tbx_backend(PLATFORM sdl)
-tbx_backend(GPU gl)
+tbx_backend(GPU gl gfx)
 tbx_backend(PHYSICS jolt)
 tbx_backend(AUDIO steamaudio)
 tbx_backend(UI rmlui)
@@ -45,7 +45,7 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gpu|physics|scripting|math|debug|serialization|audio|ui|ecs)/[^/]+/")
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|math|debug|serialization|audio|ui|ecs)/[^/]+/")
 list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GPU_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_ECS_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES} ${TBX_UI_BACKEND_SOURCES})
 
 if(TBX_BUILD_SHARED)

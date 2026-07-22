@@ -1,4 +1,4 @@
-#include "tbx/gpu/texture.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/serialization/read_write.h"
 #include <cstddef>

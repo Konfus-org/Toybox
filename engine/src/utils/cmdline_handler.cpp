@@ -1,7 +1,7 @@
 #include "tbx/utils/cmdline_handler.h"
 #include "tbx/debug/log.h"
-#include "tbx/gpu/gpu.h"
-#include "tbx/gpu/texture.h"
+#include "tbx/gfx/gpu.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/serialization/read_write.h"
 #include "tbx/platform/window.h"
 #include <algorithm>
