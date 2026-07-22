@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/debug/debugging.h" // DebugViewState + the public update_debugging facade
+#include "tbx/debug/debugging.h" // DebuggingState + the public update_debugging facade
 #include "tbx/assets/assets.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/platform/input.h"
@@ -15,7 +15,7 @@ namespace tbx
     /// Purpose: Runs the overlay for one frame from its unpacked pieces — F3 toggles it, the
     /// first open loads its document, and its stats land in the runtime's ui bindings.
     TBX_API void update_debug_view(
-        DebugViewState& state,
+        DebuggingState& state,
         const InputState& input,
         const Sandbox& sandbox,
         const AssetsState& assets,

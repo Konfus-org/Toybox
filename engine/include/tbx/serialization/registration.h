@@ -63,6 +63,16 @@ namespace tbx
         }
 
         /// @brief
+        /// Purpose: Declares a file extension (with the leading dot, e.g. ".png") this type is
+        /// authored in — call once per extension to claim several. Lets the asset system map a
+        /// file to its type via find_serializer_by_extension.
+        Registration& extension(std::string ext)
+        {
+            _info.get().extensions.push_back(std::move(ext));
+            return *this;
+        }
+
+        /// @brief
         /// Purpose: Routes one reflected property into the `<path>.meta` sidecar instead of
         /// the payload file — sidecar data rides with the asset's identity.
         template <typename TField>

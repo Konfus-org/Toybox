@@ -55,7 +55,7 @@ namespace tbx
         PhysicsState physics = {};
         AudioState audio = {};
         UiState ui = {};
-        DebugViewState debug = {};
+        DebuggingState debug = {};
     };
 
     /// @brief

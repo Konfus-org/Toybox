@@ -11,7 +11,7 @@
 namespace tbx
 {
     void update_debug_view(
-        DebugViewState& state,
+        DebuggingState& state,
         const InputState& input,
         const Sandbox& sandbox,
         const AssetsState& assets,

@@ -28,7 +28,7 @@ namespace tbx
         AssetsState& assets;
         EventsState& events;
         UiState& ui;
-        const DebugViewState& debug;
+        const DebuggingState& debug;
         const Window& window;
         bool is_main = true;
     };
@@ -43,48 +43,25 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: The standard renderer: an ordered list of passes run every frame between
-    /// gpu_begin_frame and present. The default list renders a sandbox completely (shadow,
-    /// geometry with sky, post, ui); games reorder, remove, or append passes — or build a
-    /// graph from scratch — to author their own rendering.
-    class TBX_API RenderGraph final
+    /// Purpose: The renderer as plain data — an ordered list of passes run every frame between
+    /// gpu_begin_frame and present. make_default_render_graph() builds the standard list
+    /// (shadow, geometry with sky, post, ui); games mutate `passes` directly (reorder, erase,
+    /// push_back) or build one from scratch. tbx::render() runs it.
+    struct TBX_API RenderGraph
     {
-      public:
-        /// @brief
-        /// Purpose: Starts as the standard pass list (shadow, geometry with sky, post, ui);
-        /// reshape or set_passes({}) to author rendering from scratch.
-        RenderGraph();
-
-      public:
-        RenderGraph(const RenderGraph&) = delete;
-        RenderGraph& operator=(const RenderGraph&) = delete;
-        RenderGraph(RenderGraph&&) = default;
-        RenderGraph& operator=(RenderGraph&&) = default;
-
-      public:
-        /// @brief
-        /// Purpose: Appends a pass to the end of the frame.
-        void add_pass(RenderPass pass);
-
-        /// @brief
-        /// Purpose: The current pass list, in run order.
-        const std::vector<RenderPass>& get_passes() const;
-
-        /// @brief
-        /// Purpose: Replaces the whole pass list (authoring rendering from scratch).
-        void set_passes(std::vector<RenderPass> passes);
-
-        /// @brief
-        /// Purpose: Removes the first pass with the given name.
-        void remove_pass(std::string_view name);
-
-        /// @brief
-        /// Purpose: Runs every pass in order — one full frame of rendering.
-        void render(RenderContext& context);
-
-      private:
-        std::vector<RenderPass> _passes;
+        std::vector<RenderPass> passes = {};
     };
+
+    /// @brief
+    /// Purpose: The standard pass list: shadow, geometry (with sky), post, ui. run() seeds the
+    /// runtime's render_graph with this at boot; games start from it or replace `passes`.
+    TBX_API RenderGraph make_default_render_graph();
+
+    /// @brief
+    /// Purpose: Runs a render graph for one window — owns the per-window render concerns: binds
+    /// the window (make_current) and its viewport, opens the frame (gpu_begin_frame), then runs
+    /// every pass in order. run() calls this for each open window; custom hosts call it too.
+    TBX_API void render(const RenderGraph& graph, RenderContext& context);
 
     // The builtin passes — compose custom graphs from them or mix in your own.
 

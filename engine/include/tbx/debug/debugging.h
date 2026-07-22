@@ -14,7 +14,7 @@ namespace tbx
     /// @brief
     /// Purpose: The debug overlay's state, held by value on the Runtime: its document text,
     /// visibility, and smoothed timings.
-    struct TBX_API DebugViewState
+    struct TBX_API DebuggingState
     {
         Document document = {};
         uint64 frame = 0;

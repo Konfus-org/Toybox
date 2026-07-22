@@ -1004,54 +1004,33 @@ namespace tbx
             });
 
         // The engine overlay is just one more layer with the builtin composite.
-        const DebugViewState& overlay = context.debug;
+        const DebuggingState& overlay = context.debug;
         if (overlay.is_open && !overlay.document.text.empty())
             composite_layer(0xFFFFFFFFu, overlay.document, {}, {});
     }
 
     //// RENDER GRAPH ////
 
-    RenderGraph::RenderGraph()
+    RenderGraph make_default_render_graph()
     {
-        _passes.push_back(gpu_make_shadow_pass());
-        _passes.push_back(gpu_make_geometry_pass());
-        _passes.push_back(gpu_make_post_pass());
-        _passes.push_back(gpu_make_ui_pass());
+        RenderGraph graph;
+        graph.passes.push_back(gpu_make_shadow_pass());
+        graph.passes.push_back(gpu_make_geometry_pass());
+        graph.passes.push_back(gpu_make_post_pass());
+        graph.passes.push_back(gpu_make_ui_pass());
+        return graph;
     }
 
-    void RenderGraph::add_pass(RenderPass pass)
+    void render(const RenderGraph& graph, RenderContext& context)
     {
-        _passes.push_back(std::move(pass));
-    }
-
-    const std::vector<RenderPass>& RenderGraph::get_passes() const
-    {
-        return _passes;
-    }
-
-    void RenderGraph::remove_pass(const std::string_view name)
-    {
-        for (auto it = _passes.begin(); it != _passes.end(); ++it)
-        {
-            if (it->name == name)
-            {
-                _passes.erase(it);
-                return;
-            }
-        }
-    }
-
-    void RenderGraph::render(RenderContext& context)
-    {
+        // render owns the per-window render concerns: bind the window + viewport, open the
+        // frame, then run every pass in order.
+        make_current(context.window);
+        gpu_set_viewport(context.window.width, context.window.height);
         gpu_begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
-        for (const RenderPass& pass : _passes)
+        for (const RenderPass& pass : graph.passes)
             if (pass.render)
                 pass.render(context);
-    }
-
-    void RenderGraph::set_passes(std::vector<RenderPass> passes)
-    {
-        _passes = std::move(passes);
     }
 
     RenderPass gpu_make_shadow_pass()

@@ -32,6 +32,10 @@ namespace tbx
         // typeid(T).hash_code() — the registry's dedupe/lookup key.
         size type_hash = 0;
         SerializerFormat format = SerializerFormat::DEFAULT;
+        // The file extensions (with the leading dot, e.g. ".png") this type is authored in —
+        // filled by .extension(). Lets the asset system map a file to its type by extension
+        // (find_serializer_by_extension); a type may claim several.
+        std::vector<std::string> extensions = {};
         // Reflected field names routed to the `<path>.meta` sidecar instead of the payload.
         std::vector<std::string> meta_fields = {};
         // The asset facet, stamped when the type derives tbx::Asset: the typeid shape of its

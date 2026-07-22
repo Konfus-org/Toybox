@@ -85,6 +85,9 @@ namespace tbx
         // Stands reflection + serializers up, sets the root, and discovers every asset.
         initialize_assets(state.assets, state.events, state.jobs, app.config.root_dir);
         apply_settings(app, state);
+        // RenderGraph is plain data now, so seed it with the standard passes (games may
+        // replace state.render_graph.passes to author their own rendering).
+        state.render_graph = make_default_render_graph();
 
         // The engine ui font is an ordinary asset (resolved through the engine resources
         // root); games call set_font for their own faces.
@@ -348,8 +351,6 @@ namespace tbx
             {
                 if (window.status != WindowStatus::OPEN || !window.backend)
                     continue;
-                make_current(window);
-                gpu_set_viewport(window.width, window.height);
                 auto context = RenderContext {
                     .renderer = state.renderer,
                     .sandbox = state.sandbox,
@@ -359,7 +360,7 @@ namespace tbx
                     .debug = state.debug,
                     .window = window,
                     .is_main = &window == &state.windows.open_windows.front()};
-                state.render_graph.render(context);
+                render(state.render_graph, context);
             }
         }
 
