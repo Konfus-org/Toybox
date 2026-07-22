@@ -202,7 +202,7 @@ namespace tbx::physics
     static JPH::ShapeRefC make_mesh_shape(
         assets::State& assets,
         events::State& events,
-        ecs::Toy toy,
+        Toy toy,
         const Vec3& scale)
     {
         const auto* renderer = toy.try_block<gpu::Renderer>();
@@ -258,7 +258,7 @@ namespace tbx::physics
         assets::State& assets,
         events::State& events,
         const Collider& collider,
-        ecs::Toy toy,
+        Toy toy,
         const Vec3& scale)
     {
         switch (collider.shape)
@@ -288,10 +288,10 @@ namespace tbx::physics
     /// @brief
     /// Purpose: A toy's world transform (local composed up the parent chain) — Jolt bodies
     /// live in world space, so this is what placement reads and write-back inverts.
-    static Transform world_pose(ecs::Toy toy)
+    static Transform world_pose(Toy toy)
     {
         auto chain = std::vector<Transform>();
-        for (auto current = std::optional<ecs::Toy>(toy); current && current->is_alive();
+        for (auto current = std::optional<Toy>(toy); current && current->is_alive();
              current = current->get_parent())
             chain.push_back(current->get_transform());
         auto world = Transform {};
@@ -304,7 +304,7 @@ namespace tbx::physics
 
     void update(
         State& state,
-        ecs::Sandbox& sandbox,
+        Sandbox& sandbox,
         assets::State& assets,
         events::State& events,
         const float fixed_delta_time)
@@ -317,7 +317,7 @@ namespace tbx::physics
 
         // Mirror collider toys into the simulation (created on first sight).
         sandbox.each<Collider>(
-            [&](ecs::Toy toy, Collider& collider)
+            [&](Toy toy, Collider& collider)
             {
             if (!toy.is_enabled())
                 return;
@@ -360,7 +360,7 @@ namespace tbx::physics
         // Bodies whose toys despawned leave the simulation.
         for (auto it = physics.bodies_by_toy.begin(); it != physics.bodies_by_toy.end();)
         {
-            if (!ecs::Toy(sandbox, static_cast<ecs::ToyId>(it->first)).is_alive())
+            if (!Toy(sandbox, static_cast<ToyId>(it->first)).is_alive())
             {
                 bodies.RemoveBody(it->second);
                 bodies.DestroyBody(it->second);
@@ -377,7 +377,7 @@ namespace tbx::physics
         {
             if (bodies.GetMotionType(body_id) != JPH::EMotionType::Dynamic)
                 continue;
-            auto body_toy = ecs::Toy(sandbox, static_cast<ecs::ToyId>(key));
+            auto body_toy = Toy(sandbox, static_cast<ToyId>(key));
             if (!body_toy.is_alive())
                 continue;
             JPH::RVec3 position = {};
@@ -428,7 +428,7 @@ namespace tbx::physics
             return {};
         const float distance = hit.mFraction * max_distance;
         const auto toy =
-            static_cast<ecs::ToyId>(physics.system.GetBodyInterface().GetUserData(hit.mBodyID));
+            static_cast<ToyId>(physics.system.GetBodyInterface().GetUserData(hit.mBodyID));
         return RaycastHit {
             .toy = toy,
             .position = origin + normalized * distance,

@@ -2,7 +2,7 @@
 // Toy template/inline bodies that need only the Registry (the container-taking constructor
 // lives in container.h, where ToyContainer is complete).
 
-namespace tbx::ecs
+namespace tbx
 {
     inline Toy::Toy(Registry& registry, const ToyId id)
         : _registry(registry)

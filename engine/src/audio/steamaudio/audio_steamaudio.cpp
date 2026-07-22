@@ -78,7 +78,7 @@ namespace tbx::audio
         IPLAudioBuffer mono = {};
         IPLAudioBuffer stereo = {};
         std::mutex voices_mutex;
-        std::unordered_map<uint32, Voice> voices; // keyed by ecs::ToyId value
+        std::unordered_map<uint32, Voice> voices; // keyed by ToyId value
         std::unordered_map<Uuid, std::shared_ptr<const Clip>> clips;
         float listener_volume = 1.0f;
         std::vector<float> interleaved;
@@ -226,7 +226,7 @@ namespace tbx::audio
 
     void update(
         State& audio,
-        ecs::Sandbox& sandbox,
+        Sandbox& sandbox,
         assets::State& assets,
         events::State& events,
         const float)
@@ -240,7 +240,7 @@ namespace tbx::audio
         auto listener_inverse = Mat4(1.0f);
         bool has_listener = false;
         sandbox.each<Listener>(
-            [&](ecs::Toy toy, Listener& listener)
+            [&](Toy toy, Listener& listener)
             {
                 if (has_listener || !toy.is_enabled())
                     return;
@@ -253,7 +253,7 @@ namespace tbx::audio
 
         // Mirror playing sources into voices; spatial extent comes from the toy's physics::Collider.
         sandbox.each<Source>(
-            [&](ecs::Toy toy, Source& source)
+            [&](Toy toy, Source& source)
             {
             const auto key = static_cast<uint32>(toy.get_id());
             const bool wants_voice = has_listener && toy.is_enabled() && source.is_playing
@@ -335,7 +335,7 @@ namespace tbx::audio
         // effects until shutdown (mirrors the physics body sweep).
         for (auto it = state.voices.begin(); it != state.voices.end();)
         {
-            auto toy = ecs::Toy(sandbox, static_cast<ecs::ToyId>(it->first));
+            auto toy = Toy(sandbox, static_cast<ToyId>(it->first));
             const bool is_stale = !toy.is_alive() || !toy.has_block<Source>();
             it = is_stale ? state.voices.erase(it) : std::next(it);
         }

@@ -13,7 +13,7 @@ namespace tbx::debug::view
     void update(
         State& state,
         const input::State& input,
-        const ecs::Sandbox& sandbox,
+        const Sandbox& sandbox,
         const assets::State& assets,
         const windows::State& windows,
         ui::State& ui,

@@ -9,7 +9,7 @@
 #include "tbx/utils/typedefs.h"
 #include <filesystem>
 
-namespace tbx::ecs
+namespace tbx
 {
     struct TBX_API Kit;
 

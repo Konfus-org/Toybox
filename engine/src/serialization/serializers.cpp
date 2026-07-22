@@ -30,14 +30,14 @@ namespace tbx::serialization
             .deserializer(scripts::deserialize_script_source);
         register_serializer<ui::Document>().format(Format::TEXT);
         register_serializer<ui::Font>().format(Format::CUSTOM).deserializer(ui::deserialize_font);
-        register_serializer<ecs::Kit>()
+        register_serializer<Kit>()
             .format(Format::CUSTOM)
-            .deserializer(ecs::deserialize_kit)
-            .serializer(ecs::serialize_kit);
-        register_serializer<ecs::Sandbox>()
+            .deserializer(deserialize_kit)
+            .serializer(serialize_kit);
+        register_serializer<Sandbox>()
             .format(Format::CUSTOM)
-            .deserializer(ecs::deserialize_sandbox)
-            .serializer(ecs::serialize_sandbox);
+            .deserializer(deserialize_sandbox)
+            .serializer(serialize_sandbox);
         register_serializer<gpu::Material>().format(Format::DEFAULT);
         register_serializer<App>().format(Format::DEFAULT);
     }

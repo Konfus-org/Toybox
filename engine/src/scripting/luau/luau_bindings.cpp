@@ -15,21 +15,21 @@ namespace tbx::scripts
     static constexpr const char* BLOCK_METATABLE = "tbx.Block";
 
     /// @brief
-    /// Purpose: Payload of a ecs::Toy userdata. Raw pointer is deliberate at the C boundary; the
-    /// ecs::Sandbox outlives the VM (Scripts is constructed after it and destroyed first).
+    /// Purpose: Payload of a Toy userdata. Raw pointer is deliberate at the C boundary; the
+    /// Sandbox outlives the VM (Scripts is constructed after it and destroyed first).
     struct ToyUserdata
     {
-        ecs::Sandbox* sandbox = nullptr;
-        ecs::ToyId entity = ecs::NULL_TOY;
+        Sandbox* sandbox = nullptr;
+        ToyId entity = NULL_TOY;
     };
 
     /// @brief
-    /// Purpose: Payload of a ecs::Block userdata: enough to re-fetch the live block every access,
+    /// Purpose: Payload of a Block userdata: enough to re-fetch the live block every access,
     /// so stale pointers cannot exist.
     struct BlockUserdata
     {
-        ecs::Sandbox* sandbox = nullptr;
-        ecs::ToyId entity = ecs::NULL_TOY;
+        Sandbox* sandbox = nullptr;
+        ToyId entity = NULL_TOY;
         uint64 type_hash = 0;
     };
 
@@ -267,7 +267,7 @@ namespace tbx::scripts
         const auto type = reflection::describe(data.type_hash);
         if (!type || !type->get().get_block)
             return nullptr;
-        return ecs::Toy(*data.sandbox, data.entity).get_block_bytes(data.type_hash);
+        return Toy(*data.sandbox, data.entity).get_block_bytes(data.type_hash);
     }
 
     static int block_index(lua_State* lua)
@@ -333,7 +333,7 @@ namespace tbx::scripts
 
         const auto type = reflection::describe(hash(key));
         if (!type || !type->get().has_block
-            || !ecs::Toy(*data.sandbox, data.entity).has_block_named(hash(key)))
+            || !Toy(*data.sandbox, data.entity).has_block_named(hash(key)))
         {
             lua_pushnil(lua);
             return 1;
@@ -361,7 +361,7 @@ namespace tbx::scripts
             luaL_error(lua, "assign a table of fields to toy.%s", key);
             return 0;
         }
-        std::byte* block = ecs::Toy(*data.sandbox, data.entity).add_block_bytes(hashed);
+        std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hashed);
         for (const reflection::FieldInfo& field : type->get().fields)
         {
             lua_getfield(lua, 3, field.name.c_str());
@@ -375,14 +375,14 @@ namespace tbx::scripts
     static int toy_get_name(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushstring(lua, ecs::Toy(*data.sandbox, data.entity).get_name().c_str());
+        lua_pushstring(lua, Toy(*data.sandbox, data.entity).get_name().c_str());
         return 1;
     }
 
     static int toy_set_name(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        ecs::Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
+        Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -390,14 +390,14 @@ namespace tbx::scripts
     static int toy_is_enabled(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(lua, ecs::Toy(*data.sandbox, data.entity).is_enabled());
+        lua_pushboolean(lua, Toy(*data.sandbox, data.entity).is_enabled());
         return 1;
     }
 
     static int toy_set_enabled(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        ecs::Toy(*data.sandbox, data.entity).set_enabled(lua_toboolean(lua, 2) != 0);
+        Toy(*data.sandbox, data.entity).set_enabled(lua_toboolean(lua, 2) != 0);
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -417,7 +417,7 @@ namespace tbx::scripts
             luaL_error(lua, "'%s' is not a registered block type", key);
             return 0;
         }
-        std::byte* block = ecs::Toy(*data.sandbox, data.entity).add_block_bytes(hash(key));
+        std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hash(key));
         if (lua_istable(lua, 3))
         {
             for (const reflection::FieldInfo& field : type->get().fields)
@@ -435,7 +435,7 @@ namespace tbx::scripts
     static int toy_remove_block(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        ecs::Toy(*data.sandbox, data.entity).remove_block_named(hash(luaL_checkstring(lua, 2)));
+        Toy(*data.sandbox, data.entity).remove_block_named(hash(luaL_checkstring(lua, 2)));
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -444,13 +444,13 @@ namespace tbx::scripts
     {
         const ToyUserdata& data = check_toy(lua, 1);
         // A nil/absent parent clears the link; otherwise reparent to the given toy.
-        auto parent = ecs::Toy();
+        auto parent = Toy();
         if (!lua_isnoneornil(lua, 2))
         {
             const ToyUserdata& parent_data = check_toy(lua, 2);
-            parent = ecs::Toy(*parent_data.sandbox, parent_data.entity);
+            parent = Toy(*parent_data.sandbox, parent_data.entity);
         }
-        ecs::Toy(*data.sandbox, data.entity).set_parent(parent);
+        Toy(*data.sandbox, data.entity).set_parent(parent);
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -458,14 +458,14 @@ namespace tbx::scripts
     static int toy_despawn(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        data.sandbox->despawn(ecs::Toy(*data.sandbox, data.entity));
+        data.sandbox->despawn(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
     static int toy_sticker(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        ecs::Toy(*data.sandbox, data.entity).sticker(luaL_checkstring(lua, 2));
+        Toy(*data.sandbox, data.entity).sticker(luaL_checkstring(lua, 2));
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -475,14 +475,14 @@ namespace tbx::scripts
         const ToyUserdata& data = check_toy(lua, 1);
         lua_pushboolean(
             lua,
-            ecs::Toy(*data.sandbox, data.entity).has_sticker(luaL_checkstring(lua, 2)));
+            Toy(*data.sandbox, data.entity).has_sticker(luaL_checkstring(lua, 2)));
         return 1;
     }
 
     static int toy_remove_sticker(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        ecs::Toy(*data.sandbox, data.entity).remove_sticker(luaL_checkstring(lua, 2));
+        Toy(*data.sandbox, data.entity).remove_sticker(luaL_checkstring(lua, 2));
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
@@ -490,7 +490,7 @@ namespace tbx::scripts
     static int toy_is_alive(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(lua, ecs::Toy(*data.sandbox, data.entity).is_alive());
+        lua_pushboolean(lua, Toy(*data.sandbox, data.entity).is_alive());
         return 1;
     }
 
@@ -505,15 +505,15 @@ namespace tbx::scripts
 
     static int sandbox_spawn(lua_State* lua)
     {
-        ecs::Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const ecs::Toy toy = sandbox.spawn(luaL_checkstring(lua, 1));
+        Sandbox& sandbox = bound_runtime(lua).sandbox;
+        const Toy toy = sandbox.spawn(luaL_checkstring(lua, 1));
         push_toy(lua, sandbox, toy.get_id());
         return 1;
     }
 
     static int sandbox_find(lua_State* lua)
     {
-        ecs::Sandbox& sandbox = bound_runtime(lua).sandbox;
+        Sandbox& sandbox = bound_runtime(lua).sandbox;
         const auto toy = sandbox.find(std::string_view(luaL_checkstring(lua, 1)));
         if (!toy)
         {
@@ -527,7 +527,7 @@ namespace tbx::scripts
     static int sandbox_despawn(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        data.sandbox->despawn(ecs::Toy(*data.sandbox, data.entity));
+        data.sandbox->despawn(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -547,7 +547,7 @@ namespace tbx::scripts
         const auto spawned = state.sandbox.spawn(
             state.assets,
             state.events,
-            assets::Handle<ecs::Kit>(reference),
+            assets::Handle<Kit>(reference),
             position);
         if (!spawned)
         {
@@ -561,7 +561,7 @@ namespace tbx::scripts
     static int sandbox_despawn_kit(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        data.sandbox->despawn_subtree(ecs::Toy(*data.sandbox, data.entity));
+        data.sandbox->despawn_subtree(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -946,7 +946,7 @@ namespace tbx::scripts
 
     //// OPEN ////
 
-    void push_toy(lua_State* lua, ecs::Sandbox& sandbox, const ecs::ToyId entity)
+    void push_toy(lua_State* lua, Sandbox& sandbox, const ToyId entity)
     {
         auto* data = static_cast<ToyUserdata*>(lua_newuserdata(lua, sizeof(ToyUserdata)));
         *data = ToyUserdata {.sandbox = &sandbox, .entity = entity};
@@ -971,7 +971,7 @@ namespace tbx::scripts
 
     void open_tbx_bindings(lua_State* lua, RuntimeState& runtime)
     {
-        // ecs::Toy metatable: __index is a closure over the method table so unknown keys fall
+        // Toy metatable: __index is a closure over the method table so unknown keys fall
         // through to typed block lookup; __newindex is add-and-populate.
         luaL_newmetatable(lua, TOY_METATABLE);
         lua_createtable(lua, 0, 13);
@@ -996,7 +996,7 @@ namespace tbx::scripts
         lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
-        // ecs::Block metatable: field access straight through reflection::TypeInfo.
+        // Block metatable: field access straight through reflection::TypeInfo.
         luaL_newmetatable(lua, BLOCK_METATABLE);
         lua_pushcfunction(lua, block_index, "block_index");
         lua_setfield(lua, -2, "__index");

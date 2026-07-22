@@ -25,11 +25,11 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        ecs::Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
 
         // Act
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
@@ -45,7 +45,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
 
         // Act
@@ -60,7 +60,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         auto reload_count = 0;
         runtime.events.script_reloaded.subscribe(
@@ -68,7 +68,7 @@ end
             [&reload_count](const events::ScriptReloaded&) { ++reload_count; });
         const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        ecs::Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         toy.set_name("renamed-by-test");
 
@@ -92,11 +92,11 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        ecs::Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Act
@@ -113,7 +113,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto spawner = scripts::load_source(runtime.scripts, "spawner", R"(
 function start(toy)
@@ -130,7 +130,7 @@ end
         // Assert
         const auto summoned = sandbox.find("Friend");
         ASSERT_TRUE(summoned.has_value());
-        EXPECT_TRUE(ecs::Toy(*summoned).has_sticker("summoned"));
+        EXPECT_TRUE(Toy(*summoned).has_sticker("summoned"));
     }
 
     TEST(Scripts, FixedUpdateRunsAtFixedCadenceOnly)
@@ -138,7 +138,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto stepper = scripts::load_source(runtime.scripts, "stepper", R"(
 function fixed_update(toy, delta_time)
@@ -147,7 +147,7 @@ function fixed_update(toy, delta_time)
 end
 )");
         ASSERT_TRUE(stepper.has_value());
-        ecs::Toy toy = sandbox.spawn("Stepper").with(scripts::Script {.source = *stepper});
+        Toy toy = sandbox.spawn("Stepper").with(scripts::Script {.source = *stepper});
 
         // Act: variable updates do not run the fixed hook; fixed steps do.
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
@@ -167,7 +167,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto builder = scripts::load_source(runtime.scripts, "builder", R"(
 function start(toy)
@@ -178,7 +178,7 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(builder.has_value());
-        ecs::Toy toy = sandbox.spawn("Buildable").with(scripts::Script {.source = *builder});
+        Toy toy = sandbox.spawn("Buildable").with(scripts::Script {.source = *builder});
 
         // Act
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
@@ -195,7 +195,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto mathy = scripts::load_source(runtime.scripts, "mathy", R"(
 function start(toy)
@@ -207,7 +207,7 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(mathy.has_value());
-        ecs::Toy toy = sandbox.spawn("Mathy").with(scripts::Script {.source = *mathy});
+        Toy toy = sandbox.spawn("Mathy").with(scripts::Script {.source = *mathy});
 
         // Act
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
@@ -224,7 +224,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto typed = scripts::load_source(runtime.scripts, "typed", R"(
 function start(toy)
@@ -237,7 +237,7 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(typed.has_value());
-        ecs::Toy toy = sandbox.spawn("Typist").with(scripts::Script {.source = *typed});
+        Toy toy = sandbox.spawn("Typist").with(scripts::Script {.source = *typed});
 
         // Act
         scripts::update(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
@@ -254,11 +254,11 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto mover = scripts::load_source(runtime.scripts, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
-        ecs::Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
+        Toy toy = sandbox.spawn("Grunt").with(scripts::Script {.source = *mover});
         toy.set_enabled(false);
 
         // Act
@@ -276,7 +276,7 @@ end
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         scripts::initialize(runtime); // wires the VM backends
         const auto silent = scripts::load_source(runtime.scripts, "silent", "local nothing_defined = true");
         ASSERT_TRUE(silent.has_value());

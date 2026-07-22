@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace tbx::ecs
+namespace tbx
 {
     //// JSON BOUNDARY ////
     // The toy graph itself serializes through ToyContainer::serialize_toys/deserialize_toys

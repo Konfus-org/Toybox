@@ -9,7 +9,7 @@ namespace tbx::physics
 {
     /// @brief
     /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
-    struct TBX_API Collider : ecs::Block
+    struct TBX_API Collider : Block
     {
         Shape shape = Shape::BOX;
         Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);

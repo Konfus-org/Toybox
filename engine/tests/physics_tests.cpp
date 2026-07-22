@@ -14,11 +14,11 @@ namespace tbx::tests
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
-        ecs::Toy cube = sandbox.spawn("Cube")
+        Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)})
                        .with(physics::Collider {})
                        .with(physics::RigidBody {});
@@ -37,8 +37,8 @@ namespace tbx::tests
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
-        ecs::Toy wall = sandbox.spawn("Wall")
+        Sandbox& sandbox = runtime.sandbox;
+        Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
                        .with(physics::Collider {});
 
@@ -55,7 +55,7 @@ namespace tbx::tests
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
+        Sandbox& sandbox = runtime.sandbox;
         auto collisions = std::vector<std::pair<uint32, uint32>>();
         runtime.events.collision.subscribe(
             &collisions,
@@ -64,7 +64,7 @@ namespace tbx::tests
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
-        ecs::Toy cube = sandbox.spawn("Cube")
+        Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
                        .with(physics::Collider {})
                        .with(physics::RigidBody {});
@@ -88,8 +88,8 @@ namespace tbx::tests
         // Arrange
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
-        ecs::Sandbox& sandbox = runtime.sandbox;
-        ecs::Toy target = sandbox.spawn("Target")
+        Sandbox& sandbox = runtime.sandbox;
+        Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(physics::Collider {});
         physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in

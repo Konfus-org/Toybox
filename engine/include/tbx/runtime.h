@@ -45,7 +45,7 @@ namespace tbx
         FrameState frame = {};
         input::State input = {};
         windows::State windows = {};
-        ecs::Sandbox sandbox = {};
+        Sandbox sandbox = {};
         gpu::RenderGraph render_graph = {};
         jobs::State jobs = {};
         events::State events = {};

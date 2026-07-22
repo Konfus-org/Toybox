@@ -120,7 +120,7 @@ namespace tbx::scripts
 
     void update(
         State& state,
-        ecs::Sandbox& sandbox,
+        Sandbox& sandbox,
         assets::State& assets,
         events::State& events,
         const float delta_time)
@@ -128,7 +128,7 @@ namespace tbx::scripts
         // Script sources referenced by spawned toys are ordinary assets: acquire each once —
         // the store emits asset_reloaded and the reload glue hands it to the right backend.
         sandbox.each<Script>(
-            [&](ecs::Toy, Script& script)
+            [&](Toy, Script& script)
             {
                 if (!script.source.id.is_valid()
                     || state.acquired_sources.contains(script.source.id))

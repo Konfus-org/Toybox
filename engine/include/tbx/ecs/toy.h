@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::ecs
+namespace tbx
 {
     class ToyContainer; // a Sandbox or a Kit; both own a hidden registry of toys
 

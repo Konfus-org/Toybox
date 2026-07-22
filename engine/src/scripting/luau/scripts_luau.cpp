@@ -110,11 +110,11 @@ namespace tbx::scripts
         void run_scripts(const char* function_name, const float delta_time)
         {
             _runtime.get().sandbox.each<Script>(
-                [&](ecs::Toy toy, Script& script)
+                [&](Toy toy, Script& script)
                 {
                 if (!toy.is_enabled())
                     return;
-                const ecs::ToyId entity = toy.get_id();
+                const ToyId entity = toy.get_id();
                 const Uuid id = script.source.id;
                 const auto found = _scripts_by_id.find(id);
                 if (found == _scripts_by_id.end())
@@ -198,7 +198,7 @@ namespace tbx::scripts
         void call_script_function(
             const int table_ref,
             const char* function_name,
-            const ecs::ToyId entity,
+            const ToyId entity,
             const std::optional<float> delta_time)
         {
             lua_getref(_lua, table_ref);
@@ -227,7 +227,7 @@ namespace tbx::scripts
         std::reference_wrapper<RuntimeState> _runtime;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
         std::unordered_map<Uuid, CompiledScript> _scripts_by_id;
-        std::unordered_map<uint32, LuauInstance> _instances; // keyed by ecs::ToyId value
+        std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
 
 

@@ -5,7 +5,7 @@
 // tbx::ecs aliases over a different registry — nothing else in the engine sees entt.
 #include <entt/entt.hpp>
 
-namespace tbx::ecs
+namespace tbx
 {
     using Registry = entt::registry;
     using ToyId = entt::entity;

@@ -13,7 +13,7 @@
 #include <tuple>
 #include <vector>
 
-namespace tbx::ecs
+namespace tbx
 {
     /// @brief
     /// Purpose: The shape both a Sandbox (the world) and a Kit (a bundle) share: a container

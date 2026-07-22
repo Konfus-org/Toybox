@@ -31,7 +31,7 @@ namespace tbx::reflection
     /// Purpose: Registers every builtin block type. Idempotent.
     static void register_blocks()
     {
-        // Deriving tbx::ecs::Block is what makes these blocks — register_type stamps the ecs
+        // Deriving tbx::Block is what makes these blocks — register_type stamps the ecs
         // facet from the base automatically.
         register_type<Transform>("Transform")
             .field("position", &Transform::position)
@@ -75,11 +75,11 @@ namespace tbx::reflection
             .field("is_looping", &audio::Source::is_looping)
             .field("is_playing", &audio::Source::is_playing);
         // A toy wearing this block is a nested kit; its children are the kit's contents.
-        register_type<ecs::KitInstance>("KitInstance")
-            .field("kit", &ecs::KitInstance::kit)
-            .field("streamed", &ecs::KitInstance::streamed);
+        register_type<KitInstance>("KitInstance")
+            .field("kit", &KitInstance::kit)
+            .field("streamed", &KitInstance::streamed);
         // Opt-in billboarding — a toy only faces the camera with this block.
-        register_type<ecs::Billboard>("Billboard").field("lock_y", &ecs::Billboard::lock_y);
+        register_type<Billboard>("Billboard").field("lock_y", &Billboard::lock_y);
     }
 
     /// @brief
@@ -95,7 +95,7 @@ namespace tbx::reflection
         register_type<scripts::Source>("ScriptSource");
         register_type<ui::Document>("UiDocument");
         register_type<ui::Font>("Font");
-        register_type<ecs::Kit>("Kit");
+        register_type<Kit>("Kit");
         register_type<gpu::Material>("Material")
             .field("vertex", &gpu::Material::vertex)
             .field("fragment", &gpu::Material::fragment)

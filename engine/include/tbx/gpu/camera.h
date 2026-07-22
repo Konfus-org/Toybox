@@ -13,7 +13,7 @@ namespace tbx::gpu
     /// empty = the main window) and a normalized viewport rect within it (x, y, width,
     /// height with a bottom-left origin, glViewport-style). Position/orientation come from
     /// Transform (looks along its -Z). Every enabled camera renders.
-    struct TBX_API Camera : ecs::Block
+    struct TBX_API Camera : Block
     {
         float fov_degrees = 60.0f;
         float near_plane = 0.1f;

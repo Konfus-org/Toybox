@@ -47,16 +47,16 @@ namespace tbx::reflection
         // (kit blocks). read_any returns an empty any on failure.
         std::any (*read_any)(const serialization::Json&) = nullptr;
         serialization::Json (*write_any)(const std::any&) = nullptr;
-        // The block facet, stamped automatically when the type derives tbx::ecs::Block:
+        // The block facet, stamped automatically when the type derives tbx::Block:
         // type-erased component accessors over the shared ecs seam (ecs/registry.h, a
         // public seam like Json). Null for plain reflected types — the registry itself is
         // not block-specific. assign/copy move whole block values through std::any (kits).
-        std::byte* (*add_block)(ecs::Registry&, ecs::ToyId) = nullptr;
-        std::byte* (*get_block)(ecs::Registry&, ecs::ToyId) = nullptr;
-        bool (*has_block)(ecs::Registry&, ecs::ToyId) = nullptr;
-        void (*remove_block)(ecs::Registry&, ecs::ToyId) = nullptr;
-        bool (*assign_block)(ecs::Registry&, ecs::ToyId, const std::any&) = nullptr;
-        std::any (*copy_block)(ecs::Registry&, ecs::ToyId) = nullptr;
+        std::byte* (*add_block)(Registry&, ToyId) = nullptr;
+        std::byte* (*get_block)(Registry&, ToyId) = nullptr;
+        bool (*has_block)(Registry&, ToyId) = nullptr;
+        void (*remove_block)(Registry&, ToyId) = nullptr;
+        bool (*assign_block)(Registry&, ToyId, const std::any&) = nullptr;
+        std::any (*copy_block)(Registry&, ToyId) = nullptr;
         // How a type moves between memory and disk is NOT reflection's business: that lives
         // on the serializer registry (tbx::serialization::register_serializer<T>).
     };

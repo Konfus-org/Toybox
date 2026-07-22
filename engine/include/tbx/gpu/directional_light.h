@@ -8,7 +8,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: The sun: colored directional light casting shadows; direction is the owning
     /// toy's Transform forward (-Z).
-    struct TBX_API DirectionalLight : ecs::Block
+    struct TBX_API DirectionalLight : Block
     {
         Color color = {};
         float intensity = 1.0f;

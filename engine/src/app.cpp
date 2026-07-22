@@ -217,7 +217,7 @@ namespace tbx
         if (state.windows.windows.empty())
             return frustums; // headless: no views, no streaming decisions
         state.sandbox.each<gpu::Camera>(
-            [&](ecs::Toy toy, gpu::Camera& camera)
+            [&](Toy toy, gpu::Camera& camera)
             {
                 if (!toy.is_enabled())
                     return;
@@ -253,7 +253,7 @@ namespace tbx
     {
         auto position = std::optional<Vec3>();
         state.sandbox.each<gpu::Camera>(
-            [&](ecs::Toy toy, gpu::Camera&)
+            [&](Toy toy, gpu::Camera&)
             {
                 if (position || !toy.is_enabled())
                     return;
@@ -336,7 +336,7 @@ namespace tbx
         // Billboards face the active camera (opt-in; nothing rotates without a Billboard
         // block) — done after scripts/physics settle transforms, before rendering.
         if (const auto camera_position = primary_camera_position(state))
-            ecs::update_billboards(state.sandbox, *camera_position);
+            update_billboards(state.sandbox, *camera_position);
 
         // The engine pulls streaming: every enabled camera contributes a frustum (after
         // scripts/physics settled the transforms), and the sandbox loads what any of them

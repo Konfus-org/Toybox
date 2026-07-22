@@ -50,7 +50,7 @@ namespace tbx::events
     };
 
     /// @brief
-    /// Purpose: Fired when two physics toys start touching (ecs::ToyId values; fed by the physics
+    /// Purpose: Fired when two physics toys start touching (ToyId values; fed by the physics
     /// backend during the fixed step, delivered at the pump).
     struct TBX_API CollisionEvent
     {

@@ -2,7 +2,7 @@
 #include "tbx/api.h"
 #include "tbx/utils/uuid.h"
 
-namespace tbx::ecs
+namespace tbx
 {
     /// @brief
     /// Purpose: Base of every block type (data attachable to toys). Deriving from it is what

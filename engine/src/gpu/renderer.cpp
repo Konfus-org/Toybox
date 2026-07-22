@@ -554,7 +554,7 @@ namespace tbx::gpu
 
     //// FRAME CONTEXT (shared between the builtin passes of one frame) ////
 
-    static void refresh_lighting(State& state, ecs::Sandbox& sandbox)
+    static void refresh_lighting(State& state, Sandbox& sandbox)
     {
         FrameContext& frame = state.frame;
         frame.light_direction = normalize(Vec3(-0.4f, -1.0f, -0.3f));
@@ -562,7 +562,7 @@ namespace tbx::gpu
         frame.light_intensity = 1.0f;
         bool has_light = false;
         sandbox.each<DirectionalLight>(
-            [&](ecs::Toy toy, DirectionalLight& light)
+            [&](Toy toy, DirectionalLight& light)
             {
                 if (has_light)
                     return; // the first directional light wins
@@ -593,7 +593,7 @@ namespace tbx::gpu
         if (!ready)
             return;
         State& state = ready->get();
-        ecs::Sandbox& sandbox = context.sandbox;
+        Sandbox& sandbox = context.sandbox;
         refresh_lighting(state, sandbox);
 
         if (!state.shadow_target
@@ -606,7 +606,7 @@ namespace tbx::gpu
             "u_light_view_projection",
             state.frame.light_view_projection);
         sandbox.each<Renderer>(
-            [&](ecs::Toy toy, Renderer& renderer)
+            [&](Toy toy, Renderer& renderer)
             {
                 if (!toy.is_enabled())
                     return;
@@ -622,12 +622,12 @@ namespace tbx::gpu
     static void draw_scene(RenderContext& context, State& state)
     {
         FrameContext& frame = state.frame;
-        ecs::Sandbox& sandbox = context.sandbox;
+        Sandbox& sandbox = context.sandbox;
 
         // Sky: the first Sky block paints the background along the view ray.
         bool has_sky = false;
         sandbox.each<Sky>(
-            [&](ecs::Toy, Sky& sky)
+            [&](Toy, Sky& sky)
             {
                 if (has_sky)
                     return;
@@ -651,7 +651,7 @@ namespace tbx::gpu
         // Lit + shadowed + textured, material-driven per draw; a broken reference draws its
         // failure mode's loud unlit fallback instead (docs/RenderFailures.md).
         sandbox.each<Renderer>(
-            [&](ecs::Toy toy, Renderer& renderer)
+            [&](Toy toy, Renderer& renderer)
             {
             if (!toy.is_enabled())
                 return;
@@ -729,7 +729,7 @@ namespace tbx::gpu
             return;
         State& state = ready->get();
         FrameContext& frame = state.frame;
-        ecs::Sandbox& sandbox = context.sandbox;
+        Sandbox& sandbox = context.sandbox;
         refresh_lighting(state, sandbox);
         frame.post_chain.clear();
         frame.has_camera = false;
@@ -741,7 +741,7 @@ namespace tbx::gpu
         };
         bool has_any_camera = false;
         sandbox.each<Camera>(
-            [&](ecs::Toy toy, Camera& camera)
+            [&](Toy toy, Camera& camera)
             { has_any_camera = has_any_camera || (toy.is_enabled() && camera_matches_window(camera)); });
         if (!has_any_camera)
             return; // no camera, no picture
@@ -754,7 +754,7 @@ namespace tbx::gpu
         {
             bool has_post = false;
             sandbox.each<PostProcessing>(
-                [&](ecs::Toy, PostProcessing& post)
+                [&](Toy, PostProcessing& post)
                 {
                     if (has_post)
                         return; // the first PostProcessing toy wins
@@ -782,7 +782,7 @@ namespace tbx::gpu
 
         // Every matching camera renders the scene into its normalized viewport rect.
         sandbox.each<Camera>(
-            [&](ecs::Toy toy, Camera& camera)
+            [&](Toy toy, Camera& camera)
             {
                 if (!toy.is_enabled() || !camera_matches_window(camera))
                     return;
@@ -910,7 +910,7 @@ namespace tbx::gpu
         if (!ready)
             return;
         State& state = ready->get();
-        ecs::Sandbox& sandbox = context.sandbox;
+        Sandbox& sandbox = context.sandbox;
         const int width = context.window.width;
         const int height = context.window.height;
         if (!state.ui_layer_targets.empty())
@@ -937,7 +937,7 @@ namespace tbx::gpu
         };
 
         sandbox.each<ui::Ui>(
-            [&](ecs::Toy toy, ui::Ui& ui_block)
+            [&](Toy toy, ui::Ui& ui_block)
             {
             if (!ui_block.document.is_set() || !toy.is_enabled())
                 return;

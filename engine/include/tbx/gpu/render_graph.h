@@ -24,7 +24,7 @@ namespace tbx::gpu
     struct TBX_API RenderContext
     {
         gpu::State& renderer;
-        ecs::Sandbox& sandbox;
+        Sandbox& sandbox;
         assets::State& assets;
         events::State& events;
         ui::State& ui;

@@ -11,7 +11,7 @@ namespace tbx::ui
     /// @brief
     /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and
     /// is enabled (the render graph's ui pass manages loading/visibility).
-    struct TBX_API Ui : ecs::Block
+    struct TBX_API Ui : Block
     {
         assets::Handle<Document> document = {};
         assets::Handle<gpu::ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert

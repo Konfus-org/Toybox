@@ -6,7 +6,7 @@
 #include "tbx/reflection/type_registry.h"
 #include <unordered_map>
 
-namespace tbx::ecs
+namespace tbx
 {
     //// TOY LIFECYCLE ////
 

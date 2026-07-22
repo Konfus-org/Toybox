@@ -10,7 +10,7 @@ namespace tbx
     /// @brief
     /// Purpose: A toy wearing this block turns to face the camera each frame. Billboarding is
     /// opt-in — nothing rotates toward the camera without a Billboard block.
-    struct TBX_API Billboard : ecs::Block
+    struct TBX_API Billboard : Block
     {
         // Upright: only yaw toward the camera (labels, sprites). Off = face it fully.
         bool lock_y = true;

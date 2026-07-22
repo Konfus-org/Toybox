@@ -13,7 +13,7 @@
 #include <span>
 #include <vector>
 
-namespace tbx::ecs
+namespace tbx
 {
     /// @brief
     /// Purpose: THE world container: a ToyContainer that also opens a level kit and streams

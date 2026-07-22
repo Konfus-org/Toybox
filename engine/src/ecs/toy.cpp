@@ -4,7 +4,7 @@
 #include "tbx/math/transform.h"
 #include "tbx/reflection/type_registry.h"
 
-namespace tbx::ecs
+namespace tbx
 {
     ToyInfo& Toy::get_info() const
     {

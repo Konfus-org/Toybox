@@ -13,7 +13,7 @@
 namespace tbx::tests
 {
 
-    struct TestHealth : ecs::Block
+    struct TestHealth : Block
     {
         float hp = 100.0f;
         float armor = 0.0f;
@@ -51,7 +51,7 @@ namespace tbx::tests
         /// @brief
         /// Purpose: One stream tick with no cameras — flushes a pending open() without
         /// making any streaming decisions.
-        void flush_open(ecs::Sandbox& sandbox)
+        void flush_open(Sandbox& sandbox)
         {
             sandbox.stream(runtime.assets, runtime.events, runtime.jobs, {});
         }
@@ -97,10 +97,10 @@ namespace tbx::tests
     {
         // Arrange
         register_ecs_test_blocks();
-        auto sandbox = ecs::Sandbox();
+        auto sandbox = Sandbox();
 
         // Act
-        ecs::Toy grunt = sandbox.spawn("Grunt")
+        Toy grunt = sandbox.spawn("Grunt")
                              .with(Transform {.position = Vec3(1.0f, 2.0f, 3.0f)})
                              .with(TestHealth {.hp = 50.0f, .armor = 10.0f})
                              .sticker("enemy");
@@ -118,9 +118,9 @@ namespace tbx::tests
     TEST(Sandbox, DespawnKillsToyAndOrphansChildren)
     {
         // Arrange
-        auto sandbox = ecs::Sandbox();
-        ecs::Toy parent = sandbox.spawn("Parent");
-        ecs::Toy child = sandbox.spawn("Child");
+        auto sandbox = Sandbox();
+        Toy parent = sandbox.spawn("Parent");
+        Toy child = sandbox.spawn("Child");
         child.set_parent(parent);
 
         // Act
@@ -135,8 +135,8 @@ namespace tbx::tests
     TEST(Sandbox, FindsToysBySearchAndSticker)
     {
         // Arrange
-        auto sandbox = ecs::Sandbox();
-        ecs::Toy grunt = sandbox.spawn("Grunt").sticker("enemy");
+        auto sandbox = Sandbox();
+        Toy grunt = sandbox.spawn("Grunt").sticker("enemy");
         sandbox.spawn("Crate");
         auto stickered = std::vector<std::string>();
 
@@ -145,7 +145,7 @@ namespace tbx::tests
         const auto by_uuid = sandbox.find(grunt.get_uuid());
         sandbox.for_each_sticker(
             "enemy",
-            [&stickered](ecs::Toy toy)
+            [&stickered](Toy toy)
             {
                 stickered.push_back(toy.get_name());
             });
@@ -166,18 +166,18 @@ namespace tbx::tests
         // Arrange: a whole authored world written to disk, read back, and instantiated.
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto source = ecs::Sandbox();
-        ecs::Toy parent = source.spawn("Room")
+        auto source = Sandbox();
+        Toy parent = source.spawn("Room")
                               .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
                               .sticker("level");
-        ecs::Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
+        Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         child.set_parent(parent);
         ASSERT_TRUE(serialization::serialize(source, world.root / "world.kit").has_value());
 
         // Act
-        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "world.kit");
+        const auto kit = serialization::deserialize<Kit>(world.root / "world.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
-        auto target = ecs::Sandbox();
+        auto target = Sandbox();
         const auto loaded = target.spawn(world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
@@ -188,8 +188,8 @@ namespace tbx::tests
         ASSERT_TRUE(room.has_value());
         ASSERT_TRUE(grunt.has_value());
         EXPECT_TRUE(room->has_sticker("level"));
-        EXPECT_EQ(ecs::Toy(*room).get_block<Transform>().position, Vec3(5.0f, 0.0f, 0.0f));
-        EXPECT_EQ(ecs::Toy(*grunt).get_block<TestHealth>().hp, 33.0f);
+        EXPECT_EQ(Toy(*room).get_block<Transform>().position, Vec3(5.0f, 0.0f, 0.0f));
+        EXPECT_EQ(Toy(*grunt).get_block<TestHealth>().hp, 33.0f);
         ASSERT_TRUE(grunt->get_parent().has_value());
         EXPECT_EQ(grunt->get_parent()->get_id(), room->get_id());
     }
@@ -199,14 +199,14 @@ namespace tbx::tests
         // Arrange
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto source = ecs::Sandbox();
+        auto source = Sandbox();
         source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
         ASSERT_TRUE(serialization::serialize(source, world.root / "first.kit").has_value());
 
         // Act: read the kit back and write it again. (Instantiating into a world and
         // re-capturing is deliberately NOT identity — a captured instance collapses back to
         // a KitInstance reference — so the stable round trip is kit -> read -> write.)
-        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "first.kit");
+        const auto kit = serialization::deserialize<Kit>(world.root / "first.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         ASSERT_TRUE(serialization::serialize(*kit, world.root / "second.kit").has_value());
 
@@ -222,30 +222,30 @@ namespace tbx::tests
         // KitInstance block, positioned by its own transform.
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto author = ecs::Sandbox();
+        auto author = Sandbox();
         author.spawn("Pickup");
         ASSERT_TRUE(serialization::serialize(author, world.root / "prefab.kit").has_value());
 
-        auto room = ecs::Kit();
+        auto room = Kit();
         room.spawn("prefab_ref")
-            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("prefab.kit")})
+            .with(KitInstance {.kit = Handle<Kit>("prefab.kit")})
             .get_transform()
             .position = Vec3(1.0f, 0.0f, 0.0f);
         ASSERT_TRUE(serialization::serialize(room, world.root / "room.kit").has_value());
 
-        auto level = ecs::Kit();
+        auto level = Kit();
         level.spawn("room_ref")
-            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("room.kit")})
+            .with(KitInstance {.kit = Handle<Kit>("room.kit")})
             .get_transform()
             .position = Vec3(10.0f, 0.0f, 0.0f);
         ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
 
         // Act
-        auto sandbox = ecs::Sandbox();
+        auto sandbox = Sandbox();
         const auto loaded = sandbox.spawn(
             world.runtime.assets,
             world.runtime.events,
-            Handle<ecs::Kit>("level.kit"),
+            Handle<Kit>("level.kit"),
             Vec3(100.0f, 0.0f, 0.0f));
 
         // Assert: the parent chain composes 100 + 10 + 1 in world space.
@@ -260,18 +260,18 @@ namespace tbx::tests
     {
         // Arrange: a's child kit is b, b's child kit is a.
         auto world = TestWorld();
-        auto a = ecs::Kit();
+        auto a = Kit();
         a.spawn("InsideA");
-        a.spawn("a_to_b").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("b.kit")});
+        a.spawn("a_to_b").with(KitInstance {.kit = Handle<Kit>("b.kit")});
         ASSERT_TRUE(serialization::serialize(a, world.root / "a.kit").has_value());
-        auto b = ecs::Kit();
-        b.spawn("b_to_a").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("a.kit")});
+        auto b = Kit();
+        b.spawn("b_to_a").with(KitInstance {.kit = Handle<Kit>("a.kit")});
         ASSERT_TRUE(serialization::serialize(b, world.root / "b.kit").has_value());
-        auto sandbox = ecs::Sandbox();
+        auto sandbox = Sandbox();
 
         // Act
         const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, Handle<ecs::Kit>("a.kit"));
+            sandbox.spawn(world.runtime.assets, world.runtime.events, Handle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -283,16 +283,16 @@ namespace tbx::tests
     {
         // Arrange: a child kit that references an asset that does not exist.
         auto world = TestWorld();
-        auto broken = ecs::Kit();
-        broken.spawn("bad_ref").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("missing.kit")});
+        auto broken = Kit();
+        broken.spawn("bad_ref").with(KitInstance {.kit = Handle<Kit>("missing.kit")});
         ASSERT_TRUE(serialization::serialize(broken, world.root / "broken.kit").has_value());
-        auto sandbox = ecs::Sandbox();
+        auto sandbox = Sandbox();
 
         // Act
         const auto loaded = sandbox.spawn(
             world.runtime.assets,
             world.runtime.events,
-            Handle<ecs::Kit>("broken.kit"));
+            Handle<Kit>("broken.kit"));
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -309,10 +309,10 @@ namespace tbx::tests
                         R"({"toys":[{"uuid":"0000000000000000000000000000abcd",)"
                         R"("name":"Survivor","blocks":[{"type":"EditorOnlyWidget"}]}]})")
                         .has_value());
-        auto sandbox = ecs::Sandbox();
+        auto sandbox = Sandbox();
 
         // Act
-        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "widget.kit");
+        const auto kit = serialization::deserialize<Kit>(world.root / "widget.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         const auto loaded =
             sandbox.spawn(world.runtime.assets, world.runtime.events, *kit);
@@ -329,13 +329,13 @@ namespace tbx::tests
         // margin 5, unload margin 15).
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto author = ecs::Sandbox();
+        auto author = Sandbox();
         author.spawn("RoomToy");
         ASSERT_TRUE(serialization::serialize(author, world.root / "room.kit").has_value());
-        auto level = ecs::Kit();
+        auto level = Kit();
         level.spawn("far_room")
-            .with(ecs::KitInstance {.kit = Handle<ecs::Kit>("room.kit"), .streamed = true});
-        auto sandbox = ecs::Sandbox();
+            .with(KitInstance {.kit = Handle<Kit>("room.kit"), .streamed = true});
+        auto sandbox = Sandbox();
         sandbox.open(level);
         world.flush_open(sandbox);
         EXPECT_FALSE(sandbox.find("RoomToy").has_value()); // streamed contents do not preload
@@ -387,12 +387,12 @@ namespace tbx::tests
     {
         // Arrange: a level kit with an immediate child kit (KitInstance toy, streamed=false).
         auto world = TestWorld();
-        auto author = ecs::Sandbox();
+        auto author = Sandbox();
         author.spawn("Skybox");
         ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
-        auto level = ecs::Kit();
-        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
-        auto sandbox = ecs::Sandbox();
+        auto level = Kit();
+        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
+        auto sandbox = Sandbox();
 
         // Act: open defers; the first stream tick (even with no cameras) spawns the level.
         sandbox.open(level);
@@ -406,15 +406,15 @@ namespace tbx::tests
     {
         // Arrange: a level kit on disk — read<Sandbox> turns it into a world.
         auto world = TestWorld();
-        auto author = ecs::Sandbox();
+        auto author = Sandbox();
         author.spawn("Skybox");
         ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
-        auto level = ecs::Kit();
-        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
+        auto level = Kit();
+        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
         ASSERT_TRUE(serialization::serialize(level, world.root / "level.kit").has_value());
 
         // Act
-        auto from_kit = serialization::deserialize<ecs::Sandbox>(world.root / "level.kit");
+        auto from_kit = serialization::deserialize<Sandbox>(world.root / "level.kit");
         ASSERT_TRUE(from_kit.has_value()) << from_kit.error();
         world.flush_open(*from_kit);
 
@@ -426,21 +426,21 @@ namespace tbx::tests
     {
         // Arrange
         auto world = TestWorld();
-        auto source = ecs::Sandbox();
-        ecs::Toy toy = source.spawn("Lamp");
+        auto source = Sandbox();
+        Toy toy = source.spawn("Lamp");
         toy.set_enabled(false);
         ASSERT_TRUE(serialization::serialize(source, world.root / "lamp.kit").has_value());
 
         // Act
-        const auto kit = serialization::deserialize<ecs::Kit>(world.root / "lamp.kit");
+        const auto kit = serialization::deserialize<Kit>(world.root / "lamp.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
-        auto target = ecs::Sandbox();
+        auto target = Sandbox();
         ASSERT_TRUE(target.spawn(world.runtime.assets, world.runtime.events, *kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");
         ASSERT_TRUE(reloaded.has_value());
-        EXPECT_FALSE(ecs::Toy(*reloaded).is_enabled());
+        EXPECT_FALSE(Toy(*reloaded).is_enabled());
         EXPECT_TRUE(source.spawn("Fresh").is_enabled()); // default stays on
     }
 
@@ -448,12 +448,12 @@ namespace tbx::tests
     {
         // Arrange
         auto world = TestWorld();
-        auto author = ecs::Sandbox();
+        auto author = Sandbox();
         author.spawn("Skybox");
         ASSERT_TRUE(serialization::serialize(author, world.root / "sky.kit").has_value());
-        auto level = ecs::Kit();
-        level.spawn("sky").with(ecs::KitInstance {.kit = Handle<ecs::Kit>("sky.kit")});
-        auto sandbox = ecs::Sandbox();
+        auto level = Kit();
+        level.spawn("sky").with(KitInstance {.kit = Handle<Kit>("sky.kit")});
+        auto sandbox = Sandbox();
         sandbox.open(level);
         world.flush_open(sandbox);
         ASSERT_TRUE(sandbox.find("Skybox").has_value());
@@ -471,10 +471,10 @@ namespace tbx::tests
     TEST(Sandbox, WorldMatrixComposesParentChain)
     {
         // Arrange
-        auto sandbox = ecs::Sandbox();
-        ecs::Toy parent =
+        auto sandbox = Sandbox();
+        Toy parent =
             sandbox.spawn("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
-        ecs::Toy child =
+        Toy child =
             sandbox.spawn("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
         child.set_parent(parent);
 

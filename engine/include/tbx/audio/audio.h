@@ -36,7 +36,7 @@ namespace tbx::audio
     /// fed. Called by tbx::run() every frame.
     TBX_API void update(
         State& audio,
-        ecs::Sandbox& sandbox,
+        Sandbox& sandbox,
         assets::State& assets,
         events::State& events,
         float delta_time);

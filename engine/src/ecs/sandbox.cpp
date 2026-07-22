@@ -5,7 +5,7 @@
 #include "tbx/reflection/reflection.h"
 #include <algorithm>
 
-namespace tbx::ecs
+namespace tbx
 {
     Sandbox::Sandbox()
     {
