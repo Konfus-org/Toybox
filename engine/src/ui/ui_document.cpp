@@ -4,13 +4,13 @@
 namespace tbx::assets
 {
     template <>
-    Result<UiDocument> load<UiDocument>(const std::filesystem::path& path)
+    Result<ui::UiDocument> load<ui::UiDocument>(const std::filesystem::path& path)
     {
         // RML is just text; nothing library-specific happens until the document draws.
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        auto document = UiDocument();
+        auto document = ui::UiDocument();
         document.source = std::move(*text);
         return ok(std::move(document));
     }

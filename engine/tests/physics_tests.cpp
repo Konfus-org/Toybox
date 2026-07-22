@@ -17,11 +17,11 @@ namespace tbx::tests
         ecs::Sandbox& sandbox = runtime.sandbox;
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
-            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+            .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
         ecs::Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)})
-                       .with(Collider {})
-                       .with(RigidBody {});
+                       .with(physics::Collider {})
+                       .with(physics::RigidBody {});
 
         // Act: ~3 simulated seconds — plenty to fall from 5 units and settle.
         for (int i = 0; i < 180; ++i)
@@ -40,13 +40,13 @@ namespace tbx::tests
         ecs::Sandbox& sandbox = runtime.sandbox;
         ecs::Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
-                       .with(Collider {});
+                       .with(physics::Collider {});
 
         // Act
         for (int i = 0; i < 60; ++i)
             physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
-        // Assert: no RigidBody means scenery — gravity does not apply.
+        // Assert: no physics::RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
     }
 
@@ -63,11 +63,11 @@ namespace tbx::tests
             { collisions.push_back({hit.toy_a, hit.toy_b}); });
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
-            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+            .with(physics::Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
         ecs::Toy cube = sandbox.spawn("Cube")
                        .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
-                       .with(Collider {})
-                       .with(RigidBody {});
+                       .with(physics::Collider {})
+                       .with(physics::RigidBody {});
 
         // Act: fall to impact, then drain — collision delivery happens at the pump.
         for (int i = 0; i < 120; ++i)
@@ -91,7 +91,7 @@ namespace tbx::tests
         ecs::Sandbox& sandbox = runtime.sandbox;
         ecs::Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
-                         .with(Collider {});
+                         .with(physics::Collider {});
         physics::update(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in
 
         // Act

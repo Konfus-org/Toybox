@@ -95,8 +95,8 @@ static int run_scene_selftest()
             camera = sandbox.spawn("Camera")
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
                          .with(tbx::gfx::Camera {});
-            sandbox.spawn("Panel").with(tbx::Ui {
-                .document = tbx::assets::AssetHandle<tbx::UiDocument>("Ui/selftest_panel.rml")});
+            sandbox.spawn("Panel").with(tbx::ui::Ui {
+                .document = tbx::assets::AssetHandle<tbx::ui::UiDocument>("Ui/selftest_panel.rml")});
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).

@@ -2,7 +2,7 @@
 #include "tbx/files/files.h"
 #include <cstring>
 
-namespace tbx
+namespace tbx::audio
 {
     //// WAV PARSING ////
 
@@ -85,12 +85,12 @@ namespace tbx
 namespace tbx::assets
 {
     template <>
-    Result<AudioClip> load<AudioClip>(const std::filesystem::path& path)
+    Result<audio::AudioClip> load<audio::AudioClip>(const std::filesystem::path& path)
     {
         auto bytes = files::read_bytes(path);
         if (!bytes)
             return std::unexpected(bytes.error());
-        return parse_wav(*bytes);
+        return audio::parse_wav(*bytes);
     }
 
 }

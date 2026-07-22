@@ -9,7 +9,7 @@
 #include <lualib.h>
 #include <cstring>
 
-namespace tbx
+namespace tbx::scripts
 {
     static constexpr const char* TOY_METATABLE = "tbx.Toy";
     static constexpr const char* BLOCK_METATABLE = "tbx.Block";

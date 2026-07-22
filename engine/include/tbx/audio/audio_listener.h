@@ -2,7 +2,7 @@
 #include "tbx/ecs/block.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::audio
 {
     /// @brief
     /// Purpose: The ears: sounds spatialize relative to the first enabled listener's Transform.

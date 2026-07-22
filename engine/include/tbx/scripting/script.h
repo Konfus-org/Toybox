@@ -4,7 +4,7 @@
 #include "tbx/scripting/script_source.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::scripts
 {
     /// @brief
     /// Purpose: The block that makes a toy scripted: names a loaded script source. A script

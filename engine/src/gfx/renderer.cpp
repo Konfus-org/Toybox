@@ -853,7 +853,7 @@ namespace tbx::gfx
     }
 
     /// @brief
-    /// Purpose: The composite pipeline for one Ui block's custom stages (vertex vs the
+    /// Purpose: The composite pipeline for one ui::Ui block's custom stages (vertex vs the
     /// builtin fullscreen stage, fragment vs the builtin ui composite), cached by pair.
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_ui_composite(
         RendererState& state,
@@ -924,11 +924,11 @@ namespace tbx::gfx
                 state.ui_layer_targets.clear();
         }
 
-        // No queues: each layer (every enabled Ui block, plus the debug overlay) draws to
+        // No queues: each layer (every enabled ui::Ui block, plus the debug overlay) draws to
         // its own target and composites through its own gpu pipeline — custom stages when
         // the block names them, the builtin ui composite otherwise.
         const auto composite_layer = [&](const uint32 layer_key,
-                                         const UiDocument& document,
+                                         const ui::UiDocument& document,
                                          const std::string& vertex_source,
                                          const std::string& fragment_source)
         {
@@ -941,7 +941,7 @@ namespace tbx::gfx
         };
 
         auto& registry = sandbox.get_registry();
-        for (const auto [entity, ui_block] : registry.view<Ui>().each())
+        for (const auto [entity, ui_block] : registry.view<ui::Ui>().each())
         {
             if (!ui_block.document.is_set() || !registry.get<ecs::ToyHandle>(entity).is_enabled)
                 continue;

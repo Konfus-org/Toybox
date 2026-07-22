@@ -6,7 +6,7 @@
 #include "tbx/utils/api.h"
 #include <string>
 
-namespace tbx
+namespace tbx::ui
 {
     /// @brief
     /// Purpose: UI document asset (.rml) — plain RML/RCSS text handed to tbx::ui.
@@ -23,5 +23,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a UiDocument from disk (implementation lives next to the type).
     template <>
-    TBX_API Result<UiDocument> load<UiDocument>(const std::filesystem::path& path);
+    TBX_API Result<ui::UiDocument> load<ui::UiDocument>(const std::filesystem::path& path);
 }

@@ -252,7 +252,7 @@ namespace tbx::audio
 
         const std::scoped_lock lock(state.voices_mutex);
 
-        // Mirror playing sources into voices; spatial extent comes from the toy's Collider.
+        // Mirror playing sources into voices; spatial extent comes from the toy's physics::Collider.
         for (const auto [entity, source] : registry.view<AudioSource>().each())
         {
             const auto key = static_cast<uint32>(entity);
@@ -304,23 +304,23 @@ namespace tbx::audio
             const Vec3 direction =
                 distance > 0.0001f ? local * (1.0f / distance) : Vec3(0.0f, 0.0f, -1.0f);
 
-            // A Collider softens attenuation by its extent (the shared Shape vocabulary).
+            // A physics::Collider softens attenuation by its extent (the shared physics::Shape vocabulary).
             float extent = 0.0f;
-            if (const auto* collider = registry.try_get<Collider>(entity))
+            if (const auto* collider = registry.try_get<physics::Collider>(entity))
             {
                 switch (collider->shape)
                 {
-                    case Shape::SPHERE:
-                    case Shape::CAPSULE:
+                    case physics::Shape::SPHERE:
+                    case physics::Shape::CAPSULE:
                         extent = collider->radius;
                         break;
-                    case Shape::BOX:
+                    case physics::Shape::BOX:
                         extent = std::max(
                             {collider->half_extents.x,
                              collider->half_extents.y,
                              collider->half_extents.z});
                         break;
-                    case Shape::MESH:
+                    case physics::Shape::MESH:
                         break; // no analytic extent — point-source attenuation
                 }
             }

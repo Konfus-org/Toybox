@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace tbx
+namespace tbx::audio
 {
     /// @brief
     /// Purpose: Decoded audio asset: interleaved float samples.
@@ -31,5 +31,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a AudioClip from disk (implementation lives next to the type).
     template <>
-    TBX_API Result<AudioClip> load<AudioClip>(const std::filesystem::path& path);
+    TBX_API Result<audio::AudioClip> load<audio::AudioClip>(const std::filesystem::path& path);
 }

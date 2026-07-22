@@ -90,7 +90,7 @@ namespace tbx
             if (const auto font = assets::load_now(
                     state.assets,
                     state.events,
-                    assets::AssetHandle<Font>("Fonts/MontserratMedium.otf")))
+                    assets::AssetHandle<ui::Font>("Fonts/MontserratMedium.otf")))
                 ui::set_font(state.ui, font->get(), "Montserrat");
             else
                 TBX_WARN("builtin ui font: {}", font.error());
@@ -159,7 +159,7 @@ namespace tbx
                 const auto script = assets::load_now(
                     state.assets,
                     state.events,
-                    assets::AssetHandle<ScriptSource>(reloaded.id));
+                    assets::AssetHandle<scripts::ScriptSource>(reloaded.id));
                 if (script)
                 {
                     if (const auto result = scripts::reload_source(

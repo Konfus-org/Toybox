@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace tbx
+namespace tbx::ui
 {
     /// @brief
     /// Purpose: A font face as an ordinary asset (.ttf/.otf files): the raw file bytes.
@@ -23,5 +23,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a font file's bytes.
     template <>
-    TBX_API Result<Font> load<Font>(const std::filesystem::path& path);
+    TBX_API Result<ui::Font> load<ui::Font>(const std::filesystem::path& path);
 }

@@ -21,7 +21,7 @@ namespace tbx::debug::view
     /// visibility, and smoothed timings. update() loads the document on first open.
     struct TBX_API DebugState
     {
-        UiDocument document = {};
+        ui::UiDocument document = {};
         uint64 frame = 0;
         bool is_open = false;
         float smoothed_delta = 0.0f;

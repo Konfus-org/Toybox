@@ -102,7 +102,7 @@ namespace tbx::gfx
     TBX_API RenderPass make_post_pass();
 
     /// @brief
-    /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
+    /// Purpose: Shows every enabled ui::Ui block's document and renders the UI on top.
     TBX_API RenderPass make_ui_pass();
 
 

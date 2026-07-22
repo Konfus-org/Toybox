@@ -6,7 +6,7 @@
 // Private glue between the Luau VM and the engine. Bindings are generic over reflection::TypeInfo — never
 // per-type code — plus a thin hand-written tbx.* service API. Other language backends
 // (scripting/csharp/...) follow the same rule inside their own folders.
-namespace tbx
+namespace tbx::scripts
 {
     /// @brief
     /// Purpose: Installs the global `tbx` table (sandbox/input) and the ecs::Toy/ecs::Block metatables;

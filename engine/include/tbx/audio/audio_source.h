@@ -4,7 +4,7 @@
 #include "tbx/ecs/block.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::audio
 {
     /// @brief
     /// Purpose: Makes a toy emit sound: a clip played at the toy's position. A Collider on the

@@ -2,7 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx
+namespace tbx::physics
 {
     /// @brief
     /// Purpose: The shared spatial-shape vocabulary — colliders and spatial audio sources both

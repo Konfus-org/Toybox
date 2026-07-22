@@ -5,7 +5,7 @@
 #include "tbx/ui/ui_document.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::ui
 {
     /// @brief
     /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and

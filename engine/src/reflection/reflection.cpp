@@ -48,28 +48,28 @@ namespace tbx::reflection
         register_type<gfx::DirectionalLight>("DirectionalLight")
             .field("color", &gfx::DirectionalLight::color)
             .field("intensity", &gfx::DirectionalLight::intensity);
-        register_type<RigidBody>("RigidBody")
-            .field("mass", &RigidBody::mass)
-            .field("is_kinematic", &RigidBody::is_kinematic);
-        register_type<Collider>("Collider")
-            .field("shape", &Collider::shape)
-            .field("half_extents", &Collider::half_extents)
-            .field("radius", &Collider::radius)
-            .field("height", &Collider::height);
-        register_type<Ui>("Ui")
-            .field("document", &Ui::document)
-            .field("vertex", &Ui::vertex)
-            .field("fragment", &Ui::fragment)
-            .field("is_world_anchored", &Ui::is_world_anchored);
+        register_type<physics::RigidBody>("RigidBody")
+            .field("mass", &physics::RigidBody::mass)
+            .field("is_kinematic", &physics::RigidBody::is_kinematic);
+        register_type<physics::Collider>("Collider")
+            .field("shape", &physics::Collider::shape)
+            .field("half_extents", &physics::Collider::half_extents)
+            .field("radius", &physics::Collider::radius)
+            .field("height", &physics::Collider::height);
+        register_type<ui::Ui>("Ui")
+            .field("document", &ui::Ui::document)
+            .field("vertex", &ui::Ui::vertex)
+            .field("fragment", &ui::Ui::fragment)
+            .field("is_world_anchored", &ui::Ui::is_world_anchored);
         register_type<gfx::Sky>("Sky").field("texture", &gfx::Sky::texture).field("tint", &gfx::Sky::tint);
         register_type<gfx::PostProcessing>("PostProcessing").field("shaders", &gfx::PostProcessing::shaders);
-        register_type<Script>("Script").field("source", &Script::source);
-        register_type<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
-        register_type<AudioSource>("AudioSource")
-            .field("clip", &AudioSource::clip)
-            .field("volume", &AudioSource::volume)
-            .field("is_looping", &AudioSource::is_looping)
-            .field("is_playing", &AudioSource::is_playing);
+        register_type<scripts::Script>("Script").field("source", &scripts::Script::source);
+        register_type<audio::AudioListener>("AudioListener").field("volume", &audio::AudioListener::volume);
+        register_type<audio::AudioSource>("AudioSource")
+            .field("clip", &audio::AudioSource::clip)
+            .field("volume", &audio::AudioSource::volume)
+            .field("is_looping", &audio::AudioSource::is_looping)
+            .field("is_playing", &audio::AudioSource::is_playing);
     }
 
     /// @brief
@@ -82,10 +82,10 @@ namespace tbx::reflection
         register_type<gfx::Texture>("Texture");
         register_type<gfx::Model>("Model");
         register_type<gfx::ShaderSource>("ShaderSource");
-        register_type<AudioClip>("AudioClip");
-        register_type<ScriptSource>("ScriptSource");
-        register_type<UiDocument>("UiDocument");
-        register_type<Font>("Font");
+        register_type<audio::AudioClip>("AudioClip");
+        register_type<scripts::ScriptSource>("ScriptSource");
+        register_type<ui::UiDocument>("UiDocument");
+        register_type<ui::Font>("Font");
         register_type<ecs::Kit>("Kit");
         register_type<gfx::Material>("Material")
             .field("vertex", &gfx::Material::vertex)

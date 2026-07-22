@@ -4,7 +4,7 @@
 #include "tbx/physics/shape.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::physics
 {
     /// @brief
     /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
