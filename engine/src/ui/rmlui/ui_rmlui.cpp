@@ -48,7 +48,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: RmlUi's renderer over the generic gpu boundary: compiled geometry is an
-    /// ordinary gpu::Mesh (position2 + color4 + uv2 floats, indices expanded), drawn with the
+    /// ordinary Mesh (position2 + color4 + uv2 floats, indices expanded), drawn with the
     /// engine ui shaders and per-draw texture bindings — no UI-specific gpu entry points.
     class RenderInterface final : public Rml::RenderInterface
     {
@@ -72,7 +72,7 @@ namespace tbx
                 floats.push_back(vertex.tex_coord.y);
             }
             const auto handle = static_cast<Rml::CompiledGeometryHandle>(_next_handle++);
-            _meshes[handle] = gpu::upload_mesh(floats, std::array {2, 4, 2});
+            _meshes[handle] = gpu_upload_mesh(floats, std::array {2, 4, 2});
             return handle;
         }
 
@@ -84,13 +84,13 @@ namespace tbx
             const auto mesh = _meshes.find(handle);
             if (mesh == _meshes.end() || !shader)
                 return;
-            gpu::set_uniform(*shader, "u_translation", Vec2(translation.x, translation.y));
+            gpu_set_uniform(*shader, "u_translation", Vec2(translation.x, translation.y));
             const auto found = _textures.find(texture);
-            const gpu::Texture2d& bound =
+            const Texture2d& bound =
                 found != _textures.end() ? *found->second : *white_texture;
             const auto bindings =
-                std::array {gpu::TextureBinding {.slot = 0, .texture = std::cref(bound)}};
-            gpu::draw(*mesh->second, bindings);
+                std::array {TextureBinding {.slot = 0, .texture = std::cref(bound)}};
+            gpu_draw(*mesh->second, bindings);
         }
 
         void ReleaseGeometry(Rml::CompiledGeometryHandle handle) override
@@ -108,7 +108,7 @@ namespace tbx
             Rml::Span<const Rml::byte> source,
             Rml::Vector2i dimensions) override
         {
-            auto uploaded = gpu::upload_texture(
+            auto uploaded = gpu_upload_texture(
                 dimensions.x,
                 dimensions.y,
                 std::span<const std::byte>(
@@ -128,13 +128,13 @@ namespace tbx
         {
             _scissor_enabled = enable;
             if (!enable)
-                gpu::set_scissor(false, 0, 0, 0, 0);
+                gpu_set_scissor(false, 0, 0, 0, 0);
         }
 
         void SetScissorRegion(Rml::Rectanglei region) override
         {
             if (_scissor_enabled)
-                gpu::set_scissor(
+                gpu_set_scissor(
                     true,
                     region.Left(),
                     region.Top(),
@@ -145,12 +145,12 @@ namespace tbx
       public:
         // Set once when the pipeline compiles; non-owning views of UiState members with the
         // exact same lifetime (raw at the RmlUi library boundary, like the contexts).
-        const gpu::Shader* shader = nullptr;
-        const gpu::Texture2d* white_texture = nullptr;
+        const Shader* shader = nullptr;
+        const Texture2d* white_texture = nullptr;
 
       private:
-        std::unordered_map<Rml::CompiledGeometryHandle, std::unique_ptr<gpu::Mesh>> _meshes;
-        std::unordered_map<Rml::TextureHandle, std::unique_ptr<gpu::Texture2d>> _textures;
+        std::unordered_map<Rml::CompiledGeometryHandle, std::unique_ptr<Mesh>> _meshes;
+        std::unordered_map<Rml::TextureHandle, std::unique_ptr<Texture2d>> _textures;
         uint64 _next_handle = 1;
         bool _scissor_enabled = false;
     };
@@ -175,9 +175,9 @@ namespace tbx
         SystemInterface system = {};
         RenderInterface renderer = {};
         std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash
-        std::unique_ptr<gpu::Shader> shader; // the builtin ui raster shaders (files)
-        std::unique_ptr<gpu::Pipeline> pipeline; // premultiplied, no depth
-        std::unique_ptr<gpu::Texture2d> white;
+        std::unique_ptr<Shader> shader; // the builtin ui raster shaders (files)
+        std::unique_ptr<Pipeline> pipeline; // premultiplied, no depth
+        std::unique_ptr<Texture2d> white;
         // Registered face bytes: RmlUi references memory faces until Rml::Shutdown, so the
         // boundary owns copies — the asset cache may drop its Font whenever it likes.
         std::vector<std::vector<std::byte>> font_faces;
@@ -349,26 +349,26 @@ namespace tbx
             TBX_ERROR("ui shaders missing under resources/Shaders/Tbx");
             return false;
         }
-        auto compiled = gpu::compile_shader(*vertex, *fragment);
+        auto compiled = gpu_compile_shader(*vertex, *fragment);
         if (!compiled)
         {
             TBX_ERROR("ui shaders failed: {}", compiled.error());
             return false;
         }
         state.shader = std::move(*compiled);
-        state.pipeline = gpu::make_pipeline(
+        state.pipeline = gpu_make_pipeline(
             {.shader = *state.shader,
              .is_depth_test_enabled = false,
              .is_depth_write_enabled = false,
-             .cull = gpu::CullMode::NONE,
-             .blend = gpu::BlendMode::PREMULTIPLIED});
+             .cull = CullMode::NONE,
+             .blend = BlendMode::PREMULTIPLIED});
         constexpr std::byte white[4] = {
             std::byte {255},
             std::byte {255},
             std::byte {255},
             std::byte {255},
         };
-        state.white = gpu::upload_texture(1, 1, white);
+        state.white = gpu_upload_texture(1, 1, white);
         // The render interface renders through these for the rest of the state's life.
         state.renderer.shader = state.shader.get();
         state.renderer.white_texture = state.white.get();
@@ -377,7 +377,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void draw_ui(UiState& ui_state, const Document& document, const gpu::RenderTarget& target)
+    void draw_ui(UiState& ui_state, const Document& document, const RenderTarget& target)
     {
         const auto ready = ensure_ui_ready(ui_state);
         if (!ready)
@@ -386,13 +386,13 @@ namespace tbx
         if (!ensure_ui_pipeline(*state))
             return;
 
-        gpu::begin_render_pass(
+        gpu_begin_render_pass(
             {.color_target = target,
-             .load = gpu::LoadOperation::CLEAR,
+             .load = LoadOperation::CLEAR,
              .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
-        gpu::set_pipeline(*state->pipeline);
-        gpu::set_uniform(*state->shader, "u_texture", 0);
-        gpu::set_uniform(
+        gpu_set_pipeline(*state->pipeline);
+        gpu_set_uniform(*state->shader, "u_texture", 0);
+        gpu_set_uniform(
             *state->shader,
             "u_screen",
             Vec2(static_cast<float>(target.get_width()), static_cast<float>(target.get_height())));
@@ -405,8 +405,8 @@ namespace tbx
             cached->context->Update();
             cached->context->Render();
         }
-        gpu::set_scissor(false, 0, 0, 0, 0);
-        gpu::end_render_pass();
+        gpu_set_scissor(false, 0, 0, 0, 0);
+        gpu_end_render_pass();
     }
 
     void set_font(UiState& ui_state, const Font& font, const std::string& family)

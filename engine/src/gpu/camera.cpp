@@ -1,6 +1,6 @@
 #include "tbx/gpu/camera.h"
 
-namespace tbx::gpu
+namespace tbx
 {
     Mat4 get_view_projection(
         const Camera& camera,
@@ -15,7 +15,7 @@ namespace tbx::gpu
         return projection * inverse(world_matrix);
     }
 
-    Frustum make_frustum(
+    Frustum gpu_make_frustum(
         const Camera& camera,
         const Mat4& world_matrix,
         const float aspect_ratio)

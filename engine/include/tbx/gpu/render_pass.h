@@ -8,7 +8,7 @@
 #include <optional>
 
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: What happens to an attachment's existing contents when a pass begins.

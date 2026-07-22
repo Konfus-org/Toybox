@@ -18,12 +18,12 @@ namespace tbx
     {
         // Types with real codecs bring a reader (and a writer when writing makes sense);
         // text assets are SerializerFormat::TEXT; plain data types round-trip through their reflection.
-        register_serializer<gpu::Texture>()
+        register_serializer<Texture>()
             .format(SerializerFormat::CUSTOM)
-            .deserializer(gpu::deserialize_texture)
-            .serializer(gpu::serialize_texture);
-        register_serializer<gpu::Model>().format(SerializerFormat::CUSTOM).deserializer(gpu::deserialize_model);
-        register_serializer<gpu::ShaderSource>().format(SerializerFormat::TEXT);
+            .deserializer(gpu_deserialize_texture)
+            .serializer(gpu_serialize_texture);
+        register_serializer<Model>().format(SerializerFormat::CUSTOM).deserializer(gpu_deserialize_model);
+        register_serializer<ShaderSource>().format(SerializerFormat::TEXT);
         register_serializer<AudioClip>().format(SerializerFormat::CUSTOM).deserializer(deserialize_clip);
         register_serializer<ScriptSource>()
             .format(SerializerFormat::CUSTOM)
@@ -38,7 +38,7 @@ namespace tbx
             .format(SerializerFormat::CUSTOM)
             .deserializer(deserialize_sandbox)
             .serializer(serialize_sandbox);
-        register_serializer<gpu::Material>().format(SerializerFormat::DEFAULT);
+        register_serializer<Material>().format(SerializerFormat::DEFAULT);
         register_serializer<App>().format(SerializerFormat::DEFAULT);
     }
 }

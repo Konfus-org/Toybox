@@ -8,9 +8,9 @@
 #define STBI_NO_STDIO
 #include <stb_image.h>
 
-namespace tbx::gpu
+namespace tbx
 {
-    Result<Texture> deserialize_texture(const std::filesystem::path& path)
+    Result<Texture> gpu_deserialize_texture(const std::filesystem::path& path)
     {
         auto bytes = read_bytes(path);
         if (!bytes)
@@ -31,7 +31,7 @@ namespace tbx::gpu
             &stbi_image_free);
         if (!pixels)
             return fail("could not decode image '{}': {}", path.string(), stbi_failure_reason());
-        auto texture = gpu::Texture();
+        auto texture = Texture();
         texture.width = width;
         texture.height = height;
         texture.pixels.assign(
@@ -40,7 +40,7 @@ namespace tbx::gpu
         return texture;
     }
 
-    Result<void> serialize_texture(const Texture& texture, const std::filesystem::path& path)
+    Result<void> gpu_serialize_texture(const Texture& texture, const std::filesystem::path& path)
     {
         const auto width = static_cast<uint32>(texture.width);
         const auto height = static_cast<uint32>(texture.height);

@@ -7,7 +7,7 @@
 #include <utility>
 
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Makes a toy visible: a model surfaced by a material. Builtin primitives are

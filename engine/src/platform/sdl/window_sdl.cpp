@@ -194,17 +194,17 @@ namespace tbx
                 TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
                 std::abort();
             }
-            gpu::initialize();
+            gpu_initialize();
         }
         SDL_GL_MakeCurrent(backend->window, g_gl_context);
         // The swap interval sticks per window surface, not per context.
-        SDL_GL_SetSwapInterval(gpu::is_vsync_enabled() ? 1 : 0);
-        backend->applied_vsync = gpu::is_vsync_enabled();
+        SDL_GL_SetSwapInterval(gpu_is_vsync_enabled() ? 1 : 0);
+        backend->applied_vsync = gpu_is_vsync_enabled();
 
         SDL_GetWindowSizeInPixels(backend->window, &window.width, &window.height);
-        // Custom-pipeline hosts call gpu::begin_frame between run() calls without touching
+        // Custom-pipeline hosts call gpu_begin_frame between run() calls without touching
         // the viewport; keep the gpu drawable mirror sized to the current window for them.
-        gpu::set_viewport(window.width, window.height);
+        gpu_set_viewport(window.width, window.height);
         window.backend = std::move(backend);
     }
 
@@ -216,11 +216,11 @@ namespace tbx
             SDL_SetWindowTitle(backend.window, window.title.c_str());
             backend.applied_title = window.title;
         }
-        if (gpu::is_vsync_enabled() != backend.applied_vsync)
+        if (gpu_is_vsync_enabled() != backend.applied_vsync)
         {
             SDL_GL_MakeCurrent(backend.window, g_gl_context);
-            SDL_GL_SetSwapInterval(gpu::is_vsync_enabled() ? 1 : 0);
-            backend.applied_vsync = gpu::is_vsync_enabled();
+            SDL_GL_SetSwapInterval(gpu_is_vsync_enabled() ? 1 : 0);
+            backend.applied_vsync = gpu_is_vsync_enabled();
         }
         if (!window.icon_pixels.empty() && window.icon_pixels.data() != backend.applied_icon
             && window.icon_width > 0 && window.icon_height > 0
@@ -366,7 +366,7 @@ namespace tbx
                         // The engine's render loop re-sizes the gpu drawable per window;
                         // the mirror tracks the main window for custom-pipeline hosts.
                         if (&window->get() == &state.windows.front())
-                            gpu::set_viewport(event.window.data1, event.window.data2);
+                            gpu_set_viewport(event.window.data1, event.window.data2);
                         events.window_resized.emit(
                             {.width = event.window.data1, .height = event.window.data2});
                     }

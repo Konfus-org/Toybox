@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Decoded triangle mesh asset (assimp-imported, meshes merged, triangulated):
@@ -18,5 +18,5 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Model's registered reader (assimp) — call it through
     /// deserialize<Model>(path).
-    TBX_API Result<Model> deserialize_model(const std::filesystem::path& path);
+    TBX_API Result<Model> gpu_deserialize_model(const std::filesystem::path& path);
 }

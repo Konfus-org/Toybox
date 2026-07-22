@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Everything one frame of rendering reads and writes — the renderer's own
@@ -23,7 +23,7 @@ namespace tbx::gpu
     /// carrying the shadow map, post chain, and UI.
     struct TBX_API RenderContext
     {
-        gpu::State& renderer;
+        GpuState& renderer;
         Sandbox& sandbox;
         AssetsState& assets;
         EventsState& events;
@@ -44,7 +44,7 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: The standard renderer: an ordered list of passes run every frame between
-    /// gpu::begin_frame and present. The default list renders a sandbox completely (shadow,
+    /// gpu_begin_frame and present. The default list renders a sandbox completely (shadow,
     /// geometry with sky, post, ui); games reorder, remove, or append passes — or build a
     /// graph from scratch — to author their own rendering.
     class TBX_API RenderGraph final
@@ -90,24 +90,24 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: Depth from the first directional light into the shadow map.
-    TBX_API RenderPass make_shadow_pass();
+    TBX_API RenderPass gpu_make_shadow_pass();
 
     /// @brief
     /// Purpose: Sky + every Renderer toy, lit and shadowed, from the first Camera. When a
     /// PostProcessing block is live the scene lands in an offscreen target for the post pass.
-    TBX_API RenderPass make_geometry_pass();
+    TBX_API RenderPass gpu_make_geometry_pass();
 
     /// @brief
     /// Purpose: Runs the live PostProcessing block's shader chain onto the swapchain.
-    TBX_API RenderPass make_post_pass();
+    TBX_API RenderPass gpu_make_post_pass();
 
     /// @brief
     /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
-    TBX_API RenderPass make_ui_pass();
+    TBX_API RenderPass gpu_make_ui_pass();
 
     /// @brief
     /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
     /// compiled material pipelines, shown UI documents) — wired to the asset system's
     /// unload/reload events so caches follow asset lifetime instead of managing their own.
-    TBX_API void forget_asset(gpu::State& renderer, const Uuid& asset_id);
+    TBX_API void gpu_forget_asset(GpuState& renderer, const Uuid& asset_id);
 }

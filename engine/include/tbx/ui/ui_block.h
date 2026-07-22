@@ -14,8 +14,8 @@ namespace tbx
     struct TBX_API Ui : Block
     {
         AssetHandle<Document> document = {};
-        AssetHandle<gpu::ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert
-        AssetHandle<gpu::ShaderSource> fragment =
+        AssetHandle<ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert
+        AssetHandle<ShaderSource> fragment =
             {}; // custom stage; unset = the builtin ui.frag
 
         // Anchors the document to the toy in the world: the ui pass projects the toy's
@@ -25,8 +25,8 @@ namespace tbx
 
         // Fluent setters — each returns *this for one-chain construction.
         Ui& set_document(AssetHandle<Document> value) { document = std::move(value); return *this; }
-        Ui& set_vertex(AssetHandle<gpu::ShaderSource> value) { vertex = std::move(value); return *this; }
-        Ui& set_fragment(AssetHandle<gpu::ShaderSource> value) { fragment = std::move(value); return *this; }
+        Ui& set_vertex(AssetHandle<ShaderSource> value) { vertex = std::move(value); return *this; }
+        Ui& set_fragment(AssetHandle<ShaderSource> value) { fragment = std::move(value); return *this; }
         Ui& set_world_anchored(bool value) { is_world_anchored = value; return *this; }
     };
 }

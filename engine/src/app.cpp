@@ -58,7 +58,7 @@ namespace tbx
         }
         // Settings are plain runtime state now: write the fields, the modules read them.
         // Vsync is the gpu module's request; the window backend applies it per surface.
-        gpu::set_vsync(app.settings.graphics.is_vsync_enabled);
+        gpu_set_vsync(app.settings.graphics.is_vsync_enabled);
         state.renderer.shadow_resolution = app.settings.graphics.shadow_resolution;
         state.physics.gravity = app.settings.physics.gravity;
         state.audio.master_volume = app.settings.audio.master_volume;
@@ -148,7 +148,7 @@ namespace tbx
             &state,
             [&state](const AssetUnloaded& unloaded)
             {
-                gpu::forget_asset(state.renderer, unloaded.id);
+                gpu_forget_asset(state.renderer, unloaded.id);
             });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
@@ -156,7 +156,7 @@ namespace tbx
             &state,
             [&state](const AssetReloaded& reloaded)
             {
-                gpu::forget_asset(
+                gpu_forget_asset(
                     state.renderer,
                     reloaded.id); // re-upload GPU copies of the fresh data
                 if (!owns_script_extension(state.scripts, reloaded.extension.data()))
@@ -216,8 +216,8 @@ namespace tbx
         auto frustums = std::vector<Frustum>();
         if (state.windows.windows.empty())
             return frustums; // headless: no views, no streaming decisions
-        state.sandbox.each<gpu::Camera>(
-            [&](Toy toy, gpu::Camera& camera)
+        state.sandbox.each<Camera>(
+            [&](Toy toy, Camera& camera)
             {
                 if (!toy.is_enabled())
                     return;
@@ -238,7 +238,7 @@ namespace tbx
                 if (width <= 0 || height <= 0)
                     return;
                 frustums.push_back(
-                    gpu::make_frustum(
+                    gpu_make_frustum(
                         camera,
                         toy.get_world_transform(),
                         static_cast<float>(width) / height));
@@ -252,8 +252,8 @@ namespace tbx
     static std::optional<Vec3> primary_camera_position(RuntimeState& state)
     {
         auto position = std::optional<Vec3>();
-        state.sandbox.each<gpu::Camera>(
-            [&](Toy toy, gpu::Camera&)
+        state.sandbox.each<Camera>(
+            [&](Toy toy, Camera&)
             {
                 if (position || !toy.is_enabled())
                     return;
@@ -354,8 +354,8 @@ namespace tbx
                 if (window.status != WindowStatus::OPEN || !window.backend)
                     continue;
                 make_current(window);
-                gpu::set_viewport(window.width, window.height);
-                auto context = gpu::RenderContext {
+                gpu_set_viewport(window.width, window.height);
+                auto context = RenderContext {
                     .renderer = state.renderer,
                     .sandbox = state.sandbox,
                     .assets = state.assets,

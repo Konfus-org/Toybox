@@ -3,7 +3,7 @@
 #include "tbx/assets/asset.h"
 #include <string>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Shader source asset — plain text (Format::TEXT), compiled by the gpu backend

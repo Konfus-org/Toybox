@@ -197,7 +197,7 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: A concave mesh shape from a gpu::Renderer's geometry: imported model triangles
+    /// Purpose: A concave mesh shape from a Renderer's geometry: imported model triangles
     /// (scaled by the transform) or an analytic stand-in for the builtin primitives.
     static JPH::ShapeRefC make_mesh_shape(
         AssetsState& assets,
@@ -205,10 +205,10 @@ namespace tbx
         Toy toy,
         const Vec3& scale)
     {
-        const auto* renderer = toy.try_block<gpu::Renderer>();
+        const auto* renderer = toy.try_block<Renderer>();
         if (!renderer)
         {
-            TBX_WARN("Shape::MESH collider without a gpu::Renderer block; falling back to a box");
+            TBX_WARN("Shape::MESH collider without a Renderer block; falling back to a box");
             return make_fallback_box(scale);
         }
 

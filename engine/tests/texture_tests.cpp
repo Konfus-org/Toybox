@@ -12,7 +12,7 @@ namespace tbx::tests
         // Arrange: a 2x2 texture with four distinct opaque pixels. The serializer registry
         // dispatches read/write, so registration comes first.
         initialize_reflection();
-        auto original = gpu::Texture();
+        auto original = Texture();
         original.width = 2;
         original.height = 2;
         constexpr unsigned char BYTES[] = {
@@ -26,7 +26,7 @@ namespace tbx::tests
 
         // Act
         const auto saved = serialize(original, path);
-        const auto loaded = deserialize<gpu::Texture>(path);
+        const auto loaded = deserialize<Texture>(path);
 
         // Assert: the BMP written by write() decodes back to the exact same image.
         ASSERT_TRUE(saved.has_value()) << saved.error();
@@ -40,7 +40,7 @@ namespace tbx::tests
     {
         // Arrange
         initialize_reflection();
-        const auto empty = gpu::Texture();
+        const auto empty = Texture();
         const auto path = std::filesystem::temp_directory_path() / "tbx_texture_empty.bmp";
 
         // Act

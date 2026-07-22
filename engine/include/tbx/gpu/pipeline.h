@@ -5,7 +5,7 @@
 #include <functional>
 
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Which triangle faces are discarded.
@@ -39,8 +39,8 @@ namespace tbx::gpu
     };
 
     /// @brief
-    /// Purpose: A baked pipeline-state object; bind with set_pipeline(), then draw(). RAII
-    /// via the backend. Obtain via make_pipeline().
+    /// Purpose: A baked pipeline-state object; bind with gpu_set_pipeline(), then gpu_draw(). RAII
+    /// via the backend. Obtain via gpu_make_pipeline().
     class TBX_API Pipeline final
     {
       public:

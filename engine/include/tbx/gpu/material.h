@@ -7,7 +7,7 @@
 #include "tbx/gpu/texture.h"
 #include <utility>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: PBR material asset (.mat): how a surface renders. Metallic-roughness workflow

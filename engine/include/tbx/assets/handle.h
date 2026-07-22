@@ -8,7 +8,7 @@ namespace tbx
     /// @brief
     /// Purpose: Typed reference to an asset. Identity is the uuid from the identity-only
     /// .meta sidecar ({id, version, type}) so renames never break references; a handle may
-    /// also be authored straight from a relative path — AssetHandle<gpu::Texture>("MyTexture.png")
+    /// also be authored straight from a relative path — AssetHandle<Texture>("MyTexture.png")
     /// — and resolves to its id on first load. The id is always the first member: serialized
     /// handles are exactly their uuid.
     template <typename TAsset>

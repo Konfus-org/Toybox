@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: A viewpoint: perspective settings plus where it draws — a window (by name;
@@ -26,7 +26,7 @@ namespace tbx::gpu
         Camera& set_near_plane(float value) { near_plane = value; return *this; }
         Camera& set_far_plane(float value) { far_plane = value; return *this; }
         Camera& set_window(std::string value) { window = std::move(value); return *this; }
-        Camera& set_viewport(Vec4 value) { viewport = value; return *this; }
+        Camera& gpu_set_viewport(Vec4 value) { viewport = value; return *this; }
     };
 
     /// @brief
@@ -38,7 +38,7 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: The camera's view frustum — what streaming tests kit bounds against.
-    TBX_API Frustum make_frustum(
+    TBX_API Frustum gpu_make_frustum(
         const Camera& camera,
         const Mat4& world_matrix,
         float aspect_ratio);

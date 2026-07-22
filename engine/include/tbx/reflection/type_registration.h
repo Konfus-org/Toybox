@@ -141,7 +141,7 @@ namespace tbx
         }
 
         /// @brief
-        /// Purpose: Registers a list-of-asset-handles member (e.g. gpu::PostProcessing::shaders);
+        /// Purpose: Registers a list-of-asset-handles member (e.g. PostProcessing::shaders);
         /// serialized as an array of uuid strings.
         template <typename TAsset>
         TypeRegistration& field(std::string name, std::vector<AssetHandle<TAsset>> T::* member)

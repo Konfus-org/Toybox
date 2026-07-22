@@ -25,7 +25,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx
 {
     // Shader source is GLSL for now — when a second gpu backend lands, sources move behind the
     // backend seam alongside gpu.h's implementations. Vertex layout everywhere: position(3) +
@@ -215,7 +215,7 @@ namespace tbx::gpu
         return read_text(path);
     }
 
-    static std::optional<std::reference_wrapper<State>> ensure_renderer_ready(State& renderer)
+    static std::optional<std::reference_wrapper<GpuState>> ensure_renderer_ready(GpuState& renderer)
     {
         if (renderer.lit_shader)
             return renderer;
@@ -235,10 +235,10 @@ namespace tbx::gpu
             TBX_ERROR("builtin shaders missing under resources/Shaders/Tbx");
             return {};
         }
-        auto depth = compile_shader(*depth_vertex, *depth_fragment);
-        auto lit = compile_shader(*lit_vertex, *lit_fragment);
-        auto sky = compile_shader(*sky_vertex, *sky_fragment);
-        auto fallback = compile_shader(*fallback_vertex, *fallback_fragment);
+        auto depth = gpu_compile_shader(*depth_vertex, *depth_fragment);
+        auto lit = gpu_compile_shader(*lit_vertex, *lit_fragment);
+        auto sky = gpu_compile_shader(*sky_vertex, *sky_fragment);
+        auto fallback = gpu_compile_shader(*fallback_vertex, *fallback_fragment);
         if (!depth || !lit || !sky || !fallback)
         {
             TBX_ERROR(
@@ -257,19 +257,19 @@ namespace tbx::gpu
         // Front-face culling in the shadow pass reduces acne on closed meshes; the sky skips
         // depth entirely (drawn first, the scene covers it).
         renderer.depth_pipeline =
-            make_pipeline({.shader = *renderer.depth_shader, .cull = CullMode::FRONT});
-        renderer.lit_pipeline = make_pipeline({.shader = *renderer.lit_shader});
-        renderer.sky_pipeline = make_pipeline(
+            gpu_make_pipeline({.shader = *renderer.depth_shader, .cull = CullMode::FRONT});
+        renderer.lit_pipeline = gpu_make_pipeline({.shader = *renderer.lit_shader});
+        renderer.sky_pipeline = gpu_make_pipeline(
             {.shader = *renderer.sky_shader,
              .is_depth_test_enabled = false,
              .is_depth_write_enabled = false,
              .cull = CullMode::NONE});
-        renderer.fallback_pipeline = make_pipeline({.shader = *renderer.fallback_shader});
-        renderer.cube = upload_mesh(build_cube_vertices(), std::array {3, 3, 2});
-        renderer.plane = upload_mesh(build_plane_vertices(), std::array {3, 3, 2});
-        renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3, 2});
-        renderer.fullscreen = upload_mesh(build_fullscreen_vertices(), std::array {3, 3, 2});
-        renderer.question_mark = upload_mesh(build_question_mark_vertices(), std::array {3, 3, 2});
+        renderer.fallback_pipeline = gpu_make_pipeline({.shader = *renderer.fallback_shader});
+        renderer.cube = gpu_upload_mesh(build_cube_vertices(), std::array {3, 3, 2});
+        renderer.plane = gpu_upload_mesh(build_plane_vertices(), std::array {3, 3, 2});
+        renderer.sphere = gpu_upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3, 2});
+        renderer.fullscreen = gpu_upload_mesh(build_fullscreen_vertices(), std::array {3, 3, 2});
+        renderer.question_mark = gpu_upload_mesh(build_question_mark_vertices(), std::array {3, 3, 2});
         const auto ui_composite = read_builtin_shader("ui_composite.frag");
         if (!ui_composite)
             return {};
@@ -277,7 +277,7 @@ namespace tbx::gpu
         renderer.start_time = std::chrono::steady_clock::now();
         constexpr std::byte WHITE[4] =
             {std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
-        renderer.white = upload_texture(1, 1, WHITE);
+        renderer.white = gpu_upload_texture(1, 1, WHITE);
         // 64x64 black/white checkerboard (8px cells) — the missing-texture fallback pattern.
         auto checker_pixels = std::vector<std::byte>(static_cast<size>(64) * 64 * 4);
         for (int y = 0; y < 64; ++y)
@@ -293,14 +293,14 @@ namespace tbx::gpu
                 checker_pixels[at + 3] = std::byte {255};
             }
         }
-        renderer.checker = upload_texture(64, 64, checker_pixels);
-        renderer.shadow_target = make_depth_target(renderer.shadow_resolution);
+        renderer.checker = gpu_upload_texture(64, 64, checker_pixels);
+        renderer.shadow_target = gpu_make_depth_target(renderer.shadow_resolution);
         return renderer;
     }
 
     //// FAILURE FEEDBACK ////
 
-    static void warn_once(State& renderer, const Uuid& id, const std::string& message)
+    static void warn_once(GpuState& renderer, const Uuid& id, const std::string& message)
     {
         if (renderer.warned_assets.insert(id).second)
             TBX_WARN("{}", message);
@@ -308,7 +308,7 @@ namespace tbx::gpu
 
     //// ASSET RESOLUTION ////
 
-    static ResolvedMesh resolve_mesh(RenderContext& context, State& state, const Renderer& renderer)
+    static ResolvedMesh resolve_mesh(RenderContext& context, GpuState& state, const Renderer& renderer)
     {
         if (!renderer.model.is_set() || renderer.model.id == Builtin::CUBE.id)
             return {.mesh = *state.cube};
@@ -328,7 +328,7 @@ namespace tbx::gpu
         const auto cached = state.meshes_by_asset.find(renderer.model.id);
         if (cached != state.meshes_by_asset.end())
             return {.mesh = *cached->second};
-        auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
+        auto uploaded = gpu_upload_mesh(model->get().vertices, std::array {3, 3, 2});
         const Mesh& result = *uploaded;
         state.meshes_by_asset[renderer.model.id] = std::move(uploaded);
         return {.mesh = result};
@@ -336,7 +336,7 @@ namespace tbx::gpu
 
     static ResolvedTexture resolve_texture_handle(
         RenderContext& context,
-        State& state,
+        GpuState& state,
         const AssetHandle<Texture>& handle)
     {
         if (!handle.is_set())
@@ -347,7 +347,7 @@ namespace tbx::gpu
         if (const auto texture = load_asset_now(context.assets, context.events, handle))
         {
             auto uploaded =
-                upload_texture(texture->get().width, texture->get().height, texture->get().pixels);
+                gpu_upload_texture(texture->get().width, texture->get().height, texture->get().pixels);
             const Texture2d& result = *uploaded;
             state.textures_by_asset[handle.id] = std::move(uploaded);
             return {.texture = result};
@@ -364,7 +364,7 @@ namespace tbx::gpu
     /// ShaderSource, the other falls back to the builtin pbr stage; pairs cache together.
     static void resolve_material_shaders(
         RenderContext& context,
-        State& state,
+        GpuState& state,
         const Material& material,
         ResolvedSurface& surface)
     {
@@ -420,7 +420,7 @@ namespace tbx::gpu
         else
             fragment_text = state.pbr_fragment_text;
 
-        auto compiled = compile_shader(vertex_text, fragment_text);
+        auto compiled = gpu_compile_shader(vertex_text, fragment_text);
         if (!compiled)
         {
             warn_once(
@@ -433,14 +433,14 @@ namespace tbx::gpu
         }
         auto& entry = state.pipelines_by_shader_pair[pair_key];
         entry.shader = std::move(*compiled);
-        entry.pipeline = make_pipeline({.shader = *entry.shader});
+        entry.pipeline = gpu_make_pipeline({.shader = *entry.shader});
         surface.shader = *entry.shader;
         surface.pipeline = *entry.pipeline;
     }
 
     static ResolvedSurface resolve_surface(
         RenderContext& context,
-        State& state,
+        GpuState& state,
         const Renderer& renderer)
     {
         auto surface = ResolvedSurface {
@@ -516,7 +516,7 @@ namespace tbx::gpu
     /// by asset id (failures cache too, so a broken shader warns once and is skipped).
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
         RenderContext& context,
-        State& state,
+        GpuState& state,
         const AssetHandle<ShaderSource>& handle)
     {
         if (!handle.is_set())
@@ -535,7 +535,7 @@ namespace tbx::gpu
             state.post_shaders_by_asset[handle.id] = {};
             return {};
         }
-        auto compiled = compile_shader(state.post_vertex_text, source->get().text);
+        auto compiled = gpu_compile_shader(state.post_vertex_text, source->get().text);
         if (!compiled)
         {
             warn_once(state, handle.id, "post shader failed: " + compiled.error());
@@ -544,7 +544,7 @@ namespace tbx::gpu
         }
         auto& entry = state.post_shaders_by_asset[handle.id];
         entry.shader = std::move(*compiled);
-        entry.pipeline = make_pipeline(
+        entry.pipeline = gpu_make_pipeline(
             {.shader = *entry.shader,
              .is_depth_test_enabled = false,
              .is_depth_write_enabled = false,
@@ -554,7 +554,7 @@ namespace tbx::gpu
 
     //// FRAME CONTEXT (shared between the builtin passes of one frame) ////
 
-    static void refresh_lighting(State& state, Sandbox& sandbox)
+    static void refresh_lighting(GpuState& state, Sandbox& sandbox)
     {
         FrameContext& frame = state.frame;
         frame.light_direction = normalize(Vec3(-0.4f, -1.0f, -0.3f));
@@ -592,16 +592,16 @@ namespace tbx::gpu
         const auto ready = ensure_renderer_ready(context.renderer);
         if (!ready)
             return;
-        State& state = ready->get();
+        GpuState& state = ready->get();
         Sandbox& sandbox = context.sandbox;
         refresh_lighting(state, sandbox);
 
         if (!state.shadow_target
             || state.shadow_target->get_resolution() != state.shadow_resolution)
-            state.shadow_target = make_depth_target(state.shadow_resolution);
-        begin_render_pass({.depth_target = *state.shadow_target});
-        set_pipeline(*state.depth_pipeline);
-        set_uniform(
+            state.shadow_target = gpu_make_depth_target(state.shadow_resolution);
+        gpu_begin_render_pass({.depth_target = *state.shadow_target});
+        gpu_set_pipeline(*state.depth_pipeline);
+        gpu_set_uniform(
             *state.depth_shader,
             "u_light_view_projection",
             state.frame.light_view_projection);
@@ -610,16 +610,16 @@ namespace tbx::gpu
             {
                 if (!toy.is_enabled())
                     return;
-                set_uniform(*state.depth_shader, "u_model", toy.get_world_transform());
-                draw(resolve_mesh(context, state, renderer).mesh);
+                gpu_set_uniform(*state.depth_shader, "u_model", toy.get_world_transform());
+                gpu_draw(resolve_mesh(context, state, renderer).mesh);
             });
-        end_render_pass();
+        gpu_end_render_pass();
     }
 
     /// @brief
     /// Purpose: Draws the scene (sky + every enabled Renderer toy) with the frame context's
     /// current camera — called once per camera by the geometry pass.
-    static void draw_scene(RenderContext& context, State& state)
+    static void draw_scene(RenderContext& context, GpuState& state)
     {
         FrameContext& frame = state.frame;
         Sandbox& sandbox = context.sandbox;
@@ -633,19 +633,19 @@ namespace tbx::gpu
                     return;
                 has_sky = true;
                 const Shader& sky_shader = *state.sky_shader;
-                set_pipeline(*state.sky_pipeline);
-                set_uniform(
+                gpu_set_pipeline(*state.sky_pipeline);
+                gpu_set_uniform(
                     sky_shader,
                     "u_inverse_view_projection",
                     inverse(frame.view_projection));
-                set_uniform(sky_shader, "u_camera_position", frame.camera_position);
-                set_uniform(sky_shader, "u_tint", sky.tint);
-                set_uniform(sky_shader, "u_sky", 0);
+                gpu_set_uniform(sky_shader, "u_camera_position", frame.camera_position);
+                gpu_set_uniform(sky_shader, "u_tint", sky.tint);
+                gpu_set_uniform(sky_shader, "u_sky", 0);
                 const auto sky_bindings = std::array {TextureBinding {
                     .slot = 0,
                     .texture = std::cref(
                         resolve_texture_handle(context, state, sky.texture).texture.get())}};
-                draw(*state.fullscreen, sky_bindings);
+                gpu_draw(*state.fullscreen, sky_bindings);
             });
 
         // Lit + shadowed + textured, material-driven per draw; a broken reference draws its
@@ -665,11 +665,11 @@ namespace tbx::gpu
                 // a missing mesh becomes the question mark, a missing texture shows its
                 // color over the debug checkerboard.
                 const Shader& fallback = *state.fallback_shader;
-                set_pipeline(*state.fallback_pipeline);
-                set_uniform(fallback, "u_view_projection", frame.view_projection);
-                set_uniform(fallback, "u_model", toy.get_world_transform());
-                set_uniform(fallback, "u_tint", FAILURE_COLORS[static_cast<size>(surface.failure)]);
-                set_uniform(fallback, "u_albedo", 0);
+                gpu_set_pipeline(*state.fallback_pipeline);
+                gpu_set_uniform(fallback, "u_view_projection", frame.view_projection);
+                gpu_set_uniform(fallback, "u_model", toy.get_world_transform());
+                gpu_set_uniform(fallback, "u_tint", FAILURE_COLORS[static_cast<size>(surface.failure)]);
+                gpu_set_uniform(fallback, "u_albedo", 0);
                 const Mesh& fallback_mesh = surface.failure == RenderFailure::MISSING_MESH
                                                 ? *state.question_mark
                                                 : mesh.mesh.get();
@@ -678,31 +678,31 @@ namespace tbx::gpu
                                                        : *state.white;
                 const auto fallback_bindings =
                     std::array {TextureBinding {.slot = 0, .texture = std::cref(fallback_albedo)}};
-                draw(fallback_mesh, fallback_bindings);
+                gpu_draw(fallback_mesh, fallback_bindings);
                 return;
             }
             const Shader& shader = surface.shader;
-            set_pipeline(surface.pipeline);
-            set_uniform(shader, "u_view_projection", frame.view_projection);
-            set_uniform(shader, "u_light_view_projection", frame.light_view_projection);
-            set_uniform(shader, "u_light_direction", frame.light_direction);
-            set_uniform(shader, "u_light_color", frame.light_color);
-            set_uniform(shader, "u_light_intensity", frame.light_intensity);
-            set_uniform(shader, "u_camera_position", frame.camera_position);
-            set_uniform(shader, "u_shadow_map", 0);
-            set_uniform(shader, "u_albedo", 1);
-            set_uniform(shader, "u_normal_map", 2);
-            set_uniform(shader, "u_metallic_map", 3);
-            set_uniform(shader, "u_roughness_map", 4);
-            set_uniform(shader, "u_model", toy.get_world_transform());
-            set_uniform(shader, "u_tint", surface.tint);
-            set_uniform(shader, "u_metallic", surface.metallic);
-            set_uniform(shader, "u_roughness", surface.roughness);
-            set_uniform(shader, "u_emissive", surface.emissive);
-            set_uniform(shader, "u_has_normal_map", surface.normal_map ? 1 : 0);
-            set_uniform(shader, "u_has_metallic_map", surface.metallic_map ? 1 : 0);
-            set_uniform(shader, "u_has_roughness_map", surface.roughness_map ? 1 : 0);
-            set_uniform(shader, "u_uv_scale", surface.uv_scale);
+            gpu_set_pipeline(surface.pipeline);
+            gpu_set_uniform(shader, "u_view_projection", frame.view_projection);
+            gpu_set_uniform(shader, "u_light_view_projection", frame.light_view_projection);
+            gpu_set_uniform(shader, "u_light_direction", frame.light_direction);
+            gpu_set_uniform(shader, "u_light_color", frame.light_color);
+            gpu_set_uniform(shader, "u_light_intensity", frame.light_intensity);
+            gpu_set_uniform(shader, "u_camera_position", frame.camera_position);
+            gpu_set_uniform(shader, "u_shadow_map", 0);
+            gpu_set_uniform(shader, "u_albedo", 1);
+            gpu_set_uniform(shader, "u_normal_map", 2);
+            gpu_set_uniform(shader, "u_metallic_map", 3);
+            gpu_set_uniform(shader, "u_roughness_map", 4);
+            gpu_set_uniform(shader, "u_model", toy.get_world_transform());
+            gpu_set_uniform(shader, "u_tint", surface.tint);
+            gpu_set_uniform(shader, "u_metallic", surface.metallic);
+            gpu_set_uniform(shader, "u_roughness", surface.roughness);
+            gpu_set_uniform(shader, "u_emissive", surface.emissive);
+            gpu_set_uniform(shader, "u_has_normal_map", surface.normal_map ? 1 : 0);
+            gpu_set_uniform(shader, "u_has_metallic_map", surface.metallic_map ? 1 : 0);
+            gpu_set_uniform(shader, "u_has_roughness_map", surface.roughness_map ? 1 : 0);
+            gpu_set_uniform(shader, "u_uv_scale", surface.uv_scale);
             const auto surface_bindings = std::array {
                 TextureBinding {.slot = 0, .texture = std::cref(*state.shadow_target)},
                 TextureBinding {.slot = 1, .texture = std::cref(surface.albedo.get())},
@@ -718,7 +718,7 @@ namespace tbx::gpu
                     .slot = 4,
                     .texture = std::cref(
                         surface.roughness_map ? surface.roughness_map->get() : *state.white)}};
-            draw(mesh.mesh, surface_bindings);
+            gpu_draw(mesh.mesh, surface_bindings);
             });
     }
 
@@ -727,7 +727,7 @@ namespace tbx::gpu
         const auto ready = ensure_renderer_ready(context.renderer);
         if (!ready)
             return;
-        State& state = ready->get();
+        GpuState& state = ready->get();
         FrameContext& frame = state.frame;
         Sandbox& sandbox = context.sandbox;
         refresh_lighting(state, sandbox);
@@ -771,13 +771,13 @@ namespace tbx::gpu
             if (!state.post_source || state.post_source->get_width() != width
                 || state.post_source->get_height() != height)
             {
-                state.post_source = make_render_target(width, height);
-                state.post_swap = make_render_target(width, height);
+                state.post_source = gpu_make_render_target(width, height);
+                state.post_swap = gpu_make_render_target(width, height);
             }
-            begin_render_pass(
+            gpu_begin_render_pass(
                 {.color_target = *state.post_source,
                  .load = LoadOperation::CLEAR,
-                 .clear_color = get_clear_color()});
+                 .clear_color = gpu_get_clear_color()});
         }
 
         // Every matching camera renders the scene into its normalized viewport rect.
@@ -792,7 +792,7 @@ namespace tbx::gpu
                 const int height = static_cast<int>(camera.viewport.w * context.window.height);
                 if (width <= 0 || height <= 0)
                     return;
-                set_viewport(x, y, width, height);
+                gpu_set_viewport(x, y, width, height);
 
                 const Mat4 world = toy.get_world_transform();
                 frame.camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
@@ -802,7 +802,7 @@ namespace tbx::gpu
                 draw_scene(context, state);
             });
         // Sub-rect viewports are per camera; the passes after draw the full window.
-        set_viewport(0, 0, context.window.width, context.window.height);
+        gpu_set_viewport(0, 0, context.window.width, context.window.height);
     }
 
     static void render_post_pass(RenderContext& context)
@@ -810,7 +810,7 @@ namespace tbx::gpu
         const auto ready = ensure_renderer_ready(context.renderer);
         if (!ready)
             return;
-        State& state = ready->get();
+        GpuState& state = ready->get();
         // The geometry pass resolved the chain into the frame context; consume it.
         const auto post_chain = std::move(state.frame.post_chain);
         state.frame.post_chain.clear();
@@ -826,23 +826,23 @@ namespace tbx::gpu
             static_cast<float>(context.window.height));
         auto source = std::ref(*state.post_source);
         auto swap = std::ref(*state.post_swap);
-        end_render_pass(); // close the geometry pass's offscreen target
+        gpu_end_render_pass(); // close the geometry pass's offscreen target
         for (size index = 0; index < post_chain.size(); ++index)
         {
             const bool is_last = index + 1 == post_chain.size();
             if (is_last)
-                begin_render_pass({}); // the swapchain; the fullscreen draw covers it
+                gpu_begin_render_pass({}); // the swapchain; the fullscreen draw covers it
             else
-                begin_render_pass({.color_target = swap});
+                gpu_begin_render_pass({.color_target = swap});
             const CompiledPipeline& stage = post_chain[index];
-            set_pipeline(*stage.pipeline);
-            set_uniform(*stage.shader, "u_scene", 0);
-            set_uniform(*stage.shader, "u_resolution", resolution);
-            set_uniform(*stage.shader, "u_time", time_seconds);
+            gpu_set_pipeline(*stage.pipeline);
+            gpu_set_uniform(*stage.shader, "u_scene", 0);
+            gpu_set_uniform(*stage.shader, "u_resolution", resolution);
+            gpu_set_uniform(*stage.shader, "u_time", time_seconds);
             const auto post_bindings =
                 std::array {TextureBinding {.slot = 0, .texture = std::cref(source.get())}};
-            draw(*state.fullscreen, post_bindings);
-            end_render_pass();
+            gpu_draw(*state.fullscreen, post_bindings);
+            gpu_end_render_pass();
             if (!is_last)
                 std::swap(source, swap);
         }
@@ -852,7 +852,7 @@ namespace tbx::gpu
     /// Purpose: The composite pipeline for one Ui block's custom stages (vertex vs the
     /// builtin fullscreen stage, fragment vs the builtin ui composite), cached by pair.
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_ui_composite(
-        State& state,
+        GpuState& state,
         const std::string& vertex_source,
         const std::string& fragment_source)
     {
@@ -868,7 +868,7 @@ namespace tbx::gpu
         const std::string& vertex = vertex_source.empty() ? state.post_vertex_text : vertex_source;
         const std::string& fragment =
             fragment_source.empty() ? state.ui_composite_fragment_text : fragment_source;
-        auto compiled = compile_shader(vertex, fragment);
+        auto compiled = gpu_compile_shader(vertex, fragment);
         if (!compiled)
         {
             TBX_ERROR("ui composite shader failed: {}", compiled.error());
@@ -877,7 +877,7 @@ namespace tbx::gpu
         }
         auto& entry = state.ui_composites_by_pair[key];
         entry.shader = std::move(*compiled);
-        entry.pipeline = make_pipeline(
+        entry.pipeline = gpu_make_pipeline(
             {.shader = *entry.shader,
              .is_depth_test_enabled = false,
              .is_depth_write_enabled = false,
@@ -887,18 +887,18 @@ namespace tbx::gpu
     }
 
     static void composite_ui_texture(
-        State& state,
+        GpuState& state,
         const RenderTarget& target,
         const CompiledPipeline& composite)
     {
         const float time_seconds =
             std::chrono::duration<float>(std::chrono::steady_clock::now() - state.start_time)
                 .count();
-        set_pipeline(*composite.pipeline);
-        set_uniform(*composite.shader, "u_ui", 0);
-        set_uniform(*composite.shader, "u_time", time_seconds);
+        gpu_set_pipeline(*composite.pipeline);
+        gpu_set_uniform(*composite.shader, "u_ui", 0);
+        gpu_set_uniform(*composite.shader, "u_time", time_seconds);
         const auto bindings = std::array {TextureBinding {.slot = 0, .texture = std::cref(target)}};
-        draw(*state.fullscreen, bindings);
+        gpu_draw(*state.fullscreen, bindings);
     }
 
     static void render_ui_pass(RenderContext& context)
@@ -909,7 +909,7 @@ namespace tbx::gpu
         const auto ready = ensure_renderer_ready(context.renderer);
         if (!ready)
             return;
-        State& state = ready->get();
+        GpuState& state = ready->get();
         Sandbox& sandbox = context.sandbox;
         const int width = context.window.width;
         const int height = context.window.height;
@@ -930,7 +930,7 @@ namespace tbx::gpu
         {
             auto& target = state.ui_layer_targets[layer_key];
             if (!target)
-                target = make_render_target(width, height);
+                target = gpu_make_render_target(width, height);
             draw_ui(context.ui, document, *target);
             if (const auto composite = resolve_ui_composite(state, vertex_source, fragment_source))
                 composite_ui_texture(state, *target, composite->get());
@@ -1013,10 +1013,10 @@ namespace tbx::gpu
 
     RenderGraph::RenderGraph()
     {
-        _passes.push_back(make_shadow_pass());
-        _passes.push_back(make_geometry_pass());
-        _passes.push_back(make_post_pass());
-        _passes.push_back(make_ui_pass());
+        _passes.push_back(gpu_make_shadow_pass());
+        _passes.push_back(gpu_make_geometry_pass());
+        _passes.push_back(gpu_make_post_pass());
+        _passes.push_back(gpu_make_ui_pass());
     }
 
     void RenderGraph::add_pass(RenderPass pass)
@@ -1043,7 +1043,7 @@ namespace tbx::gpu
 
     void RenderGraph::render(RenderContext& context)
     {
-        gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
+        gpu_begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         for (const RenderPass& pass : _passes)
             if (pass.render)
                 pass.render(context);
@@ -1054,27 +1054,27 @@ namespace tbx::gpu
         _passes = std::move(passes);
     }
 
-    RenderPass make_shadow_pass()
+    RenderPass gpu_make_shadow_pass()
     {
-        return {.name = "shadow", .render = &gpu::render_shadow_pass};
+        return {.name = "shadow", .render = &render_shadow_pass};
     }
 
-    RenderPass make_geometry_pass()
+    RenderPass gpu_make_geometry_pass()
     {
-        return {.name = "geometry", .render = &gpu::render_geometry_pass};
+        return {.name = "geometry", .render = &render_geometry_pass};
     }
 
-    RenderPass make_post_pass()
+    RenderPass gpu_make_post_pass()
     {
-        return {.name = "post", .render = &gpu::render_post_pass};
+        return {.name = "post", .render = &render_post_pass};
     }
 
-    RenderPass make_ui_pass()
+    RenderPass gpu_make_ui_pass()
     {
-        return {.name = "ui", .render = &gpu::render_ui_pass};
+        return {.name = "ui", .render = &render_ui_pass};
     }
 
-    void forget_asset(gpu::State& state, const Uuid& asset_id)
+    void gpu_forget_asset(GpuState& state, const Uuid& asset_id)
     {
         state.meshes_by_asset.erase(asset_id);
         state.textures_by_asset.erase(asset_id);

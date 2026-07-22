@@ -7,7 +7,7 @@
 #include <vector>
 
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the

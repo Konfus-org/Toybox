@@ -2,11 +2,11 @@
 #include "tbx/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: GPU mesh — RAII: the destructor (defined by the selected gpu backend) releases
-    /// the buffers. Obtain via upload_mesh().
+    /// the buffers. Obtain via gpu_upload_mesh().
     class TBX_API Mesh final
     {
       public:

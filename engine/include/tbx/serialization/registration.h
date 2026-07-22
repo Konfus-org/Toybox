@@ -16,8 +16,8 @@ namespace tbx
     /// @brief
     /// Purpose: Fluent registration builder — the disk half of a type's registration, like
     /// reflection's TypeRegistration is the shape half:
-    /// tbx::register_serializer<gpu::Material>().format(SerializerFormat::DEFAULT)
-    ///     .meta(&gpu::Material::some_property)...
+    /// tbx::register_serializer<Material>().format(SerializerFormat::DEFAULT)
+    ///     .meta(&Material::some_property)...
     /// DEFAULT round-trips through the type's reflection (so the type must be
     /// register_type'd first); TEXT reads/writes the file as raw text through a
     /// `std::string text` member; CUSTOM takes .deserializer()/.serializer() functions — omit the
@@ -94,7 +94,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: The CUSTOM-format read function — a plain free function next to the type
-        /// (gpu::deserialize_texture, ...).
+        /// (gpu_deserialize_texture, ...).
         Registration& deserializer(Result<T> (*read_file)(const std::filesystem::path&))
         {
             SerializerSlot<T>::deserializer = read_file;

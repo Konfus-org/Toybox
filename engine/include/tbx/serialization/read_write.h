@@ -14,7 +14,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: What SerializerFormat::TEXT requires of a type: the file's whole text lives in a
-    /// `std::string text` member (gpu::ShaderSource, Document, ...).
+    /// `std::string text` member (ShaderSource, Document, ...).
     template <typename T>
     concept HasTextPayload =
         requires(T value) { requires std::is_same_v<decltype(value.text), std::string>; };
@@ -46,7 +46,7 @@ namespace tbx
         std::span<const std::string> meta_fields);
 
     /// @brief
-    /// Purpose: THE read entry: deserialize<gpu::Texture>(path) and friends. Dispatches
+    /// Purpose: THE read entry: deserialize<Texture>(path) and friends. Dispatches
     /// on the type's registered serializer (register_serializer<T>): DEFAULT decodes through
     /// reflection, TEXT reads the file into `text`, CUSTOM calls the registered reader.
     template <typename T>

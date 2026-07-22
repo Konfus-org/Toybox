@@ -4,7 +4,7 @@
 #include "tbx/utils/uuid.h"
 
 // Builtin assets: always available, no files involved. Reserved model handles the renderer
-// resolves to its generated primitive meshes: gpu::Renderer {.model = Builtin::CUBE}.
+// resolves to its generated primitive meshes: Renderer {.model = Builtin::CUBE}.
 namespace tbx
 {
     /// @brief
@@ -12,15 +12,15 @@ namespace tbx
     /// Builtin::CUBE at the flat tbx level (no builtin namespace).
     struct Builtin
     {
-        static const AssetHandle<gpu::Model> CUBE;
-        static const AssetHandle<gpu::Model> PLANE;
-        static const AssetHandle<gpu::Model> SPHERE;
+        static const AssetHandle<Model> CUBE;
+        static const AssetHandle<Model> PLANE;
+        static const AssetHandle<Model> SPHERE;
     };
 
-    inline const AssetHandle<gpu::Model> Builtin::CUBE =
-        AssetHandle<gpu::Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 1});
-    inline const AssetHandle<gpu::Model> Builtin::PLANE =
-        AssetHandle<gpu::Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 2});
-    inline const AssetHandle<gpu::Model> Builtin::SPHERE =
-        AssetHandle<gpu::Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 3});
+    inline const AssetHandle<Model> Builtin::CUBE =
+        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 1});
+    inline const AssetHandle<Model> Builtin::PLANE =
+        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 2});
+    inline const AssetHandle<Model> Builtin::SPHERE =
+        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 3});
 }

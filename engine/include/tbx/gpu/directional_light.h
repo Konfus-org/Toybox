@@ -3,7 +3,7 @@
 #include "tbx/utils/color.h"
 #include "tbx/ecs/block.h"
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: The sun: colored directional light casting shadows; direction is the owning

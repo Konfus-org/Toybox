@@ -177,7 +177,7 @@ namespace tbx
             return;
         }
 
-        // Identify the resident shape under the lock, decode OUTSIDE it (gpu::Material decode
+        // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
         // re-enters prepare), then swap the result back in. The decoder is the asset facet
         // on the registered serializer (register_serializer<TAsset>()).
         Result<std::any> (*deserialize_asset)(

@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
@@ -20,10 +20,10 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Texture's registered reader (stb: PNG/JPG/BMP/...) — call it through
     /// deserialize<Texture>(path).
-    TBX_API Result<Texture> deserialize_texture(const std::filesystem::path& path);
+    TBX_API Result<Texture> gpu_deserialize_texture(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Texture's registered writer — a 32-bit BMP (screenshots and tooling; the
     /// reader takes it back). Call it through serialize(texture, path).
-    TBX_API Result<void> serialize_texture(const Texture& texture, const std::filesystem::path& path);
+    TBX_API Result<void> gpu_serialize_texture(const Texture& texture, const std::filesystem::path& path);
 }

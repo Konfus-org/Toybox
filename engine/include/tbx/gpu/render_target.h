@@ -2,11 +2,11 @@
 #include "tbx/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: Offscreen color+depth render target (post-processing, editor viewports) —
-    /// RAII via the backend. Obtain via make_render_target(); render into it via a render
+    /// RAII via the backend. Obtain via gpu_make_render_target(); render into it via a render
     /// pass whose color attachment names it.
     class TBX_API RenderTarget final
     {

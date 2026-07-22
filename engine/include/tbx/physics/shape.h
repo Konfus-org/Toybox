@@ -7,7 +7,7 @@ namespace tbx
     /// @brief
     /// Purpose: The shared spatial-shape vocabulary — colliders and spatial audio sources both
     /// speak it (BOX uses half_extents, SPHERE radius, CAPSULE radius + height, MESH collides
-    /// with the toy's gpu::Renderer geometry — the toy must wear a gpu::Renderer block).
+    /// with the toy's Renderer geometry — the toy must wear a Renderer block).
     enum class Shape : uint8
     {
         BOX,

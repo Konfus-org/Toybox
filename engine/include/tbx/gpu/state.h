@@ -18,7 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: A shader plus the pipeline-state object it draws with.
@@ -49,13 +49,13 @@ namespace tbx::gpu
     /// Purpose: The renderer's state, held by value on the Runtime: lazily-built builtin
     /// resources plus per-asset GPU caches. Declared after the window in RuntimeState —
     /// destroyed before it — so every GPU object here dies while the GL context is alive.
-    struct TBX_API State
+    struct TBX_API GpuState
     {
-        State() = default;
-        ~State() = default;
+        GpuState() = default;
+        ~GpuState() = default;
 
-        State(const State&) = delete;
-        State& operator=(const State&) = delete;
+        GpuState(const GpuState&) = delete;
+        GpuState& operator=(const GpuState&) = delete;
 
         std::unique_ptr<Shader> depth_shader;
         std::unique_ptr<Shader> lit_shader;

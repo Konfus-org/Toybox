@@ -37,18 +37,18 @@ namespace tbx
             .field("position", &Transform::position)
             .field("rotation", &Transform::rotation)
             .field("scale", &Transform::scale);
-        register_type<gpu::Camera>("Camera")
-            .field("fov_degrees", &gpu::Camera::fov_degrees)
-            .field("near_plane", &gpu::Camera::near_plane)
-            .field("far_plane", &gpu::Camera::far_plane)
-            .field("window", &gpu::Camera::window)
-            .field("viewport", &gpu::Camera::viewport);
-        register_type<gpu::Renderer>("Renderer")
-            .field("material", &gpu::Renderer::material)
-            .field("model", &gpu::Renderer::model);
-        register_type<gpu::DirectionalLight>("DirectionalLight")
-            .field("color", &gpu::DirectionalLight::color)
-            .field("intensity", &gpu::DirectionalLight::intensity);
+        register_type<Camera>("Camera")
+            .field("fov_degrees", &Camera::fov_degrees)
+            .field("near_plane", &Camera::near_plane)
+            .field("far_plane", &Camera::far_plane)
+            .field("window", &Camera::window)
+            .field("viewport", &Camera::viewport);
+        register_type<Renderer>("Renderer")
+            .field("material", &Renderer::material)
+            .field("model", &Renderer::model);
+        register_type<DirectionalLight>("DirectionalLight")
+            .field("color", &DirectionalLight::color)
+            .field("intensity", &DirectionalLight::intensity);
         register_type<RigidBody>("RigidBody")
             .field("mass", &RigidBody::mass)
             .field("is_kinematic", &RigidBody::is_kinematic);
@@ -62,11 +62,11 @@ namespace tbx
             .field("vertex", &Ui::vertex)
             .field("fragment", &Ui::fragment)
             .field("is_world_anchored", &Ui::is_world_anchored);
-        register_type<gpu::Sky>("Sky")
-            .field("texture", &gpu::Sky::texture)
-            .field("tint", &gpu::Sky::tint);
-        register_type<gpu::PostProcessing>("PostProcessing")
-            .field("shaders", &gpu::PostProcessing::shaders);
+        register_type<Sky>("Sky")
+            .field("texture", &Sky::texture)
+            .field("tint", &Sky::tint);
+        register_type<PostProcessing>("PostProcessing")
+            .field("shaders", &PostProcessing::shaders);
         register_type<Script>("Script").field("source", &Script::source);
         register_type<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
         register_type<AudioSource>("AudioSource")
@@ -88,26 +88,26 @@ namespace tbx
     /// every entry here with its serializer. Idempotent.
     static void register_builtin_assets()
     {
-        register_type<gpu::Texture>("Texture");
-        register_type<gpu::Model>("Model");
-        register_type<gpu::ShaderSource>("ShaderSource");
+        register_type<Texture>("Texture");
+        register_type<Model>("Model");
+        register_type<ShaderSource>("ShaderSource");
         register_type<AudioClip>("AudioClip");
         register_type<ScriptSource>("ScriptSource");
         register_type<Document>("UiDocument");
         register_type<Font>("Font");
         register_type<Kit>("Kit");
-        register_type<gpu::Material>("Material")
-            .field("vertex", &gpu::Material::vertex)
-            .field("fragment", &gpu::Material::fragment)
-            .field("albedo_map", &gpu::Material::albedo_map)
-            .field("normal_map", &gpu::Material::normal_map)
-            .field("metallic_map", &gpu::Material::metallic_map)
-            .field("roughness_map", &gpu::Material::roughness_map)
-            .field("albedo", &gpu::Material::albedo)
-            .field("emissive", &gpu::Material::emissive)
-            .field("metallic", &gpu::Material::metallic)
-            .field("roughness", &gpu::Material::roughness)
-            .field("uv_scale", &gpu::Material::uv_scale);
+        register_type<Material>("Material")
+            .field("vertex", &Material::vertex)
+            .field("fragment", &Material::fragment)
+            .field("albedo_map", &Material::albedo_map)
+            .field("normal_map", &Material::normal_map)
+            .field("metallic_map", &Material::metallic_map)
+            .field("roughness_map", &Material::roughness_map)
+            .field("albedo", &Material::albedo)
+            .field("emissive", &Material::emissive)
+            .field("metallic", &Material::metallic)
+            .field("roughness", &Material::roughness)
+            .field("uv_scale", &Material::uv_scale);
     }
 
     /// @brief

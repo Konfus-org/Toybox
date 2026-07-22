@@ -7,7 +7,7 @@
 #include <utility>
 
 
-namespace tbx::gpu
+namespace tbx
 {
     /// @brief
     /// Purpose: The sky: an equirectangular texture rendered behind everything. One per
