@@ -88,6 +88,16 @@ namespace tbx::gfx
     TBX_API int get_viewport_width();
 
     /// @brief
+    /// Purpose: Whether presents wait for vertical sync — the gfx-side desired state; the
+    /// platform backend applies it to every window surface.
+    TBX_API bool is_vsync_enabled();
+
+    /// @brief
+    /// Purpose: Requests vsync on or off. Applied to each window surface by the next windows
+    /// update; fed from GraphicsSettings at boot and on .tapp reload.
+    TBX_API void set_vsync(bool is_enabled);
+
+    /// @brief
     /// Purpose: Reads back one pixel from the current framebuffer — verification/tooling.
     TBX_API Color read_pixel(int x, int y);
 

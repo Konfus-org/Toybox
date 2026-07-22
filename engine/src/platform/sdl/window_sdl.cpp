@@ -198,8 +198,8 @@ namespace tbx::windows
         }
         SDL_GL_MakeCurrent(backend->window, g_gl_context);
         // The swap interval sticks per window surface, not per context.
-        SDL_GL_SetSwapInterval(window.is_vsync_enabled ? 1 : 0);
-        backend->applied_vsync = window.is_vsync_enabled;
+        SDL_GL_SetSwapInterval(gfx::is_vsync_enabled() ? 1 : 0);
+        backend->applied_vsync = gfx::is_vsync_enabled();
 
         SDL_GetWindowSizeInPixels(backend->window, &window.width, &window.height);
         // Custom-pipeline hosts call gfx::begin_frame between run() calls without touching
@@ -216,11 +216,11 @@ namespace tbx::windows
             SDL_SetWindowTitle(backend.window, window.title.c_str());
             backend.applied_title = window.title;
         }
-        if (window.is_vsync_enabled != backend.applied_vsync)
+        if (gfx::is_vsync_enabled() != backend.applied_vsync)
         {
             SDL_GL_MakeCurrent(backend.window, g_gl_context);
-            SDL_GL_SetSwapInterval(window.is_vsync_enabled ? 1 : 0);
-            backend.applied_vsync = window.is_vsync_enabled;
+            SDL_GL_SetSwapInterval(gfx::is_vsync_enabled() ? 1 : 0);
+            backend.applied_vsync = gfx::is_vsync_enabled();
         }
         if (!window.icon_pixels.empty() && window.icon_pixels.data() != backend.applied_icon
             && window.icon_width > 0 && window.icon_height > 0

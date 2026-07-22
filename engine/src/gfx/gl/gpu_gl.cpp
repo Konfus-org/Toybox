@@ -20,6 +20,19 @@ namespace tbx::gfx
     // state owned by the process-global GL context, deliberately not Runtime state.
     static int g_drawable_height = 0;
     static Color g_clear_color = {};
+    // The desired present mode; the platform backend reads it and applies the swap
+    // interval per window surface.
+    static bool g_vsync_enabled = false;
+
+    bool is_vsync_enabled()
+    {
+        return g_vsync_enabled;
+    }
+
+    void set_vsync(const bool is_enabled)
+    {
+        g_vsync_enabled = is_enabled;
+    }
 
     //// HELPERS ////
 

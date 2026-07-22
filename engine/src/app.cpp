@@ -38,7 +38,6 @@ namespace tbx
         {
             windows::Window& window = state.windows.windows.front();
             window.title = app.config.title;
-            window.is_vsync_enabled = app.settings.graphics.is_vsync_enabled;
             if (app.config.icon.is_set())
             {
                 if (const auto icon = assets::load_now(state.assets, state.events, app.config.icon))
@@ -56,6 +55,8 @@ namespace tbx
             }
         }
         // Settings are plain runtime state now: write the fields, the modules read them.
+        // Vsync is the gfx module's request; the window backend applies it per surface.
+        gfx::set_vsync(app.settings.graphics.is_vsync_enabled);
         state.renderer.shadow_resolution = app.settings.graphics.shadow_resolution;
         state.physics.gravity = app.settings.physics.gravity;
         state.audio.master_volume = app.settings.audio.master_volume;

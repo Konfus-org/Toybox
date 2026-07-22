@@ -41,7 +41,6 @@ namespace tbx::windows
         std::string title = "Toybox";
         int width = 1600;
         int height = 900;
-        bool is_vsync_enabled = false;
         WindowStatus status = WindowStatus::OPEN;
         int icon_width = 0;
         int icon_height = 0;
@@ -62,9 +61,9 @@ namespace tbx::windows
     /// @brief
     /// Purpose: Runs the windows for one frame: presents what was drawn since the last call
     /// (each window's first frame skips cleanly), materializes OS windows for new entries
-    /// (the first one brings up the shared GL context), applies changed data (title, vsync,
-    /// icon, cursor mode), and pumps OS events into the input state and event signals.
-    /// Called by tbx::run() every frame.
+    /// (the first one brings up the shared GL context), applies changed data (title, icon,
+    /// cursor mode, and the gfx module's vsync request), and pumps OS events into the input
+    /// state and event signals. Called by tbx::run() every frame.
     TBX_API void update(
         WindowsState& state,
         input::InputState& input,
