@@ -57,7 +57,7 @@ namespace tbx
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         auto collisions = std::vector<std::pair<uint32, uint32>>();
-        runtime.events.collision.subscribe(
+        runtime.events.signal<CollisionEvent>().subscribe(
             &collisions,
             [&collisions](const CollisionEvent& hit)
             { collisions.push_back({hit.toy_a, hit.toy_b}); });

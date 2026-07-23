@@ -9,13 +9,7 @@ namespace tbx
 
     void unsubscribe_all(EventsState& state, const void* owner)
     {
-        state.input.unsubscribe_owner(owner);
-        state.window_resized.unsubscribe_owner(owner);
-        state.asset_loaded.unsubscribe_owner(owner);
-        state.asset_reloaded.unsubscribe_owner(owner);
-        state.asset_unloaded.unsubscribe_owner(owner);
-        state.collision.unsubscribe_owner(owner);
-        state.input_device_connected.unsubscribe_owner(owner);
-        state.input_device_disconnected.unsubscribe_owner(owner);
+        for (auto& [type_hash, signal] : state.signals)
+            signal->unsubscribe_owner(owner);
     }
 }

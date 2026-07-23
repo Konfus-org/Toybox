@@ -1433,7 +1433,7 @@ namespace tbx
     {
         return subscribe_lua_event<InputEvent>(
             lua,
-            bound_runtime(lua).events.input,
+            bound_runtime(lua).events.signal<InputEvent>(),
             push_input_event);
     }
 
@@ -1441,7 +1441,7 @@ namespace tbx
     {
         return subscribe_lua_event<WindowResized>(
             lua,
-            bound_runtime(lua).events.window_resized,
+            bound_runtime(lua).events.signal<WindowResized>(),
             push_window_resized);
     }
 
@@ -1449,7 +1449,7 @@ namespace tbx
     {
         return subscribe_lua_event<AssetLoaded>(
             lua,
-            bound_runtime(lua).events.asset_loaded,
+            bound_runtime(lua).events.signal<AssetLoaded>(),
             push_asset_loaded);
     }
 
@@ -1457,7 +1457,7 @@ namespace tbx
     {
         return subscribe_lua_event<AssetReloaded>(
             lua,
-            bound_runtime(lua).events.asset_reloaded,
+            bound_runtime(lua).events.signal<AssetReloaded>(),
             push_asset_reloaded);
     }
 
@@ -1465,7 +1465,7 @@ namespace tbx
     {
         return subscribe_lua_event<AssetUnloaded>(
             lua,
-            bound_runtime(lua).events.asset_unloaded,
+            bound_runtime(lua).events.signal<AssetUnloaded>(),
             push_asset_unloaded);
     }
 
@@ -1473,7 +1473,7 @@ namespace tbx
     {
         return subscribe_lua_event<CollisionEvent>(
             lua,
-            bound_runtime(lua).events.collision,
+            bound_runtime(lua).events.signal<CollisionEvent>(),
             push_collision_event);
     }
 
@@ -1481,7 +1481,7 @@ namespace tbx
     {
         return subscribe_lua_event<InputDeviceConnected>(
             lua,
-            bound_runtime(lua).events.input_device_connected,
+            bound_runtime(lua).events.signal<InputDeviceConnected>(),
             push_input_device_connected);
     }
 
@@ -1489,7 +1489,7 @@ namespace tbx
     {
         return subscribe_lua_event<InputDeviceDisconnected>(
             lua,
-            bound_runtime(lua).events.input_device_disconnected,
+            bound_runtime(lua).events.signal<InputDeviceDisconnected>(),
             push_input_device_disconnected);
     }
 

@@ -250,7 +250,7 @@ namespace tbx
                             // the mirror tracks the main window for custom-pipeline hosts.
                             if (&window->get() == &state.open_windows.front())
                                 set_render_viewport(event.window.data1, event.window.data2);
-                            events.window_resized.emit(
+                            events.signal<WindowResized>().emit(
                                 {.width = event.window.data1, .height = event.window.data2});
                         }
                         break;

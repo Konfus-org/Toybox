@@ -412,7 +412,7 @@ namespace tbx
         }
 
         for (const auto& [toy_a, toy_b] : physics.contacts.drain())
-            events.collision.emit({.toy_a = toy_a, .toy_b = toy_b});
+            events.signal<CollisionEvent>().emit({.toy_a = toy_a, .toy_b = toy_b});
     }
 
     std::optional<RaycastHit> raycast(

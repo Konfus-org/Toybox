@@ -6,10 +6,14 @@
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
 #include <array>
+#include <functional>
+#include <memory>
+#include <typeinfo>
+#include <unordered_map>
 
-// The only events that exist, as named signals over one pump-drained queue — the state is
-// runtime.events: emit and subscribe on its members directly (runtime.events.input.emit(...))
-// and update_events dispatches everything queued once per frame.
+// App-wide events over one pump-drained queue, keyed by event TYPE — raise_event<E>()/on_event<E>()
+// reach the same Signal<E> without a hand-maintained member list. The state is runtime.events;
+// update_events dispatches everything queued once per frame.
 namespace tbx
 {
     /// @brief
@@ -86,32 +90,57 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: The events module's state, held by value on the Runtime; adding an event
-    /// means adding a member, deliberately. Scripts are assets, so script hot-reloads arrive
-    /// as asset_reloaded events (filter on the ".luau"/".lua" extension) — there is no separate
-    /// script-reloaded signal.
+    /// Purpose: The events module's state, held by value on the Runtime. One queue plus a type-keyed
+    /// table of signals: signal<E>() lazily creates Signal<E> the first time an event type is raised or
+    /// subscribed, so any (engine or script-defined) event type just works — no member to add.
     struct TBX_DLL_EXPORT EventsState
     {
         Queue queue;
-        Signal<InputEvent> input {queue};
-        Signal<WindowResized> window_resized {queue};
-        Signal<AssetLoaded> asset_loaded {queue};
-        Signal<AssetReloaded> asset_reloaded {queue};
-        Signal<AssetUnloaded> asset_unloaded {queue};
-        Signal<CollisionEvent> collision {queue};
-        Signal<InputDeviceConnected> input_device_connected {queue};
-        Signal<InputDeviceDisconnected> input_device_disconnected {queue};
+        std::unordered_map<size, std::unique_ptr<ISignal>> signals;
+
+        /// @brief
+        /// Purpose: The one signal for event type E, created on first use (queued/deferred delivery).
+        template <typename TEvent>
+        Signal<TEvent>& signal()
+        {
+            std::unique_ptr<ISignal>& slot = signals[typeid(TEvent).hash_code()];
+            if (!slot)
+                slot = std::make_unique<Signal<TEvent>>(queue);
+            return *static_cast<Signal<TEvent>*>(slot.get());
+        }
     };
 
     /// @brief
-    /// Purpose: Drops every subscription registered under the given owner tag from every signal
-    /// at once — the bulk teardown a language backend runs before it tears down (so no handler
-    /// capturing a dying VM survives to be dispatched). Extend this when adding a signal.
+    /// Purpose: Drops every subscription registered under the given owner tag from every signal at
+    /// once — the bulk teardown a language backend runs before it tears down (so no handler capturing a
+    /// dying VM survives to be dispatched). Generic over the whole bus; no per-event list to maintain.
     TBX_DLL_EXPORT void unsubscribe_all(EventsState& state, const void* owner);
 
     /// @brief
-    /// Purpose: Dispatches everything queued since the last update, in emission order — the
-    /// events module's per-frame verb; tbx::run() calls it during the pump. Events emitted
-    /// during an update land in the next one.
+    /// Purpose: Dispatches everything queued since the last update, in emission order — the events
+    /// module's per-frame verb; tbx::run() calls it during the pump. Events emitted during an update
+    /// land in the next one.
     TBX_DLL_EXPORT void update_events(EventsState& state);
+
+    // The testable implementations (take the state they need, no global). The public tbx::on_event /
+    // tbx::raise_event (events_api.h) forward here with tbx::current().events.
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Subscribes a handler to app-wide event type E on the given bus; owner tags it for
+        /// bulk purge. Returns a Token.
+        template <typename TEvent>
+        Token on_event(EventsState& events, const void* owner, std::function<void(const TEvent&)> handler)
+        {
+            return events.signal<TEvent>().subscribe(owner, std::move(handler));
+        }
+
+        /// @brief
+        /// Purpose: Raises an app-wide event on the given bus (queued to the next pump drain).
+        template <typename TEvent>
+        void raise_event(EventsState& events, const TEvent& event)
+        {
+            events.signal<TEvent>().emit(event);
+        }
+    }
 }

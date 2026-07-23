@@ -173,7 +173,7 @@ namespace tbx
         if (!is_resident)
         {
             // Idle-collected (or never decoded here): subscribers pull fresh data themselves.
-            events.asset_reloaded.emit(make_reloaded_event(id, relative));
+            events.signal<AssetReloaded>().emit(make_reloaded_event(id, relative));
             return;
         }
 
@@ -209,7 +209,7 @@ namespace tbx
             const std::scoped_lock lock(state.mutex);
             state.loaded_assets[id].data = std::move(*refreshed);
         }
-        events.asset_reloaded.emit(make_reloaded_event(id, relative));
+        events.signal<AssetReloaded>().emit(make_reloaded_event(id, relative));
     }
 
     //// BOUNDARY ////
@@ -257,7 +257,7 @@ namespace tbx
         for (const AssetReloaded& gone : unloaded)
         {
             auto event = AssetUnloaded {.id = gone.id, .extension = gone.extension};
-            events.asset_unloaded.emit(event);
+            events.signal<AssetUnloaded>().emit(event);
         }
     }
 
@@ -277,7 +277,7 @@ namespace tbx
         for (const AssetReloaded& gone : unloaded)
         {
             auto event = AssetUnloaded {.id = gone.id, .extension = gone.extension};
-            events.asset_unloaded.emit(event);
+            events.signal<AssetUnloaded>().emit(event);
         }
     }
 
@@ -420,6 +420,6 @@ namespace tbx
         // First loads announce on asset_loaded (reloads use asset_reloaded); glue such as script
         // registration listens to both.
         const AssetReloaded stamped = make_reloaded_event(id, relative_path);
-        events.asset_loaded.emit(AssetLoaded {.id = stamped.id, .extension = stamped.extension});
+        events.signal<AssetLoaded>().emit(AssetLoaded {.id = stamped.id, .extension = stamped.extension});
     }
 }

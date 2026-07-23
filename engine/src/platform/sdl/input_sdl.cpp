@@ -243,7 +243,7 @@ namespace tbx
         g_gamepad_handles[static_cast<size>(slot)] = handle;
         feed_gamepad_connected(input, slot, true);
         TBX_INFO("controller connected: '{}' -> slot {}", SDL_GetGamepadName(handle), slot);
-        events.input_device_connected.emit({.index = slot});
+        events.signal<InputDeviceConnected>().emit({.index = slot});
     }
 
     static void close_gamepad(InputState& input, EventsState& events, const SDL_JoystickID id)
@@ -257,7 +257,7 @@ namespace tbx
         g_gamepad_handles[static_cast<size>(slot)] = nullptr;
         feed_gamepad_connected(input, slot, false);
         TBX_INFO("controller disconnected: slot {}", slot);
-        events.input_device_disconnected.emit({.index = slot});
+        events.signal<InputDeviceDisconnected>().emit({.index = slot});
     }
 
     static void feed_gamepad_event(InputState& input, EventsState& events, const SDL_Event& event)
@@ -348,7 +348,7 @@ namespace tbx
                         break;
                     if (!event.key.repeat)
                         feed_key(input, key, event.key.down);
-                    events.input.emit(
+                    events.signal<InputEvent>().emit(
                         {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }

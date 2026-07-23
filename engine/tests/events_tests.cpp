@@ -9,12 +9,12 @@ namespace tbx
         // Arrange
         auto events = EventsState();
         auto received = std::vector<int>();
-        events.window_resized.subscribe(
+        events.signal<WindowResized>().subscribe(
             &received,
             [&received](const WindowResized& e) { received.push_back(e.width); });
 
         // Act
-        events.window_resized.emit({.width = 800, .height = 600});
+        events.signal<WindowResized>().emit({.width = 800, .height = 600});
         update_events(events);
 
         // Assert
@@ -27,12 +27,12 @@ namespace tbx
         // Arrange
         auto events = EventsState();
         auto received = 0;
-        events.window_resized.subscribe(
+        events.signal<WindowResized>().subscribe(
             &received,
             [&received](const WindowResized&) { ++received; });
 
         // Act
-        events.window_resized.emit({.width = 800, .height = 600});
+        events.signal<WindowResized>().emit({.width = 800, .height = 600});
 
         // Assert
         EXPECT_EQ(received, 0);
@@ -43,18 +43,18 @@ namespace tbx
         // Arrange
         auto events = EventsState();
         auto deliveries = 0;
-        events.window_resized.subscribe(
+        events.signal<WindowResized>().subscribe(
             &deliveries,
             [&](const WindowResized& e)
             {
                 ++deliveries;
                 // Re-emit once from inside dispatch; it must not run this drain.
                 if (e.width == 1)
-                    events.window_resized.emit({.width = 2, .height = 0});
+                    events.signal<WindowResized>().emit({.width = 2, .height = 0});
             });
 
         // Act
-        events.window_resized.emit({.width = 1, .height = 0});
+        events.signal<WindowResized>().emit({.width = 1, .height = 0});
         update_events(events);
         const int after_first_drain = deliveries;
         update_events(events);
@@ -72,13 +72,13 @@ namespace tbx
         auto other_calls = 0;
         auto owner_tag = 1;
         auto other_tag = 2;
-        events.input.subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
-        events.input.subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
-        events.input.subscribe(&other_tag, [&other_calls](const InputEvent&) { ++other_calls; });
+        events.signal<InputEvent>().subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
+        events.signal<InputEvent>().subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
+        events.signal<InputEvent>().subscribe(&other_tag, [&other_calls](const InputEvent&) { ++other_calls; });
 
         // Act
-        events.input.unsubscribe_owner(&owner_tag);
-        events.input.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
+        events.signal<InputEvent>().unsubscribe_owner(&owner_tag);
+        events.signal<InputEvent>().emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
         update_events(events);
 
         // Assert
@@ -93,12 +93,12 @@ namespace tbx
         auto first_calls = 0;
         auto second_calls = 0;
         auto tag = 0;
-        const Token first = events.input.subscribe(&tag, [&](const InputEvent&) { ++first_calls; });
-        events.input.subscribe(&tag, [&](const InputEvent&) { ++second_calls; });
+        const Token first = events.signal<InputEvent>().subscribe(&tag, [&](const InputEvent&) { ++first_calls; });
+        events.signal<InputEvent>().subscribe(&tag, [&](const InputEvent&) { ++second_calls; });
 
         // Act
-        events.input.unsubscribe(first);
-        events.input.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.signal<InputEvent>().unsubscribe(first);
+        events.signal<InputEvent>().emit({.key = Key::A, .is_down = true, .is_repeat = false});
         update_events(events);
 
         // Assert
@@ -111,13 +111,13 @@ namespace tbx
         // Arrange
         auto events = EventsState();
         auto order = std::vector<int>();
-        events.window_resized.subscribe(&order, [&](const WindowResized&) { order.push_back(1); });
-        events.input.subscribe(&order, [&](const InputEvent&) { order.push_back(2); });
+        events.signal<WindowResized>().subscribe(&order, [&](const WindowResized&) { order.push_back(1); });
+        events.signal<InputEvent>().subscribe(&order, [&](const InputEvent&) { order.push_back(2); });
 
         // Act
-        events.window_resized.emit({.width = 1, .height = 1});
-        events.input.emit({.key = Key::A, .is_down = true, .is_repeat = false});
-        events.window_resized.emit({.width = 2, .height = 2});
+        events.signal<WindowResized>().emit({.width = 1, .height = 1});
+        events.signal<InputEvent>().emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.signal<WindowResized>().emit({.width = 2, .height = 2});
         update_events(events);
 
         // Assert
@@ -125,5 +125,40 @@ namespace tbx
         EXPECT_EQ(order[0], 1);
         EXPECT_EQ(order[1], 2);
         EXPECT_EQ(order[2], 1);
+    }
+
+    TEST(Events, InternalRaiseAndOnEventRoundTrip)
+    {
+        // Arrange: the testable internal API takes the bus explicitly — no global runtime needed.
+        auto events = EventsState();
+        auto received = 0;
+        internal::on_event<WindowResized>(
+            events,
+            nullptr,
+            [&received](const WindowResized& event) { received = event.width; });
+
+        // Act
+        internal::raise_event(events, WindowResized {.width = 42, .height = 0});
+        update_events(events);
+
+        // Assert
+        EXPECT_EQ(received, 42);
+    }
+
+    TEST(Events, UnsubscribeAllStopsDeliveryAcrossTheBus)
+    {
+        // Arrange
+        auto events = EventsState();
+        const int owner = 0;
+        auto calls = 0;
+        internal::on_event<WindowResized>(events, &owner, [&calls](const WindowResized&) { ++calls; });
+
+        // Act: bulk-purge the owner, then raise — the handler must not run.
+        unsubscribe_all(events, &owner);
+        internal::raise_event(events, WindowResized {.width = 1, .height = 1});
+        update_events(events);
+
+        // Assert
+        EXPECT_EQ(calls, 0);
     }
 }

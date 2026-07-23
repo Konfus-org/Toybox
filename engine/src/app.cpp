@@ -118,7 +118,7 @@ namespace tbx
         }
 
         // Subscribe to settings reload events
-        state.events.asset_reloaded.subscribe(
+        state.events.signal<AssetReloaded>().subscribe(
             &state,
             [&state](const AssetReloaded& reloaded)
             {
@@ -167,7 +167,7 @@ namespace tbx
                 !result)
                 TBX_ERROR("{}", result.error());
         };
-        state.events.asset_loaded.subscribe(
+        state.events.signal<AssetLoaded>().subscribe(
             &state,
             [register_script_asset](const AssetLoaded& loaded)
             {
@@ -175,7 +175,7 @@ namespace tbx
             });
 
         // Idle-collected or hot-reloaded assets drop their render-side caches.
-        state.events.asset_unloaded.subscribe(
+        state.events.signal<AssetUnloaded>().subscribe(
             &state,
             [&state](const AssetUnloaded& unloaded)
             {
@@ -183,7 +183,7 @@ namespace tbx
             });
 
         // Changed assets re-upload their GPU copies; changed .luau assets recompile and restart.
-        state.events.asset_reloaded.subscribe(
+        state.events.signal<AssetReloaded>().subscribe(
             &state,
             [&state, register_script_asset](const AssetReloaded& reloaded)
             {

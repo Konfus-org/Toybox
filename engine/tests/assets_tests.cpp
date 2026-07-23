@@ -41,7 +41,7 @@ namespace tbx
         RuntimeState& runtime = *toybox.state;
         set_asset_root(runtime.assets, runtime.events, runtime.jobs, asset_root);
         auto unload_count = 0;
-        runtime.events.asset_unloaded.subscribe(
+        runtime.events.signal<AssetUnloaded>().subscribe(
             &unload_count,
             [&unload_count](const AssetUnloaded&) { ++unload_count; });
         const auto loaded =
@@ -89,7 +89,7 @@ namespace tbx
         EXPECT_TRUE(is_assets_ready(runtime.assets));
 
         auto unload_count = 0;
-        runtime.events.asset_unloaded.subscribe(
+        runtime.events.signal<AssetUnloaded>().subscribe(
             &unload_count,
             [&unload_count](const AssetUnloaded&) { ++unload_count; });
         const auto loaded = load_asset_now(
