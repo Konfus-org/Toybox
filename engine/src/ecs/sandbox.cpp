@@ -26,11 +26,18 @@ namespace tbx
         sandbox.clear(); // every toy (ToyContainer)
     }
 
-    Toy add(Sandbox& sandbox, const std::string& name, const Vec3& position)
+    Result<Toy> Sandbox::add(const AssetHandle<Kit>& kit, const Vec3& position)
     {
-        Toy toy = sandbox.add(name);
-        toy.get_transform().position = position;
-        return toy;
+        if (!assets || !events)
+            return fail("sandbox is not wired to the asset system");
+        return instantiate_kit(*this, *assets, *events, kit, position);
+    }
+
+    Result<Toy> Sandbox::add(const Kit& kit, const Vec3& position)
+    {
+        if (!assets || !events)
+            return fail("sandbox is not wired to the asset system");
+        return instantiate_kit(*this, *assets, *events, kit, position);
     }
 
     // Spawns the pending level (open() defers so opening never needs the asset system in hand).
@@ -40,7 +47,8 @@ namespace tbx
             return;
         const Kit level = std::move(*sandbox.pending_level);
         sandbox.pending_level.reset();
-        if (auto opened = add(sandbox, assets, events, level); !opened)
+        if (auto opened = instantiate_kit(sandbox, assets, events, level, Vec3(0.0f, 0.0f, 0.0f));
+            !opened)
             TBX_ERROR("opened level: {}", opened.error());
     }
 
@@ -126,7 +134,9 @@ namespace tbx
             }
             else if (entry.is_loaded && !is_in_sight)
             {
-                sandbox.remove_children(instance); // keep the KitInstance toy, drop its contents
+                // Collapse the instance: drop its contents but keep the KitInstance toy itself.
+                for (const Toy child : instance.get_children())
+                    sandbox.remove(child);
                 entry.is_loaded = false;
             }
         }

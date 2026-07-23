@@ -68,10 +68,10 @@ function start(toy: Toy)
 
     -- React to controllers coming and going (the engine also logs these C++-side).
     tbx.events.onInputDeviceConnected(function(event)
-        print("player: controller connected in slot " .. event.index)
+        print("controller connected in slot " .. event.index)
     end)
     tbx.events.onInputDeviceDisconnected(function(event)
-        print("player: controller disconnected in slot " .. event.index)
+        print("controller disconnected in slot " .. event.index)
     end)
 end
 

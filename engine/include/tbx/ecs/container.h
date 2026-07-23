@@ -62,17 +62,8 @@ namespace tbx
         std::vector<Toy> get_toys() const;
 
         /// @brief
-        /// Purpose: Despawns a toy; its children are orphaned (parent cleared), not destroyed.
+        /// Purpose: Removes a toy and its whole subtree (every descendant cascades with it).
         void remove(Toy toy);
-
-        /// @brief
-        /// Purpose: Despawns a toy and its whole subtree.
-        void remove_subtree(Toy root);
-
-        /// @brief
-        /// Purpose: Despawns every descendant of a toy but keeps the toy itself (how a
-        /// streamed kit instance collapses).
-        void remove_children(Toy root);
 
         /// @brief
         /// Purpose: Removes every toy — the container is empty afterward.

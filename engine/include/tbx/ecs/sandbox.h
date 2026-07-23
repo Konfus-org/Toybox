@@ -36,6 +36,8 @@ namespace tbx
     /// @details
     /// Movable so read<Sandbox> can hand one over — move it only while no streamed loads are
     /// in flight (startup, or right after close()). Copy is deleted: a world is unique.
+    struct EventsState; // wired in at boot (below); the asset/kit path reaches events through it
+
     struct TBX_API Sandbox : ToyContainer
     {
         Sandbox() = default;
@@ -44,13 +46,29 @@ namespace tbx
         Sandbox(const Sandbox&) = delete;
         Sandbox& operator=(const Sandbox&) = delete;
 
+        // Wired at boot so kit add reaches the asset system directly. Raw views: the runtime owns
+        // both modules and outlives the sandbox's use of them.
+        AssetsState* assets = nullptr;
+        EventsState* events = nullptr;
+
         std::vector<StreamedKit> streamed_kits;
         std::optional<Kit> pending_level;
+
+        using ToyContainer::add; // keep add(name) (empty toy) alongside the kit add overloads
+
+        /// @brief
+        /// Purpose: Instantiates a kit into the world at `position` — the instance root (a
+        /// KitInstance toy) with the kit's toys as its children; nested immediate kits expand,
+        /// nested streamed kits register for streaming. Reads through the wired asset system.
+        /// Returns the root toy; remove(root) removes the whole instance.
+        Result<Toy> add(const AssetHandle<Kit>& kit, const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
+        Result<Toy> add(const Kit& kit, const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
     };
 
     /// @brief
-    /// Purpose: Opens a kit as the whole world (a "level"): its toys add on the next stream()
-    /// tick — immediate child kits expand at once, streamed ones when a camera looks their way.
+    /// Purpose: Opens a kit as the whole world (a "level"): its toys add on the next
+    /// update_sandbox() tick — immediate child kits expand at once, streamed ones when a camera
+    /// looks their way.
     TBX_API void open(Sandbox& sandbox, Kit level);
 
     /// @brief
@@ -59,51 +77,11 @@ namespace tbx
     TBX_API void close(Sandbox& sandbox);
 
     /// @brief
-    /// Purpose: Adds a single empty toy to the world at `position` — the toy counterpart of the
-    /// kit `add` below (Sandbox::add(name) is the same, minus the position). Returns the toy.
-    TBX_API Toy
-        add(Sandbox& sandbox,
-            const std::string& name,
-            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
-
-    /// @brief
-    /// Purpose: Instantiates a kit: creates the instance's root toy (a KitInstance block naming
-    /// the kit) at `position` and adds the kit's toys as its children. Nested immediate kits
-    /// expand recursively; nested streamed kits register for streaming. Returns the root toy;
-    /// remove_subtree(root) removes the whole instance.
-    TBX_API Result<Toy> add(
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        const AssetHandle<Kit>& kit,
-        const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
-
-    /// @brief
-    /// Purpose: Spawns an in-memory kit (the handle overload resolves through assets and lands
-    /// here).
-    TBX_API Result<Toy> add(
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        const Kit& kit,
-        const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
-
-    /// @brief
-    /// Purpose: Loads streamed kits whose bounds sphere is in sight of ANY frustum (one per
-    /// enabled camera; tbx::run() gathers them every frame) and unloads kits out of sight of ALL
-    /// of them. Also flushes a pending open() first. Load-only: streaming never writes disk.
-    TBX_API void stream(
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        JobsState& jobs,
-        std::span<const Frustum> frustums);
-
-    /// @brief
-    /// Purpose: The per-frame ECS tick: updates builtin components (billboards face the active
-    /// camera) then streams. tbx::run() calls this once, after scripts/physics settle transforms
-    /// and before rendering.
-    TBX_API void update_ecs(
+    /// Purpose: The per-frame sandbox tick: settles builtin components (billboards face the active
+    /// camera), flushes a pending open(), then streams kits by camera sight — loading what any
+    /// frustum can see and collapsing what none can. tbx::run() calls this once, after
+    /// scripts/physics settle transforms and before rendering.
+    TBX_API void update_sandbox(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,

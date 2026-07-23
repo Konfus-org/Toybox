@@ -67,17 +67,8 @@ namespace tbx
 
     void ToyContainer::remove(Toy toy)
     {
-        const ToyId id = toy.get_id();
-        // Children are orphaned, not destroyed — despawning a parent never cascades.
-        for (auto [child, info] : _registry->view<ToyInfo>().each())
-            if (info.parent == id)
-                info.parent = NULL_TOY;
-        _registry->destroy(id);
-    }
-
-    void ToyContainer::remove_subtree(Toy root)
-    {
-        auto pending = std::vector<ToyId> {root.get_id()};
+        // Removes the toy and its whole subtree — every descendant cascades with it.
+        auto pending = std::vector<ToyId> {toy.get_id()};
         auto doomed = std::vector<ToyId>();
         while (!pending.empty())
         {
@@ -93,12 +84,6 @@ namespace tbx
         for (const ToyId id : doomed)
             if (_registry->valid(id))
                 _registry->destroy(id);
-    }
-
-    void ToyContainer::remove_children(Toy root)
-    {
-        for (const Toy child : root.get_children())
-            remove_subtree(child);
     }
 
     void ToyContainer::clear()

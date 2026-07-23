@@ -153,7 +153,7 @@ declare extern type Toy with
 
     -- Fluent verb shortcuts (each returns the toy), for building in one chain:
     --   sandbox:add("Grunt"):parent(hub):move({x=0,y=1,z=0}):add("enemy"):add(tbx.blocks.RigidBody)
-    function parent(self, parent: Toy): Toy       -- set the parent
+    function parent(self, parent: Toy): Toy        -- set the parent
     function move(self, position: Vec3): Toy       -- set the local position
     function rotate(self, rotation: Quat): Toy     -- set the local rotation
     function resize(self, scale: Vec3): Toy        -- set the local scale

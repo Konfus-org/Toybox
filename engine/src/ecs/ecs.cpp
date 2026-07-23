@@ -1,4 +1,5 @@
 #include "tbx/ecs/sandbox.h"
+#include "sandbox_internal.h"
 #include "tbx/ecs/billboard.h"
 #include "tbx/gfx/camera.h"
 #include "tbx/math/transform.h"
@@ -42,7 +43,7 @@ namespace tbx
             });
     }
 
-    void update_ecs(
+    void update_sandbox(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,

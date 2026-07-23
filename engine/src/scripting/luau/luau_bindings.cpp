@@ -723,12 +723,7 @@ namespace tbx
             // Given an asset path → instantiate the kit it references (optional add position).
             const Vec3 position =
                 lua_istable(lua, 3) ? check_vector3(lua, 3) : Vec3(0.0f, 0.0f, 0.0f);
-            const auto spawned = add(
-                state.sandbox,
-                state.assets,
-                state.events,
-                AssetHandle<Kit>(name),
-                position);
+            const auto spawned = state.sandbox.add(AssetHandle<Kit>(name), position);
             if (!spawned)
             {
                 luaL_error(lua, "kit '%s': %s", name, spawned.error().c_str());
@@ -803,7 +798,7 @@ namespace tbx
     {
         // sandbox:remove(toy) removes the toy and its whole subtree.
         const ToyUserdata& data = check_toy(lua, 2);
-        data.sandbox->remove_subtree(Toy(*data.sandbox, data.entity));
+        data.sandbox->remove(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -818,7 +813,7 @@ namespace tbx
     static int sandbox_despawn_kit(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 2);
-        data.sandbox->remove_subtree(Toy(*data.sandbox, data.entity));
+        data.sandbox->remove(Toy(*data.sandbox, data.entity));
         return 0;
     }
 

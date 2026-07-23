@@ -82,6 +82,9 @@ namespace tbx
 
         app.status = AppStatus::RUNNING;
         state.frame.previous = std::chrono::steady_clock::now();
+        // Wire the sandbox to the asset system so kit add/instantiation reaches it directly.
+        state.sandbox.assets = &state.assets;
+        state.sandbox.events = &state.events;
         // Stands reflection + serializers up, sets the root, and discovers every asset.
         initialize_assets(state.assets, state.events, state.jobs, app.config.root_dir);
         apply_settings(app, state);
@@ -336,7 +339,7 @@ namespace tbx
         // enabled camera contributes a frustum, gathered here after scripts/physics settled the
         // transforms and before rendering.
         const auto frustums = gather_camera_frustums(state);
-        update_ecs(state.sandbox, state.assets, state.events, state.jobs, frustums);
+        update_sandbox(state.sandbox, state.assets, state.events, state.jobs, frustums);
 
         // The engine renders by default; hosts with their own pipeline opt out and draw
         // between run() calls instead. Every open window gets a graph run; the first is

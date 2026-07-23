@@ -38,7 +38,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void initialize(RuntimeState& runtime)
+    void initialize_scripting(RuntimeState& runtime)
     {
         ScriptsState& state = runtime.scripts;
         if (!state.backends.empty())

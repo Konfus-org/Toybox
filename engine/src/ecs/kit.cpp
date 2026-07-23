@@ -145,7 +145,7 @@ namespace tbx
         return {};
     }
 
-    Result<Toy> add(
+    Result<Toy> instantiate_kit(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -168,13 +168,13 @@ namespace tbx
                 instantiate_under(sandbox, assets, events, root, kit, reference_stack, spawned);
             !result)
         {
-            sandbox.remove_subtree(root);
+            sandbox.remove(root);
             return std::unexpected(result.error());
         }
         return root;
     }
 
-    Result<Toy> add(
+    Result<Toy> instantiate_kit(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -184,7 +184,7 @@ namespace tbx
         const auto loaded = load_asset_now(assets, events, kit);
         if (!loaded)
             return fail("kit '{}': {}", kit.path, loaded.error());
-        auto root = add(sandbox, assets, events, loaded->get(), position);
+        auto root = instantiate_kit(sandbox, assets, events, loaded->get(), position);
         if (root)
             root->get_block<KitInstance>().kit = kit; // record the original handle
         return root;
