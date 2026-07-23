@@ -233,6 +233,42 @@ end
         EXPECT_TRUE(toy.add<RigidBody>().is_kinematic);
     }
 
+    TEST(Scripts, CustomBlockAutoMintsAddsReadsAndRemoves)
+    {
+        // Arrange: naming a non-built-in block (tbx.blocks.Ammo) mints a script-defined block on
+        // first access — no register call. It is a dynamic field bag, runtime-only. The script
+        // signals each step's outcome back to C++ with stickers.
+        auto toybox = Runtime();
+        RuntimeState& runtime = *toybox.state;
+        Sandbox& sandbox = runtime.sandbox;
+        boot(runtime);
+        const auto gunner = given_script(runtime, "gunner", R"(
+function start(toy)
+    local Ammo = tbx.blocks.Ammo
+    if not toy:has(Ammo) then toy:add("absent_before") end
+    local ammo = toy:add(Ammo, { count = 2 })
+    if toy:has(Ammo) then toy:add("present_after_add") end
+    if ammo.count == 2 then toy:add("fields_populated") end
+    ammo.count = ammo.count - 1
+    if toy:get(Ammo).count == 1 then toy:add("live_table_mutated") end
+    toy:remove(Ammo)
+    if not toy:has(Ammo) then toy:add("removed") end
+end
+)");
+        ASSERT_TRUE(gunner.has_value());
+        Toy toy = sandbox.add("Gunner").with(Script {.source = *gunner});
+
+        // Act
+        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+
+        // Assert: every step ran as expected.
+        EXPECT_TRUE(toy.has("absent_before"));
+        EXPECT_TRUE(toy.has("present_after_add"));
+        EXPECT_TRUE(toy.has("fields_populated"));
+        EXPECT_TRUE(toy.has("live_table_mutated"));
+        EXPECT_TRUE(toy.has("removed"));
+    }
+
     TEST(Scripts, TbxMathMirrorsTheEngineMathLibrary)
     {
         // Arrange

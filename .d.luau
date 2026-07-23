@@ -182,11 +182,11 @@ declare tbx: {
         Sky: BlockType<Sky, SkyProps>,
         Billboard: BlockType<Billboard, BillboardProps>,
         Script: BlockType<Script, ScriptProps>,
-        -- Register a custom, script-defined block and get its token (also exposed as a global).
+        -- Naming any block that isn't built in mints a custom, script-defined block token.
         -- Custom blocks are dynamic field bags: no schema, script-runtime only (not serialized).
-        --   local Health = tbx.blocks.register("Health")
+        --   local Health = tbx.blocks.Health
         --   toy:add(Health, { hp = 100 });  print(toy:get(Health).hp)
-        register: (name: string) -> BlockType<{ [string]: any }, { [string]: any }>,
+        [string]: BlockType<{ [string]: any }, { [string]: any }>,
     },
 
     -- The active scene: query and mutate toys (called with `:`).

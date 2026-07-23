@@ -408,9 +408,10 @@ namespace tbx
     }
 
     //// CUSTOM (SCRIPT-DEFINED) BLOCKS ////
-    // tbx.blocks.register("Name") mints a token carrying { __custom = true }. Custom blocks are
-    // dynamic field bags kept per-VM in a registry table keyed by "entity:name" — script-runtime
-    // only (not stored in the ECS, not serialized). get/add/has/remove route here for such tokens.
+    // tbx.blocks.<Name> for a non-built-in name mints a token carrying { __custom = true }. Custom
+    // blocks are dynamic field bags kept per-VM in a registry table keyed by "entity:name" —
+    // script-runtime only (not stored in the ECS, not serialized). get/add/has/remove route here
+    // for such tokens.
 
     /// @brief
     /// Purpose: The custom block's name if the value at `index` is a custom token, else nullopt.
@@ -1084,29 +1085,26 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: tbx.blocks.register("Name") mints a custom, script-defined block token — exposed
-    /// as a global (so `get(Name)`) and under tbx.blocks, then returned. Custom blocks are dynamic
-    /// field bags: no schema, no serializer, script-runtime only (not stored in the ECS). Rejects
-    /// a name that's already a built-in block.
-    static int tbx_blocks_register(lua_State* lua)
+    /// Purpose: tbx.blocks.<Name> for any name that isn't a built-in block auto-mints a custom,
+    /// script-defined block token — a dynamic field bag with no schema/serializer, kept per-VM
+    /// (runtime-only, not stored in the ECS). This is the __index metamethod on tbx.blocks; it
+    /// caches the token back on the table so repeat lookups skip it.
+    static int tbx_blocks_index(lua_State* lua)
     {
-        const char* name = luaL_checkstring(lua, 1);
-        const auto type = describe_type(hash(name));
-        if (type && type->get().has_block)
-            luaL_error(lua, "'%s' is already a built-in block type", name);
+        // arg1 = the tbx.blocks table, arg2 = the (not-yet-present) block name.
+        const char* name = luaL_checkstring(lua, 2);
         lua_createtable(lua, 0, 2); // the token
         lua_pushstring(lua, name);
         lua_setfield(lua, -2, "__name");
         lua_pushboolean(lua, 1);
         lua_setfield(lua, -2, "__custom");
-        lua_pushvalue(lua, -1); // dup for the global
-        lua_setglobal(lua, name);
-        lua_getglobal(lua, "tbx");
-        lua_getfield(lua, -1, "blocks");
-        lua_pushvalue(lua, -3); // the token
-        lua_setfield(lua, -2, name); // tbx.blocks[name] = token
-        lua_pop(lua, 2); // tbx, blocks
-        return 1; // return the token
+        // Cache it: tbx.blocks[name] = token (raw, so next lookup is a direct field).
+        lua_pushvalue(lua, 1); // blocks
+        lua_pushstring(lua, name);
+        lua_pushvalue(lua, -3); // token
+        lua_rawset(lua, -3); // blocks[name] = token
+        lua_pop(lua, 1); // pop blocks, leaving the token
+        return 1;
     }
 
     /// @brief
@@ -1791,9 +1789,11 @@ namespace tbx
             lua_setglobal(lua, type.name.c_str());
             lua_setfield(lua, -2, type.name.c_str());
         }
-        // tbx.blocks.register("Name") mints a custom script-defined block token.
-        lua_pushcfunction(lua, tbx_blocks_register, "tbx_blocks_register");
-        lua_setfield(lua, -2, "register");
+        // Any other name auto-mints a custom script-defined block token via __index.
+        lua_newtable(lua); // the metatable
+        lua_pushcfunction(lua, tbx_blocks_index, "tbx_blocks_index");
+        lua_setfield(lua, -2, "__index");
+        lua_setmetatable(lua, -2); // set it on the blocks table
         lua_setfield(lua, -2, "blocks");
 
         // Strongly typed input enums. Each kind is offset into its own value range (keys stay

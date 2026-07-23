@@ -28,7 +28,9 @@ script goes away: the toy is removed, its `Script` block is removed, or the app 
 to release what the script acquired — unsubscribe event handlers, drop external state. It fires
 promptly, the frame the engine notices: if only the block was removed the toy is still alive, but
 if the whole toy was removed the handle is no longer alive — so guard any toy access with
-`toy.Alive`.
+`toy.Alive`.-
+
+`tbx.quit()` to request a clean app exit.
 
 ## Conventions
 
@@ -79,13 +81,13 @@ plain strings.
 | `toy:remove(T)` / `toy:remove(sticker)` | toy | detach a block / peel a sticker, fluent |
 | `toy:with(...)` | toy | fluent builder: `with(sticker)`, `with(parentToy)`, `with(T, { fields }?)` |
 
-**Custom components.** `tbx.blocks.register("Name")` mints a script-defined block and returns
-its token (also exposed as a global). No C++ type, no schema, no serializer — a custom block is a
-dynamic field bag you add/read like any built-in, and it lives only at runtime (not saved in
-kits). Adding one returns the live fields table, so you mutate it in place:
+**Custom components.** Naming any block that isn't built in — `tbx.blocks.Name` — mints a
+script-defined block token on first access. No C++ type, no schema, no serializer — a custom
+block is a dynamic field bag you add/read like any built-in, and it lives only at runtime (not
+saved in kits). Adding one returns the live fields table, so you mutate it in place:
 
 ```lua
-local Ammo = tbx.blocks.register("Ammo")
+local Ammo = tbx.blocks.Ammo
 function start(toy: Toy)
     toy:add(Ammo, { count = 30 })
 end
@@ -203,11 +205,6 @@ tbx.events.onInputDeviceConnected(function(event)
     print("controller connected in slot " .. event.index)
 end)
 ```
-
-## Misc
-
-- `tbx.quit()` — request a clean app exit.
-- `print(...)` — routed through the engine log, stamped with the script's `file:line` source.
 
 ## Debugging
 

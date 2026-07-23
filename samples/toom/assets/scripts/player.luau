@@ -14,8 +14,9 @@ local RIGHT = { x = 1.0, y = 0.0, z = 0.0 }
 local AHEAD = { x = 0.0, y = 0.0, z = -1.0 }
 
 -- A custom, script-defined component: no C++ type, no schema, no serializer — just a dynamic
--- field bag on the toy. Registered once here, then attached and read like any built-in block.
-local Ammo = tbx.blocks.register("Ammo")
+-- field bag on the toy. Naming any block that isn't built in mints it; from there it attaches
+-- and reads like any built-in block.
+local Ammo = tbx.blocks.Ammo
 
 local yaw = 0.0
 local pitch = 0.0
