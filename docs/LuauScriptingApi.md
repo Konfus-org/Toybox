@@ -34,6 +34,7 @@ if the whole toy was removed the handle is no longer alive — so guard any toy 
 
 ## Conventions
 
+TLDR:
 - **`:` (methods, implicit `self`)** — anything that acts on an instance you hold: a toy
   (`toy:get(...)`), a UI component (`ui:bind(...)`), the scene object (`tbx.sandbox:find(...)`).
 - **`.` (properties / libraries / constants)** — toy properties (`toy.Position`), stateless
@@ -41,6 +42,8 @@ if the whole toy was removed the handle is no longer alive — so guard any toy 
 - **Casing** — methods are `camelCase`; toy properties, block and enum tables are `PascalCase`
   (`Position`, `Parent`, `UI`, `Key`); enum members are `UPPER_SNAKE` (`tbx.Key.W`).
 - Vectors are plain tables `{ x = , y = , z = }`; quaternions likewise `{x,y,z,w}`.
+
+Refer to for full list of conventions Toybox follows for its luau scripting: https://roblox.github.io/lua-style-guide/
 
 ## Toys
 
