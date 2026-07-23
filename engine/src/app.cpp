@@ -1,23 +1,13 @@
 #include "tbx/app.h"
-#include "scripting/builtin_backends.h"
 #include "tbx/audio/audio.h"
-#include "tbx/audio/clip.h"
 #include "tbx/debug/debugging.h"
 #include "tbx/debug/log.h"
-#include "tbx/ecs/billboard.h"
-#include "tbx/gfx/camera.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/gfx/material.h"
-#include "tbx/gfx/model.h"
-#include "tbx/gfx/shader_source.h"
 #include "tbx/gfx/texture.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
-#include "tbx/reflection/reflection.h"
-#include "tbx/reflection/type_registration.h"
 #include "tbx/runtime.h"
 #include "tbx/scripting/source.h"
-#include "tbx/ui/document.h"
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui.h"
 #include "tbx/utils/cmdline_handler.h"
@@ -26,7 +16,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace tbx

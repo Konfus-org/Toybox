@@ -1,11 +1,11 @@
 #include "luau_bindings.h"
-#include "tbx/runtime.h"
 #include "tbx/debug/log.h"
+#include "tbx/runtime.h"
 #include "tbx/scripting/scripts.h"
+#include <cstdlib>
 #include <lua.h>
 #include <luacode.h>
 #include <lualib.h>
-#include <cstdlib>
 #include <memory>
 #include <unordered_map>
 
@@ -86,7 +86,8 @@ namespace tbx
 
         // Each hook maps to the Luau name a script defines: "start" / "update" / "fixedUpdate" /
         // "cleanup". Another backend (C#, C++) would map the same hooks to its own convention. The
-        // coordinator owns when each fires — start once on first sight, cleanup once on the way out.
+        // coordinator owns when each fires — start once on first sight, cleanup once on the way
+        // out.
 
         void call_script_start(Toy toy, const Uuid& source_id) override
         {
@@ -109,20 +110,22 @@ namespace tbx
                 call_script_function(instance->table_ref, "update", toy.get_id(), delta_time);
         }
 
-        void call_script_fixed_update(
-            Toy toy,
-            const Uuid& source_id,
-            const float fixed_delta_time) override
+        void call_script_fixed_update(Toy toy, const Uuid& source_id, const float fixed_delta_time)
+            override
         {
             if (LuauInstance* instance = find_instance(toy, source_id))
                 call_script_function(
-                    instance->table_ref, "fixedUpdate", toy.get_id(), fixed_delta_time);
+                    instance->table_ref,
+                    "fixedUpdate",
+                    toy.get_id(),
+                    fixed_delta_time);
         }
 
         void call_script_cleanup(Toy toy, const Uuid& source_id) override
         {
             // Fire the hook only — the coordinator calls purge_script right after to free the
-            // memory. A removed toy passes a dead handle here, so scripts guard with toy:is_alive().
+            // memory. A removed toy passes a dead handle here, so scripts guard with
+            // toy:is_alive().
             if (LuauInstance* instance = find_instance(toy, source_id))
                 call_script_function(instance->table_ref, "cleanup", toy.get_id(), {});
         }
@@ -248,8 +251,6 @@ namespace tbx
         std::unordered_map<Uuid, CompiledScript> _scripts_by_id;
         std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
-
-
 
     std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime)
     {

@@ -1,4 +1,3 @@
-#include "../src/scripting/builtin_backends.h" // engine-internal: tests wire the VMs directly
 #include "tbx/assets/assets.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/rigid_body.h"
@@ -23,8 +22,8 @@ namespace tbx
     }
 
     // Registers a script from a string the way the asset pipeline does: seeds the ScriptSource
-    // asset (so update_scripts can acquire it) and compiles it under the same id. Returns the handle
-    // a Script block references, or the compile error.
+    // asset (so update_scripts can acquire it) and compiles it under the same id. Returns the
+    // handle a Script block references, or the compile error.
     static Result<AssetHandle<ScriptSource>> given_script(
         RuntimeState& runtime,
         const std::string& name,
@@ -51,8 +50,8 @@ namespace tbx
         return compile_script(runtime.scripts, script_id(name), name, source);
     }
 
-    // Reflection + serialization must be ready before scripting (initialize_scripting() asserts it); the
-    // registries are process-global and self-guarding, so this is safe to call per test.
+    // Reflection + serialization must be ready before scripting (initialize_scripting() asserts
+    // it); the registries are process-global and self-guarding, so this is safe to call per test.
     static void boot(RuntimeState& runtime)
     {
         initialize_reflection();

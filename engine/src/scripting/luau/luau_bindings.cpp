@@ -1,4 +1,5 @@
 #include "luau_bindings.h"
+#include "luau_marshal.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
 #include "tbx/math/math.h"
@@ -975,34 +976,6 @@ namespace tbx
             check_vector3(lua, 1) * static_cast<float>(luaL_checknumber(lua, 2)));
     }
 
-    static int math_dot(lua_State* lua)
-    {
-        lua_pushnumber(lua, dot(check_vector3(lua, 1), check_vector3(lua, 2)));
-        return 1;
-    }
-
-    static int math_cross(lua_State* lua)
-    {
-        return push_vector3(lua, cross(check_vector3(lua, 1), check_vector3(lua, 2)));
-    }
-
-    static int math_length(lua_State* lua)
-    {
-        lua_pushnumber(lua, length(check_vector3(lua, 1)));
-        return 1;
-    }
-
-    static int math_distance(lua_State* lua)
-    {
-        lua_pushnumber(lua, distance(check_vector3(lua, 1), check_vector3(lua, 2)));
-        return 1;
-    }
-
-    static int math_normalize(lua_State* lua)
-    {
-        return push_vector3(lua, normalize(check_vector3(lua, 1)));
-    }
-
     static int math_lerp(lua_State* lua)
     {
         const auto t = static_cast<float>(luaL_checknumber(lua, 3));
@@ -1015,63 +988,6 @@ namespace tbx
                 static_cast<float>(luaL_checknumber(lua, 2)),
                 t));
         return 1;
-    }
-
-    static int math_move_toward(lua_State* lua)
-    {
-        return push_vector3(
-            lua,
-            move_toward(
-                check_vector3(lua, 1),
-                check_vector3(lua, 2),
-                static_cast<float>(luaL_checknumber(lua, 3))));
-    }
-
-    static int math_reflect(lua_State* lua)
-    {
-        return push_vector3(lua, reflect(check_vector3(lua, 1), check_vector3(lua, 2)));
-    }
-
-    static int math_angle_axis(lua_State* lua)
-    {
-        return push_quat(
-            lua,
-            angle_axis(static_cast<float>(luaL_checknumber(lua, 1)), check_vector3(lua, 2)));
-    }
-
-    static int math_multiply(lua_State* lua)
-    {
-        return push_quat(lua, multiply(check_quat(lua, 1), check_quat(lua, 2)));
-    }
-
-    static int math_rotate(lua_State* lua)
-    {
-        return push_vector3(lua, rotate(check_quat(lua, 1), check_vector3(lua, 2)));
-    }
-
-    static int math_slerp(lua_State* lua)
-    {
-        return push_quat(
-            lua,
-            slerp(
-                check_quat(lua, 1),
-                check_quat(lua, 2),
-                static_cast<float>(luaL_checknumber(lua, 3))));
-    }
-
-    static int math_from_euler(lua_State* lua)
-    {
-        return push_quat(lua, from_euler(check_vector3(lua, 1)));
-    }
-
-    static int math_to_euler(lua_State* lua)
-    {
-        return push_vector3(lua, to_euler(check_quat(lua, 1)));
-    }
-
-    static int math_quat_look_at(lua_State* lua)
-    {
-        return push_quat(lua, quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
     }
 
     static int tbx_quit(lua_State* lua)
@@ -1855,21 +1771,21 @@ namespace tbx
             {"add", math_add},
             {"subtract", math_subtract},
             {"scale", math_scale},
-            {"dot", math_dot},
-            {"cross", math_cross},
-            {"length", math_length},
-            {"distance", math_distance},
-            {"normalize", math_normalize},
+            {"dot", bind<&dot>},
+            {"cross", bind<&cross>},
+            {"length", bind<&length>},
+            {"distance", bind<&distance>},
+            {"normalize", bind<&normalize>},
             {"lerp", math_lerp},
-            {"moveToward", math_move_toward},
-            {"reflect", math_reflect},
-            {"angleAxis", math_angle_axis},
-            {"multiply", math_multiply},
-            {"rotate", math_rotate},
-            {"slerp", math_slerp},
-            {"fromEuler", math_from_euler},
-            {"toEuler", math_to_euler},
-            {"quatLookAt", math_quat_look_at},
+            {"moveToward", bind<&move_toward>},
+            {"reflect", bind<&reflect>},
+            {"angleAxis", bind<&angle_axis>},
+            {"multiply", bind<&multiply>},
+            {"rotate", bind<&rotate>},
+            {"slerp", bind<&slerp>},
+            {"fromEuler", bind<&from_euler>},
+            {"toEuler", bind<&to_euler>},
+            {"quatLookAt", bind<&quat_look_at>},
             {nullptr, nullptr}};
         luaL_register(lua, nullptr, math_functions);
         lua_setfield(lua, -2, "math");
