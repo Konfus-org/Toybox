@@ -48,6 +48,12 @@ namespace tbx
         float max_distance);
 
     /// @brief
+    /// Purpose: Casts a ray against the running world (tbx::current().physics) — the script-facing
+    /// raycast. Main-thread only.
+    TBX_DLL_EXPORT std::optional<RaycastHit>
+        raycast(const Vec3& origin, const Vec3& direction, float max_distance);
+
+    /// @brief
     /// Purpose: Advances the simulation one fixed step: mirrors the runtime sandbox's collider
     /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
     /// Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back

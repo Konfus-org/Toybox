@@ -86,6 +86,17 @@ namespace tbx
     TBX_DLL_EXPORT float get_axis(const InputState& input, GamepadAxis axis, int slot = 0);
     TBX_DLL_EXPORT float get_axis(const InputState& input, MouseAxis axis);
 
+    // --- Convenience over the running runtime (tbx::current().input): the script-facing input API.
+    // Distinct names per device so each binds to a single enum type (no overload ambiguity in codegen).
+    // Main-thread only.
+    TBX_DLL_EXPORT bool is_key_down(Key key);
+    TBX_DLL_EXPORT bool is_key_pressed(Key key);
+    TBX_DLL_EXPORT bool is_key_released(Key key);
+    TBX_DLL_EXPORT bool is_mouse_down(MouseButton button);
+    TBX_DLL_EXPORT bool is_mouse_pressed(MouseButton button);
+    TBX_DLL_EXPORT bool is_mouse_released(MouseButton button);
+    TBX_DLL_EXPORT float get_mouse_axis(MouseAxis axis);
+
     /// @brief
     /// Purpose: This frame's change in a mouse axis — X/Y are pointer movement, SCROLL is wheel
     /// travel. (Gamepad axes are absolute levels, so they have no delta.)
