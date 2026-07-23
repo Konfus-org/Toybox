@@ -155,9 +155,12 @@ namespace tbx
         const auto register_script_asset =
             [&state](const Uuid& id, const std::string_view extension)
         {
+            bool is_script_source = false;
             for (const auto& backend : state.scripts.backends)
                 if (backend->owns_extension(extension))
-                    return; // not a script source — nothing to (re)register
+                    is_script_source = true;
+            if (!is_script_source)
+                return; // not a script source — nothing to (re)register
 
             const auto script =
                 load_asset_now(state.assets, state.events, AssetHandle<ScriptSource>(id));

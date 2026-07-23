@@ -5,6 +5,7 @@
 #include "tbx/reflection/reflection.h"
 #include "tbx/runtime.h"
 #include "tbx/serialization/read_write.h"
+#include "tbx/serialization/serializers.h"
 #include <filesystem>
 
 // Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
@@ -21,6 +22,7 @@ int main(int argc, char** argv)
     // the .tapp; this file is only the loop and the selftest checks. The .tapp decodes
     // generically through the reflected App schema, so registration comes first.
     tbx::initialize_reflection();
+    tbx::register_builtin_serializers();
     const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
     auto loaded = tbx::deserialize<tbx::App>(tapp);
     if (!loaded)
@@ -53,9 +55,9 @@ int main(int argc, char** argv)
                     return 1;
                 }
                 // Fluent handle: mutators return the toy, so tagging and enabling chain.
-                player->sticker("selftest").set_enabled(true);
+                player->add("selftest").set_enabled(true);
             }
-            if (auto player = sandbox.find("Player"); player && player->has_sticker("scored"))
+            if (auto player = sandbox.find("Player"); player && player->has("scored"))
                 scored = true;
             if (sandbox.find("FarFloor"))
                 streamed_room_seen = true;
