@@ -9,7 +9,7 @@ namespace tbx
     /// @brief
     /// Purpose: GPU shader module — RAII: the destructor (defined by the selected gpu
     /// backend) releases the program. Obtain via compile_shader().
-    class TBX_API Shader final
+    class TBX_DLL_EXPORT Shader final
     {
       public:
         explicit Shader(uint32 id)
@@ -51,7 +51,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: One uniform a shader exposes, discovered by reflect_shader().
-    struct TBX_API UniformInfo
+    struct TBX_DLL_EXPORT UniformInfo
     {
         std::string name = {};
         UniformKind kind = UniformKind::UNKNOWN;
@@ -60,7 +60,7 @@ namespace tbx
     /// @brief
     /// Purpose: Everything a shader exposes — the schema materials program against, so any
     /// arbitrary shader "just works" without per-shader engine code.
-    struct TBX_API ShaderInfo
+    struct TBX_DLL_EXPORT ShaderInfo
     {
         std::vector<UniformInfo> uniforms = {};
     };

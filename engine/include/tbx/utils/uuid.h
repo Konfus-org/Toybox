@@ -9,7 +9,7 @@ namespace tbx
     /// @brief
     /// Purpose: 128-bit random identity, stable across runs (serialized into kits), unlike Toy
     /// ids which are per-session registry handles.
-    struct TBX_API Uuid
+    struct TBX_DLL_EXPORT Uuid
     {
         uint64 hi = 0;
         uint64 lo = 0;

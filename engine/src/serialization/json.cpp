@@ -275,7 +275,11 @@ namespace tbx
         data[TYPE_KEY] = type.name;
         data[VERSION_KEY] = type.version;
         for (const FieldInfo& field : type.fields)
+        {
+            if (!field.is_serialized)
+                continue; // reflected-only field ([[tbx::do_not_serialize]]) — never hits disk
             data[field.name] = write_field(field, object);
+        }
         return data;
     }
 
@@ -303,6 +307,8 @@ namespace tbx
 
         for (const FieldInfo& field : type.fields)
         {
+            if (!field.is_serialized)
+                continue; // reflected-only field ([[tbx::do_not_serialize]]) — never read from disk
             const auto it = working.find(field.name);
             if (it == working.end())
                 continue; // missing fields keep their current values

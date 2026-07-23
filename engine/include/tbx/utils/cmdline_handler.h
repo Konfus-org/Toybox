@@ -15,10 +15,10 @@ namespace tbx
     /// @brief
     /// Purpose: Applies parse-time options onto the app (window size overrides) — the
     /// Runtime constructor calls it before the window is created.
-    TBX_API void apply_cmdline(App& app);
+    TBX_DLL_EXPORT void apply_cmdline(App& app);
 
     /// @brief
     /// Purpose: Per-frame command handling (--screenshot captures) — run() calls it at
     /// frame start, while the backbuffer still holds the previous frame's image.
-    TBX_API void update_cmdline(RuntimeState& state);
+    TBX_DLL_EXPORT void update_cmdline(RuntimeState& state);
 }

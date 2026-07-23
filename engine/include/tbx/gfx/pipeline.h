@@ -29,7 +29,7 @@ namespace tbx
     /// Purpose: Everything a draw needs baked into one immutable object, modern-API style
     /// (Vulkan/Metal/WebGPU pipeline state): the shader plus depth/cull/blend state. No
     /// loose state toggles exist — changing state means binding a different pipeline.
-    struct TBX_API PipelineDescription
+    struct TBX_DLL_EXPORT PipelineDescription
     {
         std::reference_wrapper<const Shader> shader;
         bool is_depth_test_enabled = true;
@@ -41,7 +41,7 @@ namespace tbx
     /// @brief
     /// Purpose: A baked pipeline-state object; bind with set_render_pipeline(), then draw(). RAII
     /// via the backend. Obtain via make_render_pipeline().
-    class TBX_API Pipeline final
+    class TBX_DLL_EXPORT Pipeline final
     {
       public:
         explicit Pipeline(PipelineDescription description)

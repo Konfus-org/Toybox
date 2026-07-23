@@ -16,6 +16,7 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/rigid_body.h"
+#include "tbx/reflection/attributes.h"
 #include "tbx/scripting/script.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/ui/ui_block.h"
@@ -28,7 +29,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Graphics configuration applied at boot.
-    struct TBX_API GraphicsSettings
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT GraphicsSettings
     {
         bool is_vsync_enabled = false;
         // True = the host owns rendering (run() skips the builtin graph).
@@ -39,7 +40,7 @@ namespace tbx
     /// @brief
     /// Purpose: Physics configuration applied at boot; fixed_timestep also paces
     /// fixed_update scripting.
-    struct TBX_API PhysicsSettings
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT PhysicsSettings
     {
         float fixed_timestep = 1.0f / 60.0f;
         Vec3 gravity = Vec3(0.0f, -9.81f, 0.0f);
@@ -47,14 +48,14 @@ namespace tbx
 
     /// @brief
     /// Purpose: Audio configuration applied at boot.
-    struct TBX_API AudioSettings
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AudioSettings
     {
         float master_volume = 1.0f;
     };
 
     /// @brief
     /// Purpose: Asset system configuration applied at boot.
-    struct TBX_API AssetSettings
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AssetSettings
     {
         float idle_lifetime_seconds = 60.0f;
     };
@@ -73,7 +74,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: What the app IS: window shape, content wiring, and where its assets live.
-    struct TBX_API AppConfig
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AppConfig
     {
         int width = 1600;
         int height = 900;
@@ -84,12 +85,12 @@ namespace tbx
 
         // Derived, never serialized: where assets live — the host sets it (usually the
         // .tapp's folder) and the live value survives .tapp hot reloads. Boot requires it.
-        std::filesystem::path root_dir = {};
+        TBX_DO_NOT_SERIALIZE std::filesystem::path root_dir = {};
     };
 
     /// @brief
     /// Purpose: Subsystem tuning applied at boot and re-applied live when the .tapp changes.
-    struct TBX_API AppSettings
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AppSettings
     {
         GraphicsSettings graphics = {};
         PhysicsSettings physics = {};
@@ -104,15 +105,15 @@ namespace tbx
     /// serialized App (config + settings; state stays runtime-only), decoded generically
     /// through its reflected fields — deserialize<App>(path) after
     /// initialize_reflection() — and re-applied live when the watched file changes.
-    struct TBX_API App : Asset
+    struct TBX_SERIALIZABLE(SerializerFormat::DEFAULT) TBX_DLL_EXPORT App : Asset
     {
-        AppStatus status = AppStatus::CREATED;
+        TBX_DO_NOT_SERIALIZE AppStatus status = AppStatus::CREATED;
         AppConfig config = {};
         AppSettings settings = {};
 
         // Per-launch, never serialized — the host hands main()'s arguments over and the
         // runtime honors the built-in options (see cmdline_handler.h).
-        CommandList commands = {};
+        TBX_DO_NOT_SERIALIZE CommandList commands = {};
     };
 
 }

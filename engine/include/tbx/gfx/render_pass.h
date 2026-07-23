@@ -23,7 +23,7 @@ namespace tbx
     /// their load operation, explicit begin/end. With no target set the pass renders to the
     /// window swapchain; a color_target renders offscreen; a depth_target is a depth-only
     /// pass (shadow maps).
-    struct TBX_API RenderPassDescription
+    struct TBX_DLL_EXPORT RenderPassDescription
     {
         std::optional<std::reference_wrapper<const RenderTarget>> color_target = {};
         std::optional<std::reference_wrapper<const DepthTarget>> depth_target = {};

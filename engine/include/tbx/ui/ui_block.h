@@ -3,6 +3,7 @@
 #include "tbx/assets/handle.h"
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/shader_source.h"
+#include "tbx/reflection/attributes.h"
 #include "tbx/ui/document.h"
 #include "tbx/utils/typedefs.h"
 #include <functional>
@@ -21,7 +22,7 @@ namespace tbx
     /// @brief
     /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and
     /// is enabled (the render graph's ui pass manages loading/visibility).
-    struct TBX_API UI : Block
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT UI : Block
     {
         AssetHandle<Document> document = {};
         AssetHandle<ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert
@@ -32,7 +33,7 @@ namespace tbx
         // -style name). Scripts register these via ui:bind(slot, getter); the ui pass evaluates
         // them each frame it draws this block. Runtime only — never serialized (a fresh decode
         // carries none; scripts re-bind on start), so it is not a reflected field.
-        std::unordered_map<std::string, std::function<std::string()>> bindings = {};
+        TBX_DO_NOT_SERIALIZE std::unordered_map<std::string, std::function<std::string()>> bindings = {};
 
         // Fluent setters — each returns *this for one-chain construction.
         UI& set_document(AssetHandle<Document> value)

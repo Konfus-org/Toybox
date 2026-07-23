@@ -37,7 +37,7 @@ namespace tbx
     /// @details
     /// Movable so read<Sandbox> can hand one over — move it only while no streamed loads are
     /// in flight (startup, or right after close()). Copy is deleted: a world is unique.
-    struct TBX_API Sandbox : ToyContainer
+    struct TBX_DLL_EXPORT Sandbox : ToyContainer
     {
         Sandbox() = default;
         Sandbox(Sandbox&&) = default;
@@ -68,19 +68,19 @@ namespace tbx
     /// Purpose: Opens a kit as the whole world (a "level"): its toys add on the next
     /// update_sandbox() tick — immediate child kits expand at once, streamed ones when a camera
     /// looks their way.
-    TBX_API void open(Sandbox& sandbox, Kit level);
+    TBX_DLL_EXPORT void open(Sandbox& sandbox, Kit level);
 
     /// @brief
     /// Purpose: Unloads everything: every toy and all streaming state. The sandbox is empty and
     /// ready to open another level.
-    TBX_API void close(Sandbox& sandbox);
+    TBX_DLL_EXPORT void close(Sandbox& sandbox);
 
     /// @brief
     /// Purpose: The per-frame sandbox tick: settles builtin components (billboards face the active
     /// camera), flushes a pending open(), then streams kits by camera sight — loading what any
     /// frustum can see and collapsing what none can. tbx::run() calls this once, after
     /// scripts/physics settle transforms and before rendering.
-    TBX_API void update_sandbox(
+    TBX_DLL_EXPORT void update_sandbox(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -91,7 +91,7 @@ namespace tbx
     /// Purpose: The streaming primitive update_sandbox drives — loads streamed kits in sight of
     /// any frustum and collapses those out of sight of all, flushing a pending open() first.
     /// Public so tests can drive streaming with explicit frustum sets.
-    TBX_API void stream(
+    TBX_DLL_EXPORT void stream(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -102,12 +102,12 @@ namespace tbx
     /// Purpose: Sandbox's registered reader — a level file IS a sandbox: reads a .kit and
     /// opens it as a fresh world (its toys add on the first stream() tick). Call it through
     /// deserialize<Sandbox>(path).
-    TBX_API Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path);
+    TBX_DLL_EXPORT Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Sandbox's registered writer — every live toy captured as a kit file. Call it
     /// through serialize(sandbox, path).
-    TBX_API Result<void> serialize_sandbox(
+    TBX_DLL_EXPORT Result<void> serialize_sandbox(
         const Sandbox& sandbox,
         const std::filesystem::path& path);
 }

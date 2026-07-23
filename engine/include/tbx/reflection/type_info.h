@@ -19,7 +19,7 @@ namespace tbx
     /// Purpose: Runtime reflection record for one registered method: its name plus a
     /// type-erased invoker (object bytes + boxed arguments -> boxed result; an empty result
     /// means void or an argument mismatch).
-    struct TBX_API MethodInfo
+    struct TBX_DLL_EXPORT MethodInfo
     {
         std::string name = {};
         uint64 name_hash = 0;
@@ -30,7 +30,7 @@ namespace tbx
     /// @brief
     /// Purpose: Runtime reflection record for one registered type — the single schema behind
     /// serialization, kits, script bindings, and the future editor inspector.
-    struct TBX_API TypeInfo
+    struct TBX_DLL_EXPORT TypeInfo
     {
         std::string name = {};
         uint64 name_hash = 0;

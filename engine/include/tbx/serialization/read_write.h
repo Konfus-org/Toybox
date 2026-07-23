@@ -24,22 +24,22 @@ namespace tbx
     // plus the sidecar-routed meta fields); the meta-only pair serves TEXT, whose payload is
     // not JSON. The sidecar is `<path>.meta` — writes merge into it, preserving the identity
     // fields (id/version/type) the asset system mints.
-    TBX_API Result<void> deserialize_object(
+    TBX_DLL_EXPORT Result<void> deserialize_object(
         const std::filesystem::path& path,
         const TypeInfo& type,
         std::byte* object,
         std::span<const std::string> meta_fields);
-    TBX_API Result<void> serialize_object(
+    TBX_DLL_EXPORT Result<void> serialize_object(
         const std::filesystem::path& path,
         const TypeInfo& type,
         const std::byte* object,
         std::span<const std::string> meta_fields);
-    TBX_API Result<void> deserialize_meta_fields(
+    TBX_DLL_EXPORT Result<void> deserialize_meta_fields(
         const std::filesystem::path& path,
         const TypeInfo& type,
         std::byte* object,
         std::span<const std::string> meta_fields);
-    TBX_API Result<void> serialize_meta_fields(
+    TBX_DLL_EXPORT Result<void> serialize_meta_fields(
         const std::filesystem::path& path,
         const TypeInfo& type,
         const std::byte* object,

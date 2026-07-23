@@ -25,7 +25,7 @@ namespace tbx
     /// @brief
     /// Purpose: Emits one formatted line (with its source location); implemented by the
     /// selected logging backend.
-    TBX_API void write_log(
+    TBX_DLL_EXPORT void write_log(
         LogLevel level,
         std::string_view message,
         std::string_view source_file,

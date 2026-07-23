@@ -5,13 +5,14 @@
 #include "tbx/ecs/block.h"
 #include "tbx/ecs/container.h"
 #include "tbx/math/math.h"
+#include "tbx/reflection/attributes.h"
 #include "tbx/utils/result.h"
 #include "tbx/utils/typedefs.h"
 #include <filesystem>
 
 namespace tbx
 {
-    struct TBX_API Kit;
+    struct TBX_DLL_EXPORT Kit;
 
     /// @brief
     /// Purpose: A block marking a toy as an instantiated (or to-be-instantiated) kit: the
@@ -19,7 +20,7 @@ namespace tbx
     /// block — a nested kit is authored as a toy with a KitInstance, positioned by its
     /// transform. `streamed` defers that expansion to the streaming system: the kit loads
     /// when a camera looks its way and unloads when none does. Serializes like any block.
-    struct TBX_API KitInstance : Block
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT KitInstance : Block
     {
         AssetHandle<Kit> kit = {};
         bool streamed = false;
@@ -45,7 +46,7 @@ namespace tbx
     /// @details
     /// It shares its whole toy-container shape and query surface with Sandbox (ToyContainer);
     /// the registry is hidden. It stays copyable (it rides in the asset cache).
-    struct TBX_API Kit : ToyContainer, Asset
+    struct TBX_SERIALIZABLE(SerializerFormat::CUSTOM, reader=&deserialize_kit, writer=&serialize_kit) TBX_DLL_EXPORT Kit : ToyContainer, Asset
     {
         // How far the kit reaches from its origin — streaming uses this for the load/unload
         // distance (authored, preserved across read/write).
@@ -56,9 +57,9 @@ namespace tbx
     /// @brief
     /// Purpose: Kit's registered reader — the .kit JSON schema ({toys, bounds}) into a kit
     /// (toys spawned into its container). Call it through deserialize<Kit>(path).
-    TBX_API Result<Kit> deserialize_kit(const std::filesystem::path& path);
+    TBX_DLL_EXPORT Result<Kit> deserialize_kit(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Kit's registered writer — call it through serialize(kit, path).
-    TBX_API Result<void> serialize_kit(const Kit& kit, const std::filesystem::path& path);
+    TBX_DLL_EXPORT Result<void> serialize_kit(const Kit& kit, const std::filesystem::path& path);
 }

@@ -17,6 +17,7 @@ option(TBX_SANITIZE "Compile engine code (not third-party) with ASan+UBSan" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(tbx_backend)
+include(tbx_codegen)
 include(third_party_warnings)
 
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
@@ -31,6 +32,10 @@ tbx_backend(AUDIO steamaudio)
 tbx_backend(UI rmlui)
 tbx_backend_list(SCRIPTING luau)
 
+# --- Attribute codegen (see cmake/tbx_codegen.cmake): generates reflection + serialization
+# registration from [[tbx::serializable]] annotations into ${CMAKE_BINARY_DIR}/generated. ---
+tbx_generate_reflection()
+
 # --- Third-party dependencies (thirdparty/CMakeLists.txt owns every FetchContent) ---
 add_subdirectory(thirdparty)
 if(TBX_PHYSICS_BACKEND STREQUAL "jolt" AND NOT TARGET Jolt::Jolt AND TARGET Jolt)
@@ -40,13 +45,15 @@ endif()
 # --- The engine: one library, static by default, shared with -DTBX_BUILD_SHARED=ON ---
 # Public headers live in engine/include/tbx/<module>/, implementation in
 # engine/src/<module>/ (backend private headers may sit next to their .cpp). Public symbols
-# wear TBX_API (tbx/core/api.h): dllexport building the dll, dllimport consuming it.
+# wear TBX_DLL_EXPORT (tbx/core/api.h): dllexport building the dll, dllimport consuming it.
 file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
 list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|math|debug|serialization|audio|ui|ecs)/[^/]+/")
 list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GPU_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_ECS_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES} ${TBX_UI_BACKEND_SOURCES})
+# Codegen-produced registration (generated into the build tree by tbx_codegen).
+list(APPEND TBX_SOURCES ${TBX_GENERATED_SOURCES})
 
 if(TBX_BUILD_SHARED)
     add_library(tbx SHARED ${TBX_SOURCES})
@@ -55,6 +62,10 @@ else()
     add_library(tbx STATIC ${TBX_SOURCES})
 endif()
 target_include_directories(tbx PUBLIC engine/include)
+# Generated registration headers (tbx/reflection.generated.h) live in the build tree.
+target_include_directories(tbx PRIVATE "${TBX_GENERATED_DIR}")
+# Generation must finish before any tbx TU compiles (reflection.cpp/serializers.cpp include it).
+add_dependencies(tbx tbx_codegen)
 # Header-only backends contribute an include dir instead of sources.
 target_include_directories(tbx PUBLIC
     "engine/src/math/${TBX_MATH_BACKEND}"

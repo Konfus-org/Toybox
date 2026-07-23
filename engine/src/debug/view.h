@@ -14,7 +14,7 @@ namespace tbx
     /// @brief
     /// Purpose: Runs the overlay for one frame from its unpacked pieces — F3 toggles it, the
     /// first open loads its document, and its stats land in the runtime's ui bindings.
-    TBX_API void update_debug_view(
+    TBX_DLL_EXPORT void update_debug_view(
         DebuggingState& state,
         const InputState& input,
         const Sandbox& sandbox,

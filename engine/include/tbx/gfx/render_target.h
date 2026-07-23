@@ -8,7 +8,7 @@ namespace tbx
     /// Purpose: Offscreen color+depth render target (post-processing, editor viewports) —
     /// RAII via the backend. Obtain via make_render_target(); render into it via a render
     /// pass whose color attachment names it.
-    class TBX_API RenderTarget final
+    class TBX_DLL_EXPORT RenderTarget final
     {
       public:
         RenderTarget(

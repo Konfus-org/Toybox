@@ -14,7 +14,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Fired when the OS window's pixel size changes.
-    struct TBX_API WindowResized
+    struct TBX_DLL_EXPORT WindowResized
     {
         int width = 0;
         int height = 0;
@@ -23,7 +23,7 @@ namespace tbx
     /// @brief
     /// Purpose: An input transition for text/UI-style consumers; gameplay polls Input instead.
     /// Currently carries keyboard transitions; the generic name leaves room for other sources.
-    struct TBX_API InputEvent
+    struct TBX_DLL_EXPORT InputEvent
     {
         Key key = Key::UNKNOWN;
         bool is_down = false;
@@ -34,7 +34,7 @@ namespace tbx
     /// Purpose: Fired when a controller is plugged in and the engine has claimed a slot for it;
     /// index is that slot [0, MAX_GAMEPADS). Anything wanting per-device setup (UI prompts,
     /// player assignment) listens here rather than polling connection state.
-    struct TBX_API InputDeviceConnected
+    struct TBX_DLL_EXPORT InputDeviceConnected
     {
         int index = 0;
     };
@@ -42,14 +42,14 @@ namespace tbx
     /// @brief
     /// Purpose: Fired when a controller is unplugged; index is the slot it vacated. The engine
     /// has already released the device and cleared the slot's state by the time this dispatches.
-    struct TBX_API InputDeviceDisconnected
+    struct TBX_DLL_EXPORT InputDeviceDisconnected
     {
         int index = 0;
     };
 
     /// @brief
     /// Purpose: Fired on the main thread after an asset is first decoded and made available.
-    struct TBX_API AssetLoaded
+    struct TBX_DLL_EXPORT AssetLoaded
     {
         Uuid id = {};
         // The asset file's extension (".luau", ".png", ...) so listeners filter without a lookup.
@@ -58,7 +58,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Fired on the main thread after a watched asset file changed and re-decoded.
-    struct TBX_API AssetReloaded
+    struct TBX_DLL_EXPORT AssetReloaded
     {
         Uuid id = {};
         // The asset file's extension (".luau", ".png", ...) so listeners filter without a
@@ -70,7 +70,7 @@ namespace tbx
     /// @brief
     /// Purpose: Fired on the main thread when the asset system unloads an idle asset —
     /// caches keyed on the asset (GPU uploads, documents) drop their copies on this.
-    struct TBX_API AssetUnloaded
+    struct TBX_DLL_EXPORT AssetUnloaded
     {
         Uuid id = {};
         std::array<char, 16> extension = {};
@@ -79,7 +79,7 @@ namespace tbx
     /// @brief
     /// Purpose: Fired when two physics toys start touching (ToyId values; fed by the physics
     /// backend during the fixed step, delivered at the pump).
-    struct TBX_API CollisionEvent
+    struct TBX_DLL_EXPORT CollisionEvent
     {
         uint32 toy_a = 0;
         uint32 toy_b = 0;
@@ -90,7 +90,7 @@ namespace tbx
     /// means adding a member, deliberately. Scripts are assets, so script hot-reloads arrive
     /// as asset_reloaded events (filter on the ".luau"/".lua" extension) — there is no separate
     /// script-reloaded signal.
-    struct TBX_API EventsState
+    struct TBX_DLL_EXPORT EventsState
     {
         Queue queue;
         Signal<InputEvent> input {queue};
@@ -107,11 +107,11 @@ namespace tbx
     /// Purpose: Drops every subscription registered under the given owner tag from every signal
     /// at once — the bulk teardown a language backend runs before it tears down (so no handler
     /// capturing a dying VM survives to be dispatched). Extend this when adding a signal.
-    TBX_API void unsubscribe_all(EventsState& state, const void* owner);
+    TBX_DLL_EXPORT void unsubscribe_all(EventsState& state, const void* owner);
 
     /// @brief
     /// Purpose: Dispatches everything queued since the last update, in emission order — the
     /// events module's per-frame verb; tbx::run() calls it during the pump. Events emitted
     /// during an update land in the next one.
-    TBX_API void update_events(EventsState& state);
+    TBX_DLL_EXPORT void update_events(EventsState& state);
 }

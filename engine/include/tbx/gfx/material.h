@@ -5,6 +5,7 @@
 #include "tbx/utils/color.h"
 #include "tbx/gfx/shader_source.h"
 #include "tbx/gfx/texture.h"
+#include "tbx/reflection/attributes.h"
 #include <utility>
 
 namespace tbx
@@ -16,7 +17,7 @@ namespace tbx
     /// a free-form uniforms bag applied through shader reflection so arbitrary shaders just
     /// work. The .mat file references shaders/textures by asset-relative path; decoding
     /// resolves them to handles.
-    struct TBX_API Material : Asset
+    struct TBX_SERIALIZABLE(SerializerFormat::DEFAULT) TBX_DLL_EXPORT Material : Asset
     {
         AssetHandle<ShaderSource> vertex = {};
         AssetHandle<ShaderSource> fragment = {};

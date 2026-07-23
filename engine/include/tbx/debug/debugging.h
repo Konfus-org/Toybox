@@ -14,7 +14,7 @@ namespace tbx
     /// @brief
     /// Purpose: The debug overlay's state, held by value on the Runtime: its document text,
     /// visibility, and smoothed timings.
-    struct TBX_API DebuggingState
+    struct TBX_DLL_EXPORT DebuggingState
     {
         Document document = {};
         uint64 frame = 0;
@@ -27,5 +27,5 @@ namespace tbx
     /// Purpose: Runs the debug overlay for one frame from the whole runtime — F3 toggles it,
     /// the first open loads its document, and its stats land in the ui bindings. Called by
     /// tbx::run() every frame.
-    TBX_API void update_debugging(RuntimeState& state);
+    TBX_DLL_EXPORT void update_debugging(RuntimeState& state);
 }

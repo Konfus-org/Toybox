@@ -7,7 +7,7 @@ namespace tbx
     /// Purpose: Linear-space RGBA color, components in [0, 1] (engine-owned, backend-free).
     /// The named palette lives on the type (Color::WHITE()) so it reads flat at tbx level
     /// without a colors namespace.
-    struct TBX_API Color
+    struct TBX_DLL_EXPORT Color
     {
         float r = 1.0f;
         float g = 1.0f;

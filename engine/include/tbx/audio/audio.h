@@ -15,7 +15,7 @@ namespace tbx
     /// Purpose: The audio module's state, held by value on the Runtime. The spatializer and
     /// output device live behind the backend seam (audio/steamaudio/ defines Backend; library
     /// types never escape that folder) and are built lazily on the first update.
-    struct TBX_API AudioState
+    struct TBX_DLL_EXPORT AudioState
     {
         AudioState();
         ~AudioState();
@@ -34,7 +34,7 @@ namespace tbx
     /// Purpose: Advances audio one frame: mirrors the sandbox's listener/source toys into
     /// the spatializer (clips resolve through the asset states) and keeps the output device
     /// fed. Called by tbx::run() every frame.
-    TBX_API void update_audio(
+    TBX_DLL_EXPORT void update_audio(
         AudioState& audio,
         Sandbox& sandbox,
         AssetsState& assets,

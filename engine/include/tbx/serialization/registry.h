@@ -28,7 +28,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns every SerializerInfo; entries live for the process. Thread Safety:
     /// Register on the main thread during startup; lookups are lock-free reads afterwards.
-    class TBX_API SerializerRegistry final
+    class TBX_DLL_EXPORT SerializerRegistry final
     {
       public:
         SerializerRegistry() = default;
@@ -60,25 +60,13 @@ namespace tbx
         /// Purpose: Looks up a serializer by its type hash; empty when unregistered.
         std::optional<std::reference_wrapper<const SerializerInfo>> find(size type_hash) const;
 
-        /// @brief
-        /// Purpose: The serializer whose type claims this file extension (with the leading dot,
-        /// ".png"); empty when none do. First registered match wins if several claim it.
-        std::optional<std::reference_wrapper<const SerializerInfo>> find_by_extension(
-            std::string_view extension) const;
-
       private:
         std::vector<std::unique_ptr<SerializerInfo>> _serializers;
     };
 
     /// @brief
     /// Purpose: The process-wide registry instance.
-    TBX_API SerializerRegistry& get_serializer_registry();
-
-    /// @brief
-    /// Purpose: The registered serializer for a file extension (with the leading dot, ".png") —
-    /// maps a file to its asset type; empty when no registered type claims it.
-    TBX_API std::optional<std::reference_wrapper<const SerializerInfo>> find_serializer_by_extension(
-        std::string_view extension);
+    TBX_DLL_EXPORT SerializerRegistry& get_serializer_registry();
 
     /// @brief
     /// Purpose: The registered serializer for a type; empty when unregistered.

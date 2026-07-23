@@ -2,6 +2,7 @@
 #include "tbx/api.h"
 #include "tbx/ecs/block.h"
 #include "tbx/math/frustum.h"
+#include "tbx/reflection/attributes.h"
 #include "tbx/math/math.h"
 #include <string>
 #include <utility>
@@ -13,7 +14,7 @@ namespace tbx
     /// empty = the main window) and a normalized viewport rect within it (x, y, width,
     /// height with a bottom-left origin, glViewport-style). Position/orientation come from
     /// Transform (looks along its -Z). Every enabled camera renders.
-    struct TBX_API Camera : Block
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT Camera : Block
     {
         float fov_degrees = 60.0f;
         float near_plane = 0.1f;
@@ -53,11 +54,11 @@ namespace tbx
     /// Purpose: The matrix this camera draws with — perspective(fov, aspect, near, far)
     /// composed with the inverse of its toy's world matrix. The renderer and streaming both
     /// build views from here, so they agree by construction.
-    TBX_API Mat4
+    TBX_DLL_EXPORT Mat4
         get_view_projection(const Camera& camera, const Mat4& world_matrix, float aspect_ratio);
 
     /// @brief
     /// Purpose: The camera's view frustum — what streaming tests kit bounds against.
-    TBX_API Frustum
+    TBX_DLL_EXPORT Frustum
         make_frustum(const Camera& camera, const Mat4& world_matrix, float aspect_ratio);
 }

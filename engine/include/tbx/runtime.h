@@ -20,7 +20,7 @@ namespace tbx
     /// @brief
     /// Purpose: Loop pacing — the frame clock and the fixed-step accumulator, queried as
     /// frame.previous / frame.accumulator.
-    struct TBX_API FrameState
+    struct TBX_DLL_EXPORT FrameState
     {
         uint64 index = 0;
         std::chrono::steady_clock::time_point previous = {};
@@ -38,7 +38,7 @@ namespace tbx
     /// the modules. Do not reorder members without re-deriving that sequence. Lives at a
     /// stable heap address behind Runtime so async work (watcher, workers, coroutines, Lua)
     /// survives Runtime moves.
-    struct TBX_API RuntimeState
+    struct TBX_DLL_EXPORT RuntimeState
     {
         App app = {};
         Sandbox sandbox = {};
@@ -64,7 +64,7 @@ namespace tbx
     /// either way; async work (watcher, workers, coroutines, Lua) must capture RuntimeState&,
     /// never this handle — the handle's pointer is in motion between frames. One Runtime with
     /// a window or UI at a time: the platform and UI libraries underneath are process-global.
-    struct TBX_API Runtime
+    struct TBX_DLL_EXPORT Runtime
     {
         Runtime();
         explicit Runtime(App app);
@@ -86,9 +86,9 @@ namespace tbx
     /// graphics.is_custom_pipeline — then the host draws). The first call boots
     /// (CREATED -> RUNNING); false means the app stopped — teardown is the Runtime's
     /// destructor. THE loop: `while (tbx::run(runtime)) { ... }`.
-    TBX_API bool run(Runtime& runtime);
+    TBX_DLL_EXPORT bool run(Runtime& runtime);
 
     /// @brief
     /// Purpose: Requests a clean exit — the next run() stops the app.
-    TBX_API void quit(Runtime& runtime);
+    TBX_DLL_EXPORT void quit(Runtime& runtime);
 }

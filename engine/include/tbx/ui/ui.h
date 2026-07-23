@@ -30,7 +30,7 @@ namespace tbx
     /// @brief
     /// Purpose: THE link between two things: a named document slot (data-text / data-style
     /// attributes) and the source producing its value, evaluated every update_ui().
-    struct TBX_API Binding
+    struct TBX_DLL_EXPORT Binding
     {
         std::string name = {};
         std::function<std::string()> source = {};
@@ -43,7 +43,7 @@ namespace tbx
     /// block instead (UI::bindings). The document/render stack lives behind the backend seam
     /// (ui/rmlui/ defines Backend; library types never escape that folder), built lazily on the
     /// first draw.
-    struct TBX_API UiState
+    struct TBX_DLL_EXPORT UiState
     {
         UiState();
         ~UiState();
@@ -67,7 +67,7 @@ namespace tbx
     /// business: passes set gpu pipelines around the textures this produces. `owner` is the UI
     /// block this document belongs to: its per-block `bindings` are evaluated and resolve a
     /// slot before the global bindings map (nullptr for engine layers like the debug overlay).
-    TBX_API void draw_ui(
+    TBX_DLL_EXPORT void draw_ui(
         UiState& state,
         const Document& document,
         const RenderTarget& target,
@@ -78,17 +78,17 @@ namespace tbx
     /// font-family in their styles. Faces are fallback-capable; call once per face (the
     /// runtime sets the engine's builtin font at boot, games may add more). The boundary
     /// keeps its own copy of the bytes, so the asset may unload freely.
-    TBX_API void set_font(UiState& state, const Font& font, const std::string& family);
+    TBX_DLL_EXPORT void set_font(UiState& state, const Font& font, const std::string& family);
 
     /// @brief
     /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
     /// documents. Called by tbx::run() every frame.
-    TBX_API void update_ui(UiState& state, float delta_time);
+    TBX_DLL_EXPORT void update_ui(UiState& state, float delta_time);
 
     /// @brief
     /// Purpose: Registers a binding (replacing any with the same name); its source runs
     /// every update_ui().
-    TBX_API void bind(UiState& state, Binding binding);
+    TBX_DLL_EXPORT void bind(UiState& state, Binding binding);
 
     // The live bind family: this property binds to that UI element — mutate the variable
     // and the element follows (the variable must outlive the binding; unbind() releases).

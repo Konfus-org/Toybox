@@ -104,7 +104,7 @@ namespace tbx
         /// @brief
         /// Purpose: Registers one member; kind and offset are deduced from the member pointer.
         template <typename TField>
-        TypeRegistration& field(std::string name, TField T::* member)
+        TypeRegistration& field(std::string name, TField T::* member, const FieldOptions& options = {})
         {
             // Offset via a live instance instead of the null-deref trick — no UB.
             auto probe = T();
@@ -117,6 +117,8 @@ namespace tbx
             field.offset = offset;
             field.size_bytes = sizeof(TField);
             field.kind = field_kind_of<TField>();
+            field.is_serialized = options.is_serialized;
+            field.is_exposed_to_scripting = options.is_exposed_to_scripting;
             if constexpr (std::is_enum_v<TField>)
                 field.is_enum_signed = std::is_signed_v<std::underlying_type_t<TField>>;
             if constexpr (field_kind_of<TField>() == FieldKind::TYPE)
@@ -144,7 +146,10 @@ namespace tbx
         /// Purpose: Registers a list-of-asset-handles member (e.g. PostProcessing::shaders);
         /// serialized as an array of uuid strings.
         template <typename TAsset>
-        TypeRegistration& field(std::string name, std::vector<AssetHandle<TAsset>> T::* member)
+        TypeRegistration& field(
+            std::string name,
+            std::vector<AssetHandle<TAsset>> T::* member,
+            const FieldOptions& options = {})
         {
             auto probe = T();
             const auto offset = static_cast<size>(
@@ -156,6 +161,8 @@ namespace tbx
             field.offset = offset;
             field.size_bytes = sizeof(std::vector<AssetHandle<TAsset>>);
             field.kind = FieldKind::ASSET_LIST;
+            field.is_serialized = options.is_serialized;
+            field.is_exposed_to_scripting = options.is_exposed_to_scripting;
             field.read_asset_list = [offset](const std::byte* object)
             {
                 const auto& list = *std::launder(
@@ -184,7 +191,10 @@ namespace tbx
         /// as an array of the element type's objects.
         template <typename TElement>
             requires(!IsAssetHandle<TElement>::value && std::is_class_v<TElement>)
-        TypeRegistration& field(std::string name, std::vector<TElement> T::* member)
+        TypeRegistration& field(
+            std::string name,
+            std::vector<TElement> T::* member,
+            const FieldOptions& options = {})
         {
             auto probe = T();
             const auto offset = static_cast<size>(
@@ -205,6 +215,8 @@ namespace tbx
             field.offset = offset;
             field.size_bytes = sizeof(std::vector<TElement>);
             field.kind = FieldKind::TYPE_LIST;
+            field.is_serialized = options.is_serialized;
+            field.is_exposed_to_scripting = options.is_exposed_to_scripting;
             field.nested_hash = std::cref(TypeSlot<TElement>::hash);
             field.get_list_count = [list_of](const std::byte* object)
             {

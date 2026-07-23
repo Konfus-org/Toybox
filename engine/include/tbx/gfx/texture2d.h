@@ -7,7 +7,7 @@ namespace tbx
     /// @brief
     /// Purpose: GPU 2D texture (RGBA8) — RAII: the backend-defined destructor releases it.
     /// Obtain via upload_texture_to_gpu().
-    class TBX_API Texture2d final
+    class TBX_DLL_EXPORT Texture2d final
     {
       public:
         explicit Texture2d(uint32 id)

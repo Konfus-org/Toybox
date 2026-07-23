@@ -38,25 +38,9 @@ namespace tbx
         return {};
     }
 
-    std::optional<std::reference_wrapper<const SerializerInfo>> SerializerRegistry::find_by_extension(
-        const std::string_view extension) const
-    {
-        for (const std::unique_ptr<SerializerInfo>& serializer : _serializers)
-            for (const std::string& ext : serializer->extensions)
-                if (ext == extension)
-                    return std::cref(*serializer);
-        return {};
-    }
-
     SerializerRegistry& get_serializer_registry()
     {
         static SerializerRegistry g_registry;
         return g_registry;
-    }
-
-    std::optional<std::reference_wrapper<const SerializerInfo>> find_serializer_by_extension(
-        const std::string_view extension)
-    {
-        return get_serializer_registry().find_by_extension(extension);
     }
 }

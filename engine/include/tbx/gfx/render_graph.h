@@ -30,7 +30,7 @@ namespace tbx
     /// gpu boundary. The frame's camera + light data (view_projection, camera_position, light_*)
     /// lives on renderer.frame, and the builtin shaders/meshes/targets on renderer — so place a
     /// scene-reading pass AFTER make_geometry_shadow_pass(), which populates renderer.frame.
-    struct TBX_API RenderContext
+    struct TBX_DLL_EXPORT RenderContext
     {
         RenderState& renderer;
         Sandbox& sandbox;
@@ -45,7 +45,7 @@ namespace tbx
     /// @brief
     /// Purpose: One pass of a frame — a named function drawing its slice through the tbx::gpu
     /// boundary (its own gpu render passes, pipelines, draws).
-    struct TBX_API RenderPass
+    struct TBX_DLL_EXPORT RenderPass
     {
         std::string name = {};
         std::function<void(RenderContext& context)> render = {};
@@ -56,7 +56,7 @@ namespace tbx
     /// begin_render_frame and present. make_default_render_graph() builds the standard list
     /// (shadow, geometry with sky, post, ui); games mutate `passes` directly (reorder, erase,
     /// push_back) or build one from scratch. tbx::render() runs it.
-    struct TBX_API RenderGraph
+    struct TBX_DLL_EXPORT RenderGraph
     {
         std::vector<RenderPass> passes = {};
     };
@@ -64,37 +64,37 @@ namespace tbx
     /// @brief
     /// Purpose: The standard pass list: shadow, geometry (with sky), post, ui. run() seeds the
     /// runtime's render_graph with this at boot; games start from it or replace `passes`.
-    TBX_API RenderGraph make_default_render_graph();
+    TBX_DLL_EXPORT RenderGraph make_default_render_graph();
 
     /// @brief
     /// Purpose: Runs the render state's graph (context.renderer.render_graph) for one window —
     /// owns the per-window render concerns: binds the window (make_current) and its viewport,
     /// opens the frame (begin_render_frame), then runs every pass in order. run() calls this for
     /// each open window; custom hosts set renderer.render_graph.passes and call it too.
-    TBX_API void render(RenderContext& context);
+    TBX_DLL_EXPORT void render(RenderContext& context);
 
     // The builtin passes — compose custom graphs from them or mix in your own.
 
     /// @brief
     /// Purpose: Depth from the first directional light into the shadow map.
-    TBX_API RenderPass make_shadow_render_pass();
+    TBX_DLL_EXPORT RenderPass make_shadow_render_pass();
 
     /// @brief
     /// Purpose: Sky + every Renderer toy, lit and shadowed, from the first Camera. When a
     /// PostProcessing block is live the scene lands in an offscreen target for the post pass.
-    TBX_API RenderPass make_geometry_shadow_pass();
+    TBX_DLL_EXPORT RenderPass make_geometry_shadow_pass();
 
     /// @brief
     /// Purpose: Runs the live PostProcessing block's shader chain onto the swapchain.
-    TBX_API RenderPass make_post_render_pass();
+    TBX_DLL_EXPORT RenderPass make_post_render_pass();
 
     /// @brief
     /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
-    TBX_API RenderPass make_ui_render_pass();
+    TBX_DLL_EXPORT RenderPass make_ui_render_pass();
 
     /// @brief
     /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
     /// compiled material pipelines, shown UI documents) — wired to the asset system's
     /// unload/reload events so caches follow asset lifetime instead of managing their own.
-    TBX_API void gpu_purge(RenderState& renderer, const Uuid& asset_id);
+    TBX_DLL_EXPORT void gpu_purge(RenderState& renderer, const Uuid& asset_id);
 }

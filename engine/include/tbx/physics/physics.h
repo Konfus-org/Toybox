@@ -15,7 +15,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: What a raycast hit: the toy, where, and how far along the ray.
-    struct TBX_API RaycastHit
+    struct TBX_DLL_EXPORT RaycastHit
     {
         ToyId toy = NULL_TOY;
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
@@ -26,7 +26,7 @@ namespace tbx
     /// Purpose: The physics module's state, held by value on the Runtime. The simulation
     /// itself lives behind the backend seam (physics/jolt/ defines Simulation; library types
     /// never escape that folder) and is built lazily on the first update.
-    struct TBX_API PhysicsState
+    struct TBX_DLL_EXPORT PhysicsState
     {
         PhysicsState();
         ~PhysicsState();
@@ -41,7 +41,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Casts a ray against the simulated world; empty when nothing is hit.
-    TBX_API std::optional<RaycastHit> raycast(
+    TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
         PhysicsState& physics,
         const Vec3& origin,
         const Vec3& direction,
@@ -52,7 +52,7 @@ namespace tbx
     /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
     /// Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
     /// to Transforms, and emits collision events (delivered at the next pump drain).
-    TBX_API void update_physics(
+    TBX_DLL_EXPORT void update_physics(
         PhysicsState& physics,
         Sandbox& sandbox,
         AssetsState& assets,

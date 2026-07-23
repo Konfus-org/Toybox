@@ -3,6 +3,7 @@
 #include "tbx/assets/handle.h"
 #include "tbx/audio/clip.h"
 #include "tbx/ecs/block.h"
+#include "tbx/reflection/attributes.h"
 #include <utility>
 
 
@@ -12,7 +13,7 @@ namespace tbx
     /// Purpose: Makes a toy emit sound: a clip played at the toy's position. A Collider on the
     /// same toy gives the source its spatial extent (shared Shape vocabulary — bigger shapes
     /// attenuate more gently); without one it is a point source.
-    struct TBX_API AudioSource : Block
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AudioSource : Block
     {
         AssetHandle<AudioClip> clip = {};
         float volume = 1.0f;

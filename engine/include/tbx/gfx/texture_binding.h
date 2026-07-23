@@ -11,7 +11,7 @@ namespace tbx
     /// @brief
     /// Purpose: One texture bound for one draw, modern-API style (Vulkan/Metal/WebGPU bind
     /// groups): bindings travel WITH the draw call instead of mutating loose slot state.
-    struct TBX_API TextureBinding
+    struct TBX_DLL_EXPORT TextureBinding
     {
         int slot = 0;
         std::variant<

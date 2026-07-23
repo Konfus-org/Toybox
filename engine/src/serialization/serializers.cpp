@@ -1,17 +1,9 @@
 #include "tbx/serialization/serializers.h"
-#include "tbx/app.h"
-#include "tbx/audio/clip.h"
-#include "tbx/ecs/kit.h"
+#include "tbx/debug/log.h"
 #include "tbx/ecs/sandbox.h"
-#include "tbx/gfx/material.h"
-#include "tbx/gfx/model.h"
-#include "tbx/gfx/shader_source.h"
-#include "tbx/gfx/texture.h"
+#include "tbx/reflection.generated.h"
 #include "tbx/reflection/reflection.h"
-#include "tbx/scripting/source.h"
 #include "tbx/serialization/registration.h"
-#include "tbx/ui/document.h"
-#include "tbx/ui/font.h"
 
 namespace tbx
 {
@@ -27,60 +19,17 @@ namespace tbx
         if (is_serialization_ready())
             return;
 
-        // Types with real codecs bring a reader (and a writer when writing makes sense);
-        // text assets are SerializerFormat::TEXT; plain data types round-trip through their
-        // reflection.
-        register_serializer<Texture>()
-            .format(SerializerFormat::CUSTOM)
-            .extension(".png")
-            .extension(".jpg")
-            .extension(".jpeg")
-            .extension(".tga")
-            .extension(".bmp")
-            .deserializer(deserialize_texture)
-            .serializer(serialize_texture);
-        register_serializer<Model>()
-            .format(SerializerFormat::CUSTOM)
-            .extension(".fbx")
-            .extension(".obj")
-            .extension(".gltf")
-            .extension(".glb")
-            .deserializer(deserialize_model);
-        register_serializer<ShaderSource>()
-            .format(SerializerFormat::TEXT)
-            .extension(".vert")
-            .extension(".frag")
-            .extension(".geom")
-            .extension(".glsl");
-        register_serializer<AudioClip>()
-            .format(SerializerFormat::CUSTOM)
-            .extension(".wav")
-            .extension(".ogg")
-            .extension(".mp3")
-            .extension(".flac")
-            .deserializer(deserialize_clip);
-        register_serializer<ScriptSource>()
-            .format(SerializerFormat::TEXT)
-            .extension(".luau")
-            .extension(".lua");
-        register_serializer<Document>().format(SerializerFormat::TEXT).extension(".html");
-        register_serializer<Font>()
-            .format(SerializerFormat::CUSTOM)
-            .extension(".otf")
-            .extension(".ttf")
-            .deserializer(deserialize_font);
-        register_serializer<Kit>()
-            .format(SerializerFormat::CUSTOM)
-            .extension(".kit")
-            .deserializer(deserialize_kit)
-            .serializer(serialize_kit);
+        // Every builtin serializer is generated from its type's [[tbx::serializable]] annotation
+        // (tools/codegen). Add one by annotating the struct, not by editing this file.
+        register_generated_serializers();
+
+        // Sandbox is the one exception: it is a move-only toy container, not a reflected data type, so
+        // it cannot be register_type'd (std::any needs a copyable type) — codegen skips it. Its custom
+        // disk codec is registered here by hand.
         register_serializer<Sandbox>()
             .format(SerializerFormat::CUSTOM)
-            .extension(".kit")
             .deserializer(deserialize_sandbox)
             .serializer(serialize_sandbox);
-        register_serializer<Material>().format(SerializerFormat::DEFAULT).extension(".mat");
-        register_serializer<App>().format(SerializerFormat::DEFAULT).extension(".tapp");
     }
 
     bool is_serialization_ready()

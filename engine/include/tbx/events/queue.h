@@ -14,7 +14,7 @@ namespace tbx
     /// lives in the frame arena. The void pointers are a deliberate type-erasure boundary —
     /// Signal<T>::emit erases itself and its payload here and Signal<T>::dispatch restores the
     /// types; nothing else touches them.
-    struct TBX_API QueuedEvent
+    struct TBX_DLL_EXPORT QueuedEvent
     {
         void (*dispatch)(void* signal, const void* payload) = nullptr;
         void* signal = nullptr;
@@ -27,7 +27,7 @@ namespace tbx
     /// Ownership: Owned by the events module state. Thread Safety: push() is safe from any
     /// thread; drain() runs on the main thread once per frame (the runtime's pump). Events
     /// emitted during a drain land in the next frame — deterministic, no re-entrancy.
-    class TBX_API Queue final
+    class TBX_DLL_EXPORT Queue final
     {
       public:
         /// @brief

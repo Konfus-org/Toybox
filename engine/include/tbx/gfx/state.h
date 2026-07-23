@@ -23,7 +23,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: A shader plus the pipeline-state object it draws with.
-    struct TBX_API CompiledPipeline
+    struct TBX_DLL_EXPORT CompiledPipeline
     {
         std::unique_ptr<Shader> shader;
         std::unique_ptr<Pipeline> pipeline;
@@ -32,7 +32,7 @@ namespace tbx
     /// @brief
     /// Purpose: Per-frame scratch shared between the builtin passes of one frame: camera and
     /// light data plus the resolved post chain handed from geometry to post.
-    struct TBX_API FrameContext
+    struct TBX_DLL_EXPORT FrameContext
     {
         Mat4 view_projection = Mat4(1.0f);
         Vec3 camera_position = Vec3(0.0f, 0.0f, 0.0f);
@@ -50,7 +50,7 @@ namespace tbx
     /// Purpose: The renderer's state, held by value on the Runtime: lazily-built builtin
     /// resources plus per-asset GPU caches. Declared after the window in RuntimeState —
     /// destroyed before it — so every GPU object here dies while the GL context is alive.
-    struct TBX_API RenderState
+    struct TBX_DLL_EXPORT RenderState
     {
         RenderState() = default;
         ~RenderState() = default;

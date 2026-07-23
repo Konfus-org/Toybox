@@ -22,7 +22,7 @@ namespace tbx
     /// (scripting/luau/, later csharp/...) implements it and claims sources by extension.
     /// @details
     /// Ownership: Owned by Scripts. Thread Safety: Main thread only.
-    class TBX_API ScriptBackend
+    class TBX_DLL_EXPORT ScriptBackend
     {
       public:
         virtual ~ScriptBackend() = default;
@@ -82,7 +82,7 @@ namespace tbx
     /// (VMs), built lazily against the runtime's sandbox, plus which script-source assets
     /// were acquired. Declared after the sandbox in RuntimeState, so the VMs die before
     /// their world.
-    struct TBX_API ScriptsState
+    struct TBX_DLL_EXPORT ScriptsState
     {
         ScriptsState() = default;
         ~ScriptsState() = default;
@@ -106,14 +106,14 @@ namespace tbx
 
     /// @brief
     /// Purpose: Builds the compiled-in scripting backends against this runtime. Idempotent.
-    TBX_API void initialize_scripting(RuntimeState& runtime);
+    TBX_DLL_EXPORT void initialize_scripting(RuntimeState& runtime);
 
     /// @brief
     /// Purpose: (Re)compiles a script source under its asset id and flags it so any running
     /// instances restart on the new code next update. This is the one registration path — call it
     /// in response to the script asset's load/reload message. A syntax error comes back here and
     /// leaves the previous (working) bytecode running.
-    TBX_API Result<void> compile_script(
+    TBX_DLL_EXPORT Result<void> compile_script(
         ScriptsState& state,
         const Uuid& id,
         const std::string& name,
@@ -123,7 +123,7 @@ namespace tbx
     /// Purpose: Runs every scripted toy's fixed-cadence hook; called from the fixed step alongside
     /// physics so scripts can do physics-rate work. Iterates the sandbox's scripted toys (the
     /// coordinator owns the loop; backends just run one toy at a time).
-    TBX_API void fixed_update_scripts(
+    TBX_DLL_EXPORT void fixed_update_scripts(
         ScriptsState& state,
         Sandbox& sandbox,
         float fixed_delta_time);
@@ -134,7 +134,7 @@ namespace tbx
     /// glue hands it to the owning backend. Then reaps any script that vanished since last frame
     /// (toy despawned or Script block removed): fires its cleanup hook and frees it. Called by
     /// tbx::run() every frame.
-    TBX_API void update_scripts(
+    TBX_DLL_EXPORT void update_scripts(
         ScriptsState& state,
         Sandbox& sandbox,
         AssetsState& assets,
@@ -144,5 +144,5 @@ namespace tbx
     /// @brief
     /// Purpose: Fires cleanup then frees every live script instance — the shutdown pass, run once
     /// while the sandbox is still alive (so cleanup gets live toys) before the VMs are destroyed.
-    TBX_API void purge_scripts(ScriptsState& state, Sandbox& sandbox);
+    TBX_DLL_EXPORT void purge_scripts(ScriptsState& state, Sandbox& sandbox);
 }

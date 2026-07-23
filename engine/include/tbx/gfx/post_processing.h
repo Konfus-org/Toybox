@@ -3,6 +3,7 @@
 #include "tbx/assets/handle.h"
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/shader_source.h"
+#include "tbx/reflection/attributes.h"
 #include <utility>
 #include <vector>
 
@@ -13,7 +14,7 @@ namespace tbx
     /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the
     /// rendered scene in order. Each shader samples u_scene (plus u_resolution and u_time).
     /// One per sandbox (the first wins).
-    struct TBX_API PostProcessing : Block
+    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT PostProcessing : Block
     {
         std::vector<AssetHandle<ShaderSource>> shaders = {};
 

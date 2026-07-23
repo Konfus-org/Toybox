@@ -36,14 +36,31 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Per-field registration toggles carried on the fluent .field(...) call — defaults keep a
+    /// field both persisted and script-visible (the common case), so hand-written registrations that
+    /// pass nothing behave exactly as before. Codegen flips these for [[tbx::do_not_serialize]] and the
+    /// scripting-visibility axis.
+    struct FieldOptions
+    {
+        bool is_serialized = true;
+        bool is_exposed_to_scripting = true;
+    };
+
+    /// @brief
     /// Purpose: One reflected field: where it lives in the object and how to read/write it.
-    struct TBX_API FieldInfo
+    struct TBX_DLL_EXPORT FieldInfo
     {
         std::string name = {};
         size offset = 0;
         size size_bytes = 0;
         FieldKind kind = FieldKind::BOOL;
         bool is_enum_signed = false;
+        // Persisted to disk by the JSON walker? [[tbx::do_not_serialize]] fields stay reflected (and
+        // thus script/editor visible) but are skipped by json_read/json_write.
+        bool is_serialized = true;
+        // Visible to the scripting-language bindings? Gated in Phase 2; defaults true so Phase 1 leaves
+        // scripting behaviour unchanged.
+        bool is_exposed_to_scripting = true;
         // Points at the owning TypeSlot's hash so nested types may register in any order;
         // empty for non-TYPE fields.
         std::optional<std::reference_wrapper<const uint64>> nested_hash = {};

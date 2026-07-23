@@ -1,0 +1,7 @@
+# Build-time prerequisites for the Toybox attribute codegen (tools/codegen).
+# Install with:  python -m pip install -r tools/codegen/requirements.txt
+#
+# libclang bundles a matching libclang shared library, so no separate LLVM install is needed to run
+# the tool (the engine still builds with whatever compiler the CMake preset selects).
+libclang>=16.0
+jinja2>=3.0

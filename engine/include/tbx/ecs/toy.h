@@ -17,7 +17,7 @@ namespace tbx
     /// Purpose: The one engine-internal record every toy carries: identity (uuid + name),
     /// enabled state, its parent, and its stickers. One component holding all the standard
     /// per-toy data the engine tracks itself.
-    struct TBX_API ToyInfo
+    struct TBX_DLL_EXPORT ToyInfo
     {
         Uuid uuid = {};
         std::string name = {};
@@ -35,7 +35,7 @@ namespace tbx
     /// @details
     /// Ownership: A view — the container owns the toy. Thread Safety: Main thread only
     /// (structural mutation rule).
-    class TBX_API Toy final
+    class TBX_DLL_EXPORT Toy final
     {
       public:
         Toy() = default;

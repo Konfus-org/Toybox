@@ -15,7 +15,7 @@ namespace tbx
     /// plus positional arguments (a leading digit is a negative number, never an option).
     /// Flags without a value read back as "true" ("--selftest" -> get<bool>("selftest") ==
     /// true). Parse once at startup, read anywhere.
-    class TBX_API CommandList final
+    class TBX_DLL_EXPORT CommandList final
     {
       public:
         CommandList() = default;

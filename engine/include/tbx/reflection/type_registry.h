@@ -22,7 +22,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns every TypeInfo; entries live for the process. Thread Safety: Register on
     /// the main thread during startup; lookups are lock-free reads afterwards.
-    class TBX_API TypeRegistry final
+    class TBX_DLL_EXPORT TypeRegistry final
     {
       public:
         TypeRegistry() = default;
@@ -63,18 +63,18 @@ namespace tbx
 
     /// @brief
     /// Purpose: The process-wide registry instance.
-    TBX_API TypeRegistry& get_type_registry();
+    TBX_DLL_EXPORT TypeRegistry& get_type_registry();
 
     // The read half of reflection: register_type() writes a description, describe_type() reads
     // one back.
 
     /// @brief
     /// Purpose: The description of a registered type by name hash; empty when unregistered.
-    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe_type(uint64 name_hash);
+    TBX_DLL_EXPORT std::optional<std::reference_wrapper<const TypeInfo>> describe_type(uint64 name_hash);
 
     /// @brief
     /// Purpose: The description of a registered type by name; empty when unregistered.
-    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe_type(std::string_view name);
+    TBX_DLL_EXPORT std::optional<std::reference_wrapper<const TypeInfo>> describe_type(std::string_view name);
 
     /// @brief
     /// Purpose: The description of a registered type; empty when unregistered.

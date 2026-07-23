@@ -8,17 +8,17 @@ namespace tbx
     /// initialize_reflection() calls this right after the type registrations so
     /// SerializerFormat::DEFAULT's reflection check always holds. Self-guards on
     /// is_serialization_ready(), so calling it twice is a no-op.
-    TBX_API void register_builtin_serializers();
+    TBX_DLL_EXPORT void register_builtin_serializers();
 
     /// @brief
     /// Purpose: True once the builtin serializers are registered — the readiness check the
     /// engine subsystems assert before they read/write assets.
-    TBX_API bool is_serialization_ready();
+    TBX_DLL_EXPORT bool is_serialization_ready();
 
     /// @brief
     /// Purpose: Drops every registered serializer so the next register_builtin_serializers()
     /// rebuilds from scratch — for tests that need a clean registry between cases. Not for
     /// runtime use: describe_serializer<T>()/read<T>/write<T> must not run between a purge and
     /// the re-registration that re-points SerializerSlot<T>::info.
-    TBX_API void purge_serialization_registry();
+    TBX_DLL_EXPORT void purge_serialization_registry();
 }
