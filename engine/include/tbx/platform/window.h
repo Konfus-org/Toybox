@@ -60,7 +60,7 @@ namespace tbx
     /// @brief
     /// Purpose: The windows the running runtime owns, as plain data — the public query escape hatch
     /// over the (internal) windows state. Empty when headless. Read-only; write window data through
-    /// the dedicated APIs. Main-thread only (reads tbx::internal::current()).
+    /// the dedicated APIs. Main-thread only (reads tbx::internal::get_runtime()).
     TBX_DLL_EXPORT const std::vector<Window>& get_open_windows();
 
     // ---- Internal (engine machinery; not the user-facing API) ----

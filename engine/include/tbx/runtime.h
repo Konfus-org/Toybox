@@ -56,11 +56,11 @@ namespace tbx
         /// global that lets the script-facing engine API be plain free functions instead of threading
         /// state. MAIN THREAD ONLY — async work must capture the state it was handed, never call this.
         /// Callers touching members must include src/runtime_state.h (the full definition).
-        TBX_DLL_EXPORT RuntimeState& current();
+        TBX_DLL_EXPORT RuntimeState& get_runtime();
 
         /// @brief
         /// Purpose: True while a runtime is published (between the first run() and shutdown) — guard
         /// for convenience helpers that may run before boot or after teardown.
-        TBX_DLL_EXPORT bool has_current();
+        TBX_DLL_EXPORT bool has_runtime();
     }
 }

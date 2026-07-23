@@ -23,7 +23,7 @@ namespace tbx
     // ---- Internal (engine orchestration; not the user-facing API) ----
     namespace internal
     {
-        // The one published runtime (see runtime.h current()). Set by run() for the running frame,
+        // The one published runtime (see runtime.h get_runtime()). Set by run() for the running frame,
         // cleared on stop. Main-thread only; the script-facing free-function API reads it.
         static RuntimeState* g_current = nullptr;
     
@@ -329,20 +329,20 @@ namespace tbx
             state.app.status = AppStatus::QUIT_REQUESTED;
     }
 
-    internal::RuntimeState& internal::current()
+    internal::RuntimeState& internal::get_runtime()
     {
-        TBX_ASSERT(internal::g_current != nullptr, "tbx::internal::current() called with no running runtime");
+        TBX_ASSERT(internal::g_current != nullptr, "tbx::internal::get_runtime() called with no running runtime");
         return *internal::g_current;
     }
 
-    bool internal::has_current()
+    bool internal::has_runtime()
     {
         return internal::g_current != nullptr;
     }
 
     void quit()
     {
-        if (internal::has_current() && internal::current().app.status != AppStatus::STOPPED)
-            internal::current().app.status = AppStatus::QUIT_REQUESTED;
+        if (internal::has_runtime() && internal::get_runtime().app.status != AppStatus::STOPPED)
+            internal::get_runtime().app.status = AppStatus::QUIT_REQUESTED;
     }
 }

@@ -43,14 +43,14 @@ where practical, in `_internal.h` headers under `src/` so it never reaches a pub
   verbs (`update_*`, `purge_*`) *and* the testable query/command implementations (`is_down(InputState&, …)`,
   `raycast(PhysicsState&, …)`, `load_asset(AssetsState&, …)`) — lives in `tbx::internal`. Taking explicit
   state is what keeps them unit-testable; hiding them keeps the public API clean.
-- **The public API is free functions over `current()`.** For each internal state-taker a user needs, expose
-  a thin `tbx::` free function that reads `internal::current()` and forwards
-  (`bool is_key_down(Key)` → `internal::is_down(internal::current().input, key)`). These are the *only* thing
+- **The public API is free functions over `get_runtime()`.** For each internal state-taker a user needs, expose
+  a thin `tbx::` free function that reads `internal::get_runtime()` and forwards
+  (`bool is_key_down(Key)` → `internal::is_down(internal::get_runtime().input, key)`). These are the *only* thing
   users call; they never touch a state.
 - **Query escape hatches.** When something a user needs lives only in a state (e.g. `WindowsState::open_windows`),
   expose a public free function that returns the plain data — `tbx::get_open_windows()`, not the state.
 - **Reinforces API Leakage.** Per the API-Leakage rule, `internal::` names never appear in a public signature,
-  return type, or doc. `internal::current()` returning `internal::RuntimeState&` is itself internal for that reason.
+  return type, or doc. `internal::get_runtime()` returning `internal::RuntimeState&` is itself internal for that reason.
 - **Tests may reach in.** Unit tests (and `app.cpp`, the orchestrator) freely name `internal::` types and call
   `internal::` functions — that is the intended seam for driving state directly.
 - **Layout.** In a public header the `internal` block (usually just forward-referenced or empty) sits at the

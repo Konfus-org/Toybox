@@ -39,7 +39,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Casts a ray against the running world (tbx::current().physics) — the script-facing
+    /// Purpose: Casts a ray against the running world (tbx::get_runtime().physics) — the script-facing
     /// raycast. Main-thread only.
     TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
         const Vec3& origin,
@@ -52,7 +52,7 @@ namespace tbx
     {
         /// @brief
         /// Purpose: Casts a ray against the given simulated world; empty when nothing is hit. The
-        /// public tbx::raycast forwards here with tbx::current().physics.
+        /// public tbx::raycast forwards here with tbx::get_runtime().physics.
         TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
             PhysicsState& physics,
             const Vec3& origin,

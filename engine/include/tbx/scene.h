@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-// The scene verbs over the running runtime (tbx::current().sandbox) — the SAME functions C++ systems and
+// The scene verbs over the running runtime (tbx::get_runtime().sandbox) — the SAME functions C++ systems and
 // scripts call, so there is one clean API and the bindings generate from it. Main-thread only (they read
-// the global runtime). Declarations only; implemented in scene.cpp against current().
+// the global runtime). Declarations only; implemented in scene.cpp against get_runtime().
 namespace tbx
 {
     /// @brief
