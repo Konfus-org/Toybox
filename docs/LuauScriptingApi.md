@@ -3,7 +3,7 @@
 Toybox games are scripted in [Luau](https://luau.org). A script is an ordinary asset (a
 `.luau` file) attached to a toy through a `Script` block; the engine runs it while the toy is
 alive and enabled. Scripts talk to the world through the toy handle — its PascalCase
-properties (`toy.Position`, `toy.Parent`), its block methods (`toy:get(tbx.blocks.UI)`), and by
+properties (`toy.Position`, `toy.Parent`), its block methods (`toy:get(UI)`), and by
 querying the active scene (`tbx.sandbox:find(...)`).
 
 ## Lifecycle
@@ -37,7 +37,7 @@ if the whole toy was removed the handle is no longer alive — so guard any toy 
 - **`.` (properties / libraries / constants)** — toy properties (`toy.Position`), stateless
   helpers and enums: `tbx.math.add(a, b)`, `tbx.input.isDown(...)`, `tbx.Key.W`.
 - **Casing** — methods are `camelCase`; toy properties, block and enum tables are `PascalCase`
-  (`Position`, `Parent`, `tbx.blocks.UI`, `Key`); enum members are `UPPER_SNAKE` (`tbx.Key.W`).
+  (`Position`, `Parent`, `UI`, `Key`); enum members are `UPPER_SNAKE` (`tbx.Key.W`).
 - Vectors are plain tables `{ x = , y = , z = }`; quaternions likewise `{x,y,z,w}`.
 
 ## Toys
@@ -66,18 +66,33 @@ if toy.Parent then print(toy.Parent.Name) end
 
 ### Blocks and stickers (`:`)
 
-Blocks are identified by a **token** — `tbx.blocks.<Type>` (e.g. `tbx.blocks.UI`) — which
+Blocks are identified by a **token** — `<Type>` (e.g. `UI`) — which
 carries the component's type, so `get`/`add` return and type-check against it. Stickers are
 plain strings.
 
 | Method | Result | Notes |
 |---|---|---|
-| `toy:get(tbx.blocks.T)` | the block, or nil | typed as `T?` |
-| `toy:add(tbx.blocks.T, { fields }?)` | the added block (typed) | fields optional; typed to `T` |
+| `toy:get(T)` | the block, or nil | typed as `T?` |
+| `toy:add(T, { fields }?)` | the added block (typed) | fields optional; typed to `T` |
 | `toy:add(sticker)` | toy | add a sticker, fluent |
-| `toy:has(tbx.blocks.T)` / `toy:has(sticker)` | bool | block / sticker test |
-| `toy:remove(tbx.blocks.T)` / `toy:remove(sticker)` | toy | detach a block / peel a sticker, fluent |
-| `toy:with(...)` | toy | fluent builder: `with(sticker)`, `with(parentToy)`, `with(tbx.blocks.T, { fields }?)` |
+| `toy:has(T)` / `toy:has(sticker)` | bool | block / sticker test |
+| `toy:remove(T)` / `toy:remove(sticker)` | toy | detach a block / peel a sticker, fluent |
+| `toy:with(...)` | toy | fluent builder: `with(sticker)`, `with(parentToy)`, `with(T, { fields }?)` |
+
+**Custom components.** `tbx.blocks.register("Name")` mints a script-defined block and returns
+its token (also exposed as a global). No C++ type, no schema, no serializer — a custom block is a
+dynamic field bag you add/read like any built-in, and it lives only at runtime (not saved in
+kits). Adding one returns the live fields table, so you mutate it in place:
+
+```lua
+local Ammo = tbx.blocks.register("Ammo")
+function start(toy: Toy)
+    toy:add(Ammo, { count = 30 })
+end
+-- elsewhere:
+local ammo = toy:get(Ammo)
+if ammo and ammo.count > 0 then ammo.count = ammo.count - 1 end
+```
 
 ### Fluent verbs (`:`)
 
@@ -96,7 +111,7 @@ tbx.sandbox:add("Grunt")
     :parent(hub)
     :move({ x = 0, y = 1, z = 0 })
     :add("enemy")
-    :add(tbx.blocks.RigidBody, { mass = 2.0 })
+    :add(RigidBody, { mass = 2.0 })
 ```
 
 To remove a toy, call `tbx.sandbox:remove(toy)` — a toy cannot remove itself.
@@ -109,7 +124,7 @@ Query and mutate the active world.
 |---|---|
 | `tbx.sandbox:find(name)` | first toy with that name, or nil |
 | `tbx.sandbox:findWith(sticker)` | array of every toy wearing the sticker |
-| `tbx.sandbox:findWith(tbx.blocks.T)` | array of every toy carrying that block |
+| `tbx.sandbox:findWith(T)` | array of every toy carrying that block |
 | `tbx.sandbox:getToys()` | array of every toy in the scene |
 | `tbx.sandbox:add(name)` | a new empty toy |
 | `tbx.sandbox:add(assetPath, position?)` | the root toy of an instantiated kit — auto-detected when the argument is an asset path (has a `/` or `.`) |
@@ -164,15 +179,14 @@ re-evaluates every frame, so you just mutate your own state:
 ```lua
 local kills = 0
 function start(toy: Toy)
-    assert(toy:get(tbx.blocks.UI)):bind("kills", function() return kills end)
+    assert(toy:get(UI)):bind("kills", function() return kills end)
     local bar = tbx.sandbox:findWith("health_bar")[1]
-    if bar then assert(bar:get(tbx.blocks.UI)):bind("health", function() return health end) end
+    if bar then assert(bar:get(UI)):bind("health", function() return health end) end
 end
 ```
 
 `assert(...)` narrows the `UI?` from `get` to a non-nil `UI` (and errors if the block is
-missing). Bindings live on the UI block, so two documents never collide on a slot name. For
-one-off writes to the global slot table use `tbx.ui.setString(slot, value)`.
+missing). Bindings live on the UI block, so two documents never collide on a slot name.
 
 ## Events — `tbx.events` (`.`)
 
@@ -211,7 +225,7 @@ Scripts report through the engine log; a broken script is a log line, not a cras
   '<name>': <message>`. Fix and save — hot-reload re-registers and the next frame's `start` runs
   the new code (state resets; `cleanup` does not run on a reload).
 - **`"block is gone"` / `"block '<T>' has no field '<f>'`** — you read a block off a toy that no
-  longer has it, or a field the component doesn't define. Re-check with `toy:has(tbx.blocks.T)` and
+  longer has it, or a field the component doesn't define. Re-check with `toy:has(T)` and
   the field name's casing.
 - **A handle is always truthy** — `if not toy then …` never fires. Test liveness with `toy.Alive`
   (see [Toys](#toys)); this matters most inside `cleanup`, where a removed toy's handle is dead.
@@ -233,8 +247,8 @@ local function fire(toy: Toy, position: Vec3, forward: Vec3)
 end
 
 function start(toy: Toy)
-    assert(toy:get(tbx.blocks.UI)):bind("kills", function() return kills end)
-    toy:with("player"):with(tbx.blocks.AudioListener, { volume = 1.0 })
+    assert(toy:get(UI)):bind("kills", function() return kills end)
+    toy:with("player"):with(AudioListener, { volume = 1.0 })
     tbx.input.setCursorMode(tbx.CursorMode.LOCKED)
 end
 

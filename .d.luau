@@ -182,6 +182,11 @@ declare tbx: {
         Sky: BlockType<Sky, SkyProps>,
         Billboard: BlockType<Billboard, BillboardProps>,
         Script: BlockType<Script, ScriptProps>,
+        -- Register a custom, script-defined block and get its token (also exposed as a global).
+        -- Custom blocks are dynamic field bags: no schema, script-runtime only (not serialized).
+        --   local Health = tbx.blocks.register("Health")
+        --   toy:add(Health, { hp = 100 });  print(toy:get(Health).hp)
+        register: (name: string) -> BlockType<{ [string]: any }, { [string]: any }>,
     },
 
     -- The active scene: query and mutate toys (called with `:`).
@@ -252,10 +257,6 @@ declare tbx: {
         onCollision: (handler: (event: any) -> ()) -> (),
     },
 
-    ui: {
-        setString: (slot: string, value: string) -> (),
-    },
-
     Key: {
         UNKNOWN: number,
         A: number, B: number, C: number, D: number, E: number, F: number, G: number,
@@ -289,6 +290,22 @@ declare tbx: {
         LEFT_TRIGGER: number, RIGHT_TRIGGER: number,
     },
 }
+
+-- Block tokens are also exposed as globals, so you can drop the `tbx.blocks.` prefix:
+-- `toy:get(UI)` is the same as `toy:get(tbx.blocks.UI)`. Each name is both a component type and a
+-- token value (Luau keeps type and value namespaces separate).
+declare Transform: BlockType<Transform, TransformProps>
+declare UI: BlockType<UI, UIProps>
+declare Camera: BlockType<Camera, CameraProps>
+declare Renderer: BlockType<Renderer, RendererProps>
+declare RigidBody: BlockType<RigidBody, RigidBodyProps>
+declare Collider: BlockType<Collider, ColliderProps>
+declare DirectionalLight: BlockType<DirectionalLight, DirectionalLightProps>
+declare AudioListener: BlockType<AudioListener, AudioListenerProps>
+declare AudioSource: BlockType<AudioSource, AudioSourceProps>
+declare Sky: BlockType<Sky, SkyProps>
+declare Billboard: BlockType<Billboard, BillboardProps>
+declare Script: BlockType<Script, ScriptProps>
 
 -- The engine calls these globals if you define them. ANNOTATE THE PARAMETERS YOURSELF — luau-lsp
 -- does not infer them from a signature here, and `declare function`-ing them would only make them

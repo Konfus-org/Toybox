@@ -5,6 +5,8 @@
 #include "tbx/math/transform.h"
 #include "tbx/reflection/type_registry.h"
 #include "tbx/utils/hash.h"
+#include <optional>
+#include <string>
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/runtime.h"
@@ -405,6 +407,49 @@ namespace tbx
         }
     }
 
+    //// CUSTOM (SCRIPT-DEFINED) BLOCKS ////
+    // tbx.blocks.register("Name") mints a token carrying { __custom = true }. Custom blocks are
+    // dynamic field bags kept per-VM in a registry table keyed by "entity:name" — script-runtime
+    // only (not stored in the ECS, not serialized). get/add/has/remove route here for such tokens.
+
+    /// @brief
+    /// Purpose: The custom block's name if the value at `index` is a custom token, else nullopt.
+    static std::optional<std::string> custom_block_name(lua_State* lua, const int index)
+    {
+        if (lua_type(lua, index) != LUA_TTABLE)
+            return std::nullopt;
+        lua_getfield(lua, index, "__custom");
+        const bool is_custom = lua_toboolean(lua, -1) != 0;
+        lua_pop(lua, 1);
+        if (!is_custom)
+            return std::nullopt;
+        lua_getfield(lua, index, "__name");
+        auto name = std::optional<std::string>();
+        if (const char* text = lua_tostring(lua, -1))
+            name = text;
+        lua_pop(lua, 1);
+        return name;
+    }
+
+    /// @brief
+    /// Purpose: Pushes the per-VM custom-block store (registry table "entity:name" -> fields),
+    /// creating it on first use. Leaves the store table on the stack.
+    static void push_custom_block_store(lua_State* lua)
+    {
+        lua_getfield(lua, LUA_REGISTRYINDEX, "tbx_custom_blocks");
+        if (lua_istable(lua, -1))
+            return;
+        lua_pop(lua, 1);
+        lua_newtable(lua);
+        lua_pushvalue(lua, -1);
+        lua_setfield(lua, LUA_REGISTRYINDEX, "tbx_custom_blocks");
+    }
+
+    static std::string custom_block_key(const ToyId entity, const std::string& name)
+    {
+        return std::to_string(static_cast<uint32>(entity)) + ":" + name;
+    }
+
     /// @brief
     /// Purpose: toy.<Method> resolves methods; otherwise a fixed set of Roblox-style convenience
     /// properties (Name/Enabled/Parent/Children/Transform/Position/... /World*). Blocks are NOT
@@ -543,6 +588,13 @@ namespace tbx
     static int toy_get(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
+        if (const auto name = custom_block_name(lua, 2))
+        {
+            push_custom_block_store(lua);
+            lua_getfield(lua, -1, custom_block_key(data.entity, *name).c_str());
+            lua_remove(lua, -2); // drop the store, leaving the fields table (or nil)
+            return 1;
+        }
         const uint64 hashed = block_token_hash(lua, 2);
         if (hashed == 0 || !Toy(*data.sandbox, data.entity).has_block_named(hashed))
         {
@@ -565,6 +617,20 @@ namespace tbx
             lua_pushvalue(lua, 1); // fluent: return the toy
             return 1;
         }
+        if (const auto name = custom_block_name(lua, 2))
+        {
+            // Store the fields table (or a fresh one) under this toy; return it so the caller can
+            // read/mutate the live block.
+            push_custom_block_store(lua);
+            if (lua_istable(lua, 3))
+                lua_pushvalue(lua, 3);
+            else
+                lua_newtable(lua);
+            lua_pushvalue(lua, -1);
+            lua_setfield(lua, -3, custom_block_key(data.entity, *name).c_str());
+            lua_remove(lua, -2); // drop the store, leaving the fields table (returned)
+            return 1;
+        }
         const uint64 hashed = block_token_hash(lua, 2);
         if (hashed == 0)
             luaL_error(lua, "toy:add expects a block token (tbx.blocks.X) or a sticker name");
@@ -584,6 +650,15 @@ namespace tbx
             lua_pushboolean(lua, toy.has(lua_tostring(lua, 2)));
             return 1;
         }
+        if (const auto name = custom_block_name(lua, 2))
+        {
+            push_custom_block_store(lua);
+            lua_getfield(lua, -1, custom_block_key(data.entity, *name).c_str());
+            const bool present = !lua_isnil(lua, -1);
+            lua_pop(lua, 2); // the field value + the store
+            lua_pushboolean(lua, present);
+            return 1;
+        }
         const uint64 hashed = block_token_hash(lua, 2);
         lua_pushboolean(lua, hashed != 0 && toy.has_block_named(hashed));
         return 1;
@@ -599,6 +674,13 @@ namespace tbx
         if (lua_type(lua, 2) == LUA_TSTRING)
         {
             toy.remove(lua_tostring(lua, 2));
+        }
+        else if (const auto name = custom_block_name(lua, 2))
+        {
+            push_custom_block_store(lua);
+            lua_pushnil(lua);
+            lua_setfield(lua, -2, custom_block_key(data.entity, *name).c_str());
+            lua_pop(lua, 1); // the store
         }
         else
         {
@@ -633,6 +715,17 @@ namespace tbx
             }
             case LUA_TTABLE: // block token (+ optional fields)
             {
+                if (const auto name = custom_block_name(lua, 2))
+                {
+                    push_custom_block_store(lua);
+                    if (lua_istable(lua, 3))
+                        lua_pushvalue(lua, 3);
+                    else
+                        lua_newtable(lua);
+                    lua_setfield(lua, -2, custom_block_key(data.entity, *name).c_str());
+                    lua_pop(lua, 1); // the store
+                    break;
+                }
                 const uint64 hashed = block_token_hash(lua, 2);
                 if (hashed == 0)
                     luaL_error(
@@ -980,13 +1073,6 @@ namespace tbx
         return push_quat(lua, quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
     }
 
-    static int ui_set_string(lua_State* lua)
-    {
-        // Numbers coerce to strings; documents bind via data-text / data-style attributes.
-        bound_runtime(lua).ui.bindings[luaL_checkstring(lua, 1)] = luaL_checkstring(lua, 2);
-        return 0;
-    }
-
     static int tbx_quit(lua_State* lua)
     {
         // tbx::quit takes the Runtime handle, which async work (this VM) never holds;
@@ -995,6 +1081,32 @@ namespace tbx
         if (app.status != AppStatus::STOPPED)
             app.status = AppStatus::QUIT_REQUESTED;
         return 0;
+    }
+
+    /// @brief
+    /// Purpose: tbx.blocks.register("Name") mints a custom, script-defined block token — exposed
+    /// as a global (so `get(Name)`) and under tbx.blocks, then returned. Custom blocks are dynamic
+    /// field bags: no schema, no serializer, script-runtime only (not stored in the ECS). Rejects
+    /// a name that's already a built-in block.
+    static int tbx_blocks_register(lua_State* lua)
+    {
+        const char* name = luaL_checkstring(lua, 1);
+        const auto type = describe_type(hash(name));
+        if (type && type->get().has_block)
+            luaL_error(lua, "'%s' is already a built-in block type", name);
+        lua_createtable(lua, 0, 2); // the token
+        lua_pushstring(lua, name);
+        lua_setfield(lua, -2, "__name");
+        lua_pushboolean(lua, 1);
+        lua_setfield(lua, -2, "__custom");
+        lua_pushvalue(lua, -1); // dup for the global
+        lua_setglobal(lua, name);
+        lua_getglobal(lua, "tbx");
+        lua_getfield(lua, -1, "blocks");
+        lua_pushvalue(lua, -3); // the token
+        lua_setfield(lua, -2, name); // tbx.blocks[name] = token
+        lua_pop(lua, 2); // tbx, blocks
+        return 1; // return the token
     }
 
     /// @brief
@@ -1613,11 +1725,6 @@ namespace tbx
         register_runtime_closure(lua, runtime, physics_raycast, "physics_raycast", "raycast");
         lua_setfield(lua, -2, "physics");
 
-        // ui:bind lives on the UI component now; tbx.ui keeps only the global one-shot setter.
-        lua_createtable(lua, 0, 1);
-        register_runtime_closure(lua, runtime, ui_set_string, "ui_set_string", "setString");
-        lua_setfield(lua, -2, "ui");
-
         // tbx.events.on<Name>(fn): subscribe a script handler to an engine event. Naming mirrors
         // the EventsState signals (asset_reloaded -> onAssetReloaded).
         lua_createtable(lua, 0, 8);
@@ -1678,8 +1785,15 @@ namespace tbx
             lua_createtable(lua, 0, 1);
             lua_pushstring(lua, type.name.c_str());
             lua_setfield(lua, -2, "__name");
+            // Each token is reachable two ways: as a global (get(UI)) and under tbx.blocks (the
+            // namespaced form, get(tbx.blocks.UI)). Both are the same table.
+            lua_pushvalue(lua, -1);
+            lua_setglobal(lua, type.name.c_str());
             lua_setfield(lua, -2, type.name.c_str());
         }
+        // tbx.blocks.register("Name") mints a custom script-defined block token.
+        lua_pushcfunction(lua, tbx_blocks_register, "tbx_blocks_register");
+        lua_setfield(lua, -2, "register");
         lua_setfield(lua, -2, "blocks");
 
         // Strongly typed input enums. Each kind is offset into its own value range (keys stay

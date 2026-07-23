@@ -54,7 +54,7 @@ itself is at the root so it can be committed and shared.
 - `tbx.` → `sandbox`, `input`, `math`, `physics`, `events`, `ui`, and the enum tables.
 - `tbx.input.` → `isDown`, `getGamepadAxis`, …; `tbx.Key.` → `W`, `ESCAPE`, every key.
 - `toy:` → `get`, `add`, `has`, `remove`, `with`, `move`, …; `toy.` properties → `Position`,
-  `Parent`, `Name`, `Alive`, …; `toy:get(tbx.blocks.UI)` is typed as `UI?`.
+  `Parent`, `Name`, `Alive`, …; `toy:get(UI)` is typed as `UI?`.
 - **Annotate the entry-point parameter yourself** — write `function update(toy: Toy, deltaTime:
   number)`. luau-lsp does *not* infer `toy` from the `update` signature; an unannotated `toy`
   silently becomes `any` and you lose all the typing. There is no lint that forces the

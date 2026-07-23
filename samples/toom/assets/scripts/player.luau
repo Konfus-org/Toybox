@@ -13,6 +13,10 @@ local UP = { x = 0.0, y = 1.0, z = 0.0 }
 local RIGHT = { x = 1.0, y = 0.0, z = 0.0 }
 local AHEAD = { x = 0.0, y = 0.0, z = -1.0 }
 
+-- A custom, script-defined component: no C++ type, no schema, no serializer — just a dynamic
+-- field bag on the toy. Registered once here, then attached and read like any built-in block.
+local Ammo = tbx.blocks.register("Ammo")
+
 local yaw = 0.0
 local pitch = 0.0
 local kills = 0
@@ -28,6 +32,14 @@ local function deadzone(value: number): number
 end
 
 local function fire(toy: Toy, position: Vec3, forward: Vec3)
+    -- Read the custom Ammo block off the toy; no shot when the magazine is empty.
+    local ammo = toy:get(Ammo)
+    if ammo and ammo.count <= 0 then
+        return
+    end
+    if ammo then
+        ammo.count = ammo.count - 1
+    end
     local hit = tbx.physics.raycast(position, forward, 200.0)
     if hit == nil then
         return
@@ -48,15 +60,17 @@ function start(toy: Toy)
     -- Bind HUD slots to live getters, each on its own UI component (reached through the toy
     -- hierarchy / a sticker query) so the two documents never collide on a slot name: kills on
     -- this toy's own UI (hud.html), health on the health-bar toy's UI (health.html).
-    assert(toy:get(tbx.blocks.UI)):bind("kills", function() return kills end)
+    assert(toy:get(UI)):bind("kills", function() return kills end)
+    -- Give the player a starting magazine on the custom Ammo block.
+    toy:add(Ammo, { count = 30 })
     local healthBar = tbx.sandbox:findWith("health_bar")[1]
     if healthBar then
-        assert(healthBar:get(tbx.blocks.UI)):bind("health", function() return health end)
+        assert(healthBar:get(UI)):bind("health", function() return health end)
     end
 
     -- Fluent build chain: attach a block and tag the toy in one expression. The player is the
     -- ears, so it carries an AudioListener.
-    toy:with(tbx.blocks.AudioListener, { volume = 1.0 }):with("player")
+    toy:with(AudioListener, { volume = 1.0 }):with("player")
 
     -- Mouse-look wants the cursor grabbed: invisible, pinned to the window, pure deltas. The
     -- selftest ignores the mouse entirely, so it leaves the real cursor alone.
