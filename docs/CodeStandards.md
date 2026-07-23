@@ -31,11 +31,38 @@
 - **Const By Default**: Locals, parameters, and methods are `const` unless mutation is the point.
 - **Third-Party Seams**: Every third-party library sits behind exactly one engine-owned boundary: compiled backends behind `tbx_backend()` folders (sdl/gl/jolt/luau), header-only libs behind one wrapper header (`core/math.h` = glm, `core/json.h` = nlohmann, `core/log.h` = spdlog, `ecs/registry.h` = entt). Importers are seams too: `src/gfx/model.cpp` is the assimp seam, `src/gfx/texture.cpp` the stb seam. Nothing else includes a third-party header directly — swapping a lib touches its one seam.
 
+## Internals & the `tbx::internal` Boundary
+
+The public surface is the free-function API and the plain data types that flow through it. Everything the
+runtime drives internally — module *state* and the functions that consume it — lives in `tbx::internal` and,
+where practical, in `_internal.h` headers under `src/` so it never reaches a public include.
+
+- **State is internal.** Every subsystem `*State` (`InputState`, `PhysicsState`, `AssetsState`, …) and the
+  composed `RuntimeState` live in `tbx::internal`. Users never name a state type; they call free functions.
+- **State-consuming functions are internal.** Any function that takes a state by reference — the per-frame
+  verbs (`update_*`, `purge_*`) *and* the testable query/command implementations (`is_down(InputState&, …)`,
+  `raycast(PhysicsState&, …)`, `load_asset(AssetsState&, …)`) — lives in `tbx::internal`. Taking explicit
+  state is what keeps them unit-testable; hiding them keeps the public API clean.
+- **The public API is free functions over `current()`.** For each internal state-taker a user needs, expose
+  a thin `tbx::` free function that reads `internal::current()` and forwards
+  (`bool is_key_down(Key)` → `internal::is_down(internal::current().input, key)`). These are the *only* thing
+  users call; they never touch a state.
+- **Query escape hatches.** When something a user needs lives only in a state (e.g. `WindowsState::open_windows`),
+  expose a public free function that returns the plain data — `tbx::get_open_windows()`, not the state.
+- **Reinforces API Leakage.** Per the API-Leakage rule, `internal::` names never appear in a public signature,
+  return type, or doc. `internal::current()` returning `internal::RuntimeState&` is itself internal for that reason.
+- **Tests may reach in.** Unit tests (and `app.cpp`, the orchestrator) freely name `internal::` types and call
+  `internal::` functions — that is the intended seam for driving state directly.
+- **Layout.** In a public header the `internal` block (usually just forward-referenced or empty) sits at the
+  bottom; in a source file internal constants/structs/helpers sit at the top. Internal declarations live in a
+  `namespace tbx::internal { … }` block, ideally in a `src/<module>/<module>_internal.h` companion header.
+
 ## Blessed Exceptions
 
 Deliberate, narrow deviations from the rules above — each is load-bearing; do not copy the pattern anywhere new without a matching reason:
 
-- **Backend-seam pImpl**: subsystem state structs (`audio.h`, `physics.h`, `window.h`, `ui.h`) may forward-declare one nested `struct Backend;`/`State;`/`Simulation;` held by `std::unique_ptr` — the ONLY sanctioned way to keep backend types out of public headers. Exempt from the no-forward-declarations and no-nested-types rules.
+- **Backend-seam pImpl**: subsystem state structs (`audio.h`, `physics.h`, `window.h`, `ui.h`) may forward-declare one nested `struct Backend;`/`State;`/`Simulation;` held by `std::unique_ptr` — the ONLY sanctioned way to keep backend types out of public headers. Exempt from the no-forward-declarations and no-nested-types rules. The OS handles for windows hang off `WindowsState`'s backend, so `Window` itself stays pure data.
+- **Runtime pImpl**: `runtime.h` forward-declares `namespace tbx::internal { struct RuntimeState; }` and `Runtime` holds `std::unique_ptr<internal::RuntimeState>`, so the public header pulls in no module state. `Runtime`'s destructor and any state accessor are defined out-of-line (in `app.cpp`, where the `_internal.h` headers are visible). This is the one sanctioned cross-namespace forward declaration; it exists to keep `RuntimeState` and every `*State` out of public includes.
 - **Cycle-breaking forward declarations**: `class Sandbox;` in `toy.h`/`kit.h` breaks a true circular pair; allowed only where two headers genuinely need each other.
 - **PCH**: `src/pch.h` may include third-party seam headers (including `<entt/entt.hpp>`) for build speed; all *usage* still goes through the seam headers.
 - **SteamAudio's SDL usage**: the steamaudio backend opens its output device through SDL directly (5 calls + 1 callback). A dedicated platform audio-output seam is the documented swap path if a non-SDL platform backend ever lands; until then the direct calls are the dead-simple choice.
