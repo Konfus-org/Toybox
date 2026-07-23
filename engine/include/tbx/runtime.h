@@ -91,4 +91,21 @@ namespace tbx
     /// @brief
     /// Purpose: Requests a clean exit — the next run() stops the app.
     TBX_DLL_EXPORT void quit(Runtime& runtime);
+
+    /// @brief
+    /// Purpose: The one running runtime, published by run() for the frame. This is the deliberate single
+    /// global: it lets the script-facing engine API be plain free functions (tbx::spawn, tbx::is_down,
+    /// tbx::raycast, …) instead of threading RuntimeState& everywhere. MAIN THREAD ONLY — async work
+    /// (workers, the watcher) must still capture the state it was handed, never call current().
+    TBX_DLL_EXPORT RuntimeState& current();
+
+    /// @brief
+    /// Purpose: True while a runtime is published (between the first run() and shutdown) — guard for
+    /// convenience helpers that may run before boot or after teardown.
+    TBX_DLL_EXPORT bool has_current();
+
+    /// @brief
+    /// Purpose: Requests the current running runtime to close and purge — the next run() stops it.
+    /// The parameterless exit scripts and game code call (tbx.quit()); no handle needed.
+    TBX_DLL_EXPORT void quit();
 }

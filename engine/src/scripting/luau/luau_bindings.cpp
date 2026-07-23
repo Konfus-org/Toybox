@@ -995,11 +995,8 @@ namespace tbx
 
     static int tbx_quit(lua_State* lua)
     {
-        // tbx::quit takes the Runtime handle, which async work (this VM) never holds;
-        // requesting the exit is one status write on the bound state.
-        App& app = bound_runtime(lua).app;
-        if (app.status != AppStatus::STOPPED)
-            app.status = AppStatus::QUIT_REQUESTED;
+        (void)lua;
+        quit(); // requests the running runtime to close — no handle needed (the global runtime)
         return 0;
     }
 

@@ -20,6 +20,10 @@
 
 namespace tbx
 {
+    // The one published runtime (see runtime.h current()). Set by run() for the running frame, cleared on
+    // stop. Main-thread only; the script-facing free-function API reads it.
+    static RuntimeState* g_current = nullptr;
+
     /// @brief
     /// Purpose: Pushes the App's settings into every subsystem — run at boot and again
     /// whenever the watched .tapp changes.
@@ -224,6 +228,9 @@ namespace tbx
         App& app = state.app;
         if (app.status == AppStatus::STOPPED)
             return false;
+        // Publish the runtime for this frame so the free-function API (tbx::current) resolves during
+        // scripts/systems. Stable heap address, so it survives Runtime handle moves between frames.
+        g_current = &state;
         if (app.status == AppStatus::RUNNING)
             update_cmdline(state);
         if (app.status == AppStatus::CREATED)
@@ -249,6 +256,7 @@ namespace tbx
             // (reverse declaration order: the module states first, then world, window, and app).
             purge_scripts(state.scripts, state.sandbox);
             app.status = AppStatus::STOPPED;
+            g_current = nullptr; // the state is about to be torn down by the Runtime destructor
             return false;
         }
 
@@ -325,5 +333,22 @@ namespace tbx
 
         if (state.app.status != AppStatus::STOPPED)
             state.app.status = AppStatus::QUIT_REQUESTED;
+    }
+
+    RuntimeState& current()
+    {
+        TBX_ASSERT(g_current != nullptr, "tbx::current() called with no running runtime");
+        return *g_current;
+    }
+
+    bool has_current()
+    {
+        return g_current != nullptr;
+    }
+
+    void quit()
+    {
+        if (has_current() && current().app.status != AppStatus::STOPPED)
+            current().app.status = AppStatus::QUIT_REQUESTED;
     }
 }
