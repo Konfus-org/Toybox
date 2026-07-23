@@ -14,6 +14,9 @@
 #include "tbx/ui/ui.h"
 #include <cstring>
 #include <lualib.h>
+// Generated free-function tables (install_generated_<module>) — included last so bind<> (luau_marshal.h)
+// and the engine functions it binds are already declared.
+#include "tbx/luau_bindings.generated.h"
 
 namespace tbx
 {
@@ -1766,28 +1769,17 @@ namespace tbx
         }
         lua_setfield(lua, -2, "GamepadAxis");
 
-        lua_createtable(lua, 0, 18);
-        const luaL_Reg math_functions[] = {
+        // The plain math free functions are generated (install_generated_math leaves the table on the
+        // stack); the operator/overloaded ones (add/subtract/scale/lerp) have no plain free function to
+        // bind, so they are added by hand into the same table.
+        install_generated_math(lua);
+        const luaL_Reg math_extras[] = {
             {"add", math_add},
             {"subtract", math_subtract},
             {"scale", math_scale},
-            {"dot", bind<&dot>},
-            {"cross", bind<&cross>},
-            {"length", bind<&length>},
-            {"distance", bind<&distance>},
-            {"normalize", bind<&normalize>},
             {"lerp", math_lerp},
-            {"moveToward", bind<&move_toward>},
-            {"reflect", bind<&reflect>},
-            {"angleAxis", bind<&angle_axis>},
-            {"multiply", bind<&multiply>},
-            {"rotate", bind<&rotate>},
-            {"slerp", bind<&slerp>},
-            {"fromEuler", bind<&from_euler>},
-            {"toEuler", bind<&to_euler>},
-            {"quatLookAt", bind<&quat_look_at>},
             {nullptr, nullptr}};
-        luaL_register(lua, nullptr, math_functions);
+        luaL_register(lua, nullptr, math_extras);
         lua_setfield(lua, -2, "math");
 
         register_runtime_closure(lua, runtime, tbx_quit, "tbx_quit", "quit");

@@ -67,6 +67,7 @@ def run(argv: list[str] | None = None) -> int:
     for path in emit.write_reflection(module.types, args.out_dir):
         print(path)
     print(emit.write_luau_defs(module.types, module.enums, args.out_dir))
+    print(emit.write_luau_functions(module.functions, args.out_dir))
     return 0
 
 

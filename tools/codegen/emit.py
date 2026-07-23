@@ -110,6 +110,46 @@ def _luau_block_view(type_def: TypeDef) -> dict:
     return {"name": type_def.name, "fields": fields}
 
 
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(part.capitalize() for part in parts[1:])
+
+
+def _luau_function_modules(functions) -> list[dict]:
+    """Group exposed free functions by their header's module (math.h -> "math"), preserving order.
+
+    The Lua name is the C++ name camelCased (move_toward -> moveToward), so the current script-facing
+    API is preserved while the registration is generated.
+    """
+    modules: dict[str, list] = {}
+    for function in functions:
+        module = Path(function.header).stem
+        modules.setdefault(module, []).append(function)
+    return [
+        {
+            "name": module,
+            "functions": [
+                {"cpp_name": fn.name, "lua_name": _snake_to_camel(fn.name)} for fn in fns
+            ],
+        }
+        for module, fns in modules.items()
+    ]
+
+
+def render_luau_functions(functions) -> str:
+    """Render the generated Luau free-function binding installers (one table per module)."""
+    modules = _luau_function_modules(functions)
+    return _environment().get_template("luau_functions_generated_h.jinja").render(modules=modules)
+
+
+def write_luau_functions(functions, out_dir: str) -> str:
+    tbx_dir = Path(out_dir) / "tbx"
+    tbx_dir.mkdir(parents=True, exist_ok=True)
+    path = tbx_dir / "luau_bindings.generated.h"
+    path.write_text(render_luau_functions(functions), encoding="utf-8")
+    return str(path)
+
+
 def _luau_enum_view(enum_def) -> dict:
     # COUNT is a sentinel for enum size, not a real value — never expose it to scripts.
     return {"name": enum_def.name, "members": [name for name, _ in enum_def.values if name != "COUNT"]}

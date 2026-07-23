@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/api.h"
+#include "tbx/reflection/attributes.h"
 // The one math seam: the selected backend (cmake tbx_backend(MATH ...)) supplies the types via
 // its <tbx_math_backend.h> and implements the tbx::math functions declared here in its own
 // .cpp — swapped at link time like every other backend. Nothing else names the library.
@@ -19,7 +20,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: A rotation of the given angle (radians) around an axis.
-    TBX_DLL_EXPORT Quat angle_axis(float radians, const Vec3& axis);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat angle_axis(float radians, const Vec3& axis);
 
     /// @brief
     /// Purpose: Splits an affine transform matrix into position/rotation/scale (e.g. a world
@@ -28,7 +29,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Vector cross product.
-    TBX_DLL_EXPORT Vec3 cross(const Vec3& a, const Vec3& b);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 cross(const Vec3& a, const Vec3& b);
 
     /// @brief
     /// Purpose: Radians to degrees.
@@ -36,15 +37,15 @@ namespace tbx
 
     /// @brief
     /// Purpose: Distance between two points.
-    TBX_DLL_EXPORT float distance(const Vec3& a, const Vec3& b);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT float distance(const Vec3& a, const Vec3& b);
 
     /// @brief
     /// Purpose: Vector dot product.
-    TBX_DLL_EXPORT float dot(const Vec3& a, const Vec3& b);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT float dot(const Vec3& a, const Vec3& b);
 
     /// @brief
     /// Purpose: A rotation from euler angles (radians, applied yaw-pitch-roll).
-    TBX_DLL_EXPORT Quat from_euler(const Vec3& radians_per_axis);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat from_euler(const Vec3& radians_per_axis);
 
     /// @brief
     /// Purpose: Matrix inverse.
@@ -52,7 +53,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Vector length.
-    TBX_DLL_EXPORT float length(const Vec3& vector);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT float length(const Vec3& vector);
 
     /// @brief
     /// Purpose: Linear interpolation between two values by t (unclamped).
@@ -76,15 +77,15 @@ namespace tbx
 
     /// @brief
     /// Purpose: A point moved toward a target by at most max_delta (never overshoots).
-    TBX_DLL_EXPORT Vec3 move_toward(const Vec3& current, const Vec3& target, float max_delta);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 move_toward(const Vec3& current, const Vec3& target, float max_delta);
 
     /// @brief
     /// Purpose: Combined rotation: first b, then a.
-    TBX_DLL_EXPORT Quat multiply(const Quat& a, const Quat& b);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat multiply(const Quat& a, const Quat& b);
 
     /// @brief
     /// Purpose: Unit-length copy of a vector.
-    TBX_DLL_EXPORT Vec3 normalize(const Vec3& vector);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 normalize(const Vec3& vector);
 
     /// @brief
     /// Purpose: An orthographic projection.
@@ -102,7 +103,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: An orientation whose -Z faces the given direction.
-    TBX_DLL_EXPORT Quat quat_look_at(const Vec3& direction, const Vec3& up);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat quat_look_at(const Vec3& direction, const Vec3& up);
 
     /// @brief
     /// Purpose: Degrees to radians.
@@ -110,11 +111,11 @@ namespace tbx
 
     /// @brief
     /// Purpose: A vector mirrored off a surface with the given normal.
-    TBX_DLL_EXPORT Vec3 reflect(const Vec3& vector, const Vec3& normal);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 reflect(const Vec3& vector, const Vec3& normal);
 
     /// @brief
     /// Purpose: A vector rotated by a quaternion.
-    TBX_DLL_EXPORT Vec3 rotate(const Quat& rotation, const Vec3& vector);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 rotate(const Quat& rotation, const Vec3& vector);
 
     /// @brief
     /// Purpose: Appends a scale to a matrix.
@@ -122,11 +123,11 @@ namespace tbx
 
     /// @brief
     /// Purpose: Spherical interpolation between two rotations by t (clamped shortest path).
-    TBX_DLL_EXPORT Quat slerp(const Quat& from, const Quat& to, float t);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat slerp(const Quat& from, const Quat& to, float t);
 
     /// @brief
     /// Purpose: Euler angles (radians per axis) of a rotation.
-    TBX_DLL_EXPORT Vec3 to_euler(const Quat& rotation);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 to_euler(const Quat& rotation);
 
     /// @brief
     /// Purpose: A rotation matrix from a quaternion.

@@ -25,6 +25,7 @@ function(tbx_generate_reflection)
     set(generated_header "${generated_dir}/tbx/reflection.generated.h")
     set(generated_source "${generated_dir}/tbx/reflection.generated.cpp")
     set(generated_luau "${generated_dir}/tbx/tbx.d.luau")
+    set(generated_luau_bindings "${generated_dir}/tbx/luau_bindings.generated.h")
     set(include_root "${CMAKE_SOURCE_DIR}/engine/include")
 
     # Re-run only when something that can change the output changes: the headers that actually carry a
@@ -52,18 +53,20 @@ function(tbx_generate_reflection)
         "--clang-arg=-I${CMAKE_SOURCE_DIR}/engine/src/ecs/${TBX_ECS_BACKEND}")
 
     add_custom_command(
-        OUTPUT "${generated_header}" "${generated_source}" "${generated_luau}"
+        OUTPUT "${generated_header}" "${generated_source}" "${generated_luau}" "${generated_luau_bindings}"
         COMMAND "${Python3_EXECUTABLE}" "${codegen_dir}/codegen.py"
                 --input-root "${include_root}"
                 --out-dir "${generated_dir}"
                 ${_clang_args}
         DEPENDS ${_marked_headers} ${_codegen_tool}
-        COMMENT "Generating reflection/serialization + Luau type defs from tbx attributes"
+        COMMENT "Generating reflection/serialization + Luau type defs & bindings from tbx attributes"
         VERBATIM)
 
     # A target so the whole generation completes before any tbx TU compiles (reflection.cpp and
-    # serializers.cpp include the generated header). tbx.d.luau (luau-lsp IntelliSense) rides along.
-    add_custom_target(tbx_codegen DEPENDS "${generated_header}" "${generated_source}" "${generated_luau}")
+    # serializers.cpp include the generated header; the Luau backend includes the generated bindings).
+    # tbx.d.luau (luau-lsp IntelliSense) rides along.
+    add_custom_target(tbx_codegen
+        DEPENDS "${generated_header}" "${generated_source}" "${generated_luau}" "${generated_luau_bindings}")
 
     set(TBX_GENERATED_SOURCES "${generated_source}" PARENT_SCOPE)
     set(TBX_GENERATED_DIR "${generated_dir}" PARENT_SCOPE)
