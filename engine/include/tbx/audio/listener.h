@@ -7,7 +7,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: The ears: sounds spatialize relative to the first enabled listener's Transform.
-    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT AudioListener : Block
+    struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT AudioListener : Block
     {
         float volume = 1.0f;
 

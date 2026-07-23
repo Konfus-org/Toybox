@@ -20,6 +20,7 @@ class CodegenError(Exception):
 class Field:
     name: str
     type_spelling: str
+    luau_type: str = "any"  # the field's type as it appears in the generated .d.luau
     is_serialized: bool = True
     is_exposed_to_scripting: bool = True
 

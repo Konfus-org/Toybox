@@ -11,12 +11,12 @@ For the API itself, see [LuauScriptingApi.md](LuauScriptingApi.md).
 
 | File | Role |
 |---|---|
-| `toybox.d.luau` (repo root) | Type definitions for the whole scripting API — hand-written to mirror `engine/src/scripting/luau/luau_bindings.cpp`. This is what makes `tbx.*`, `toy`, and the enums known to the editor. Committed so everyone shares it. |
+| `build/<preset>/generated/tbx/tbx.d.luau` | Type definitions for the whole scripting API. **Generated** by the build (`tools/codegen`): the block component types come from the `[[tbx::exposed_to_scripting]]` structs, and the rest (`toy`, `tbx.*`, the enums) is the codegen template `tools/codegen/templates/luau_defs.d.luau.jinja`. Build once to produce it. |
 | `.luaurc` (repo root) | Nonstrict language mode + a couple of lints for the scripts. Committed. |
 
 `.vscode/` is **gitignored** in this project, so the luau-lsp *setting* that loads the definitions
-lives in your own VS Code settings rather than in the repo (see below) — but the definitions file
-itself is at the root so it can be committed and shared.
+lives in your own VS Code settings rather than in the repo (see below). The definitions file is a
+build artifact now — configure and build any preset once, then point the setting at it.
 
 ## Setup
 
@@ -39,13 +39,14 @@ itself is at the root so it can be committed and shared.
    {
      "luau-lsp.platform.type": "standard",   // this is NOT Roblox
      "luau-lsp.sourcemap.enabled": false,
-     "luau-lsp.types.definitionFiles": ["toybox.d.luau"]
+     "luau-lsp.types.definitionFiles": ["build/msvc/generated/tbx/tbx.d.luau"]
    }
    ```
 
-   A relative path resolves against the open workspace root. If you keep this in **User** settings
-   and also open unrelated projects, prefer an absolute path (or a local workspace
-   `.vscode/settings.json`) so other projects don't report a missing `toybox.d.luau`.
+   Point it at whichever preset you build (`build/<preset>/generated/tbx/tbx.d.luau`). A relative
+   path resolves against the open workspace root. If you keep this in **User** settings and also
+   open unrelated projects, prefer an absolute path (or a local workspace `.vscode/settings.json`)
+   so other projects don't report a missing file. Configure + build the preset once before loading.
 
 4. **Reload the window** (`Ctrl+Shift+P` → "Developer: Reload Window").
 
@@ -62,14 +63,16 @@ itself is at the root so it can be committed and shared.
 
 ## Keeping definitions in sync
 
-`toybox.d.luau` is maintained by hand to match the Lua bindings in
-`engine/src/scripting/luau/luau_bindings.cpp`. When you add or rename a binding (a new `tbx.*`
-function, a toy method, an enum member), update the definitions file too — otherwise the editor
-flags the new call as unknown even though it works at runtime.
+The **block component types** (`Transform`, `UI`, …, their fields and `*Props`) are generated from
+the `[[tbx::exposed_to_scripting]]` structs — add or change a block's fields and the definitions
+follow on the next build, no hand-sync. The rest of the surface (`toy`, `tbx.sandbox/input/math/
+physics/events`, the enum tables) lives in the codegen template
+`tools/codegen/templates/luau_defs.d.luau.jinja`; when you add or rename one of those bindings in
+`engine/src/scripting/luau/luau_bindings.cpp`, update the template to match, then rebuild.
 
 ## Troubleshooting
 
-- **"Failed to read definitions file … toybox.d.luau"** — luau-lsp reads `definitionFiles` only at
+- **"Failed to read definitions file … tbx.d.luau"** — luau-lsp reads `definitionFiles` only at
   startup / config change, so it does **not** retry after you move or add the file. Make sure the
   path in the setting resolves (relative to the workspace root) to where the file actually is,
   then **reload the window**. This is the usual cause right after relocating the file.
@@ -79,4 +82,4 @@ flags the new call as unknown even though it works at runtime.
   and reload.
 - **Roblox types showing up** (`game`, `workspace`, …) — set `luau-lsp.platform.type` to
   `"standard"`.
-- **A valid call is flagged red** — the binding is probably missing from `toybox.d.luau`; add it.
+- **A valid call is flagged red** — the binding is probably missing from `tbx.d.luau`; add it.

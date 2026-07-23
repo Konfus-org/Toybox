@@ -38,7 +38,68 @@ def default_clang_args(extra: list[str] | None = None) -> list[str]:
 
 
 def _annotations(cursor) -> list[str]:
-    return [c.spelling for c in cursor.get_children() if c.kind == cx.CursorKind.ANNOTATE_ATTR]
+    # libclang's Python bindings raise ValueError enumerating some cursor/template-arg kinds they don't
+    # know (older bundled libclang vs C++23); skip any child that trips it — our annotated declarations
+    # are ordinary top-level structs/enums/functions, never the deep template nodes that fail.
+    found: list[str] = []
+    try:
+        children = list(cursor.get_children())
+    except ValueError:
+        return found
+    for child in children:
+        try:
+            if child.kind == cx.CursorKind.ANNOTATE_ATTR:
+                found.append(child.spelling)
+        except ValueError:
+            continue
+    return found
+
+
+# C++ field type -> the type it reads as from Luau (for the generated .d.luau). Anything unmapped is
+# "any"; the .d.luau emitter skips "any" fields (runtime-only bags like UI::bindings drop out cleanly).
+_LUAU_SCALARS = {
+    "bool": "boolean",
+    "float": "number",
+    "double": "number",
+    "int": "number",
+    "int8": "number",
+    "int16": "number",
+    "int32": "number",
+    "int64": "number",
+    "uint8": "number",
+    "uint16": "number",
+    "uint32": "number",
+    "uint64": "number",
+    "std::string": "string",
+    "Uuid": "string",
+    "Vec2": "Vec2",
+    "Vec3": "Vec3",
+    "Vec4": "Vec4",
+    "Quat": "Quat",
+    "Color": "Color",
+}
+
+
+def _luau_type(clang_type) -> str:
+    # Spelling-first: the written type name is stable, whereas canonical-kind introspection is flaky in
+    # a big amalgam TU (and libclang's bindings raise ValueError on some C++23 template-arg kinds). An
+    # unmappable type falls back to "any", which the .d.luau emitter drops (runtime-only bags vanish).
+    try:
+        spelling = clang_type.spelling.replace("tbx::", "").replace("std::", "")
+    except ValueError:
+        return "any"
+    if spelling.startswith("AssetHandle<"):
+        return "string"  # asset handles author as a path/uuid string
+    if spelling.startswith("vector<AssetHandle<"):
+        return "{string}"
+    if spelling in _LUAU_SCALARS:
+        return _LUAU_SCALARS[spelling]
+    try:
+        if clang_type.get_declaration().kind == cx.CursorKind.ENUM_DECL:
+            return "number"  # enums serialize/read as their integer value
+    except ValueError:
+        pass
+    return "any"
 
 
 def _header_include(path: str) -> str:
@@ -141,12 +202,17 @@ def _build_type(cursor) -> TypeDef:
             and child.access_specifier == cx.AccessSpecifier.PUBLIC
         ):
             field_annotations = _annotations(child)
+            try:
+                spelling = child.type.spelling
+            except ValueError:
+                spelling = ""
             fields.append(
                 Field(
                     name=child.spelling,
-                    type_spelling=child.type.spelling,
+                    type_spelling=spelling,
+                    luau_type=_luau_type(child.type),
                     is_serialized="tbx::do_not_serialize" not in field_annotations,
-                    is_exposed_to_scripting=True,  # refined in Phase 2
+                    is_exposed_to_scripting=True,
                 )
             )
         elif (
@@ -154,13 +220,14 @@ def _build_type(cursor) -> TypeDef:
             and child.access_specifier == cx.AccessSpecifier.PUBLIC
             and not child.is_static_method()
         ):
-            methods.append(
-                Method(
-                    name=child.spelling,
-                    return_type=child.result_type.spelling,
-                    param_types=[a.type.spelling for a in child.get_arguments()],
-                )
-            )
+            # Type spellings can trip the libclang-bindings template-arg-kind bug; the method NAME is
+            # always safe, and signature detail is not consumed yet, so degrade gracefully.
+            try:
+                return_type = child.result_type.spelling
+                param_types = [argument.type.spelling for argument in child.get_arguments()]
+            except ValueError:
+                return_type, param_types = "", []
+            methods.append(Method(name=child.spelling, return_type=return_type, param_types=param_types))
 
     return TypeDef(
         name=cursor.spelling,
@@ -180,11 +247,15 @@ def _build_enum(cursor) -> EnumDef:
 
 
 def _build_function(cursor) -> FreeFunction:
-    params = [(a.type.spelling, a.spelling) for a in cursor.get_arguments()]
+    try:
+        params = [(argument.type.spelling, argument.spelling) for argument in cursor.get_arguments()]
+        return_type = cursor.result_type.spelling
+    except ValueError:
+        params, return_type = [], ""
     return FreeFunction(
         name=cursor.spelling,
         header=_header_include(str(cursor.location.file)),
-        return_type=cursor.result_type.spelling,
+        return_type=return_type,
         params=params,
     )
 

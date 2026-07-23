@@ -22,7 +22,7 @@ namespace tbx
     /// @brief
     /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and
     /// is enabled (the render graph's ui pass manages loading/visibility).
-    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT UI : Block
+    struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT UI : Block
     {
         AssetHandle<Document> document = {};
         AssetHandle<ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert

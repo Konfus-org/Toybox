@@ -18,6 +18,8 @@ namespace tbx {
 struct Block {};
 struct Asset { int id; };
 struct Vec3 { float x, y, z; };
+template <typename T> struct AssetHandle { int id; };
+enum class Facing { LEFT, RIGHT };
 }
 """
 
@@ -149,6 +151,29 @@ class EmitTests(unittest.TestCase):
             "            .serializer(write_tex);",
             source,
         )
+
+    def test_luau_defs_type_a_block_and_maps_field_types(self):
+        module = _parse(
+            "struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING Widget : Block {"
+            " Vec3 pos; float scale; bool active; AssetHandle<int> tex; Facing facing;"
+            " TBX_DO_NOT_SERIALIZE int cache; };"
+        )
+        defs = emit.render_luau_defs(module.types)
+        self.assertIn("declare extern type Widget with", defs)
+        self.assertIn("pos: Vec3", defs)
+        self.assertIn("scale: number", defs)
+        self.assertIn("active: boolean", defs)
+        self.assertIn("tex: string", defs)  # AssetHandle<T> -> string
+        self.assertIn("facing: number", defs)  # enum -> number
+        self.assertNotIn("cache", defs)  # non-serialized runtime field is dropped
+        self.assertIn("Widget: BlockType<Widget, WidgetProps>", defs)  # token + global
+
+    def test_luau_defs_exclude_non_exposed_types(self):
+        module = _parse(
+            "struct TBX_SERIALIZABLE(SerializerFormat::DEFAULT) Material : Asset { float roughness; };"
+        )
+        defs = emit.render_luau_defs(module.types)
+        self.assertNotIn("declare extern type Material", defs)
 
     def test_header_declares_both_registrars(self):
         module = _parse("struct TBX_SERIALIZABLE() Transform : Block { Vec3 position; };")

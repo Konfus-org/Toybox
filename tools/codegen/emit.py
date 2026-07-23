@@ -96,6 +96,34 @@ def render_reflection(types: list[TypeDef]) -> tuple[str, str]:
     return header_text, source_text
 
 
+def _luau_block_view(type_def: TypeDef) -> dict:
+    """A script-exposed block as the .d.luau template consumes it: name + its authored fields.
+
+    A field appears when it is script-exposed, persisted (a non-serialized field like UI::bindings is a
+    runtime scratch bag, not part of the authored block schema), and has a type that maps to Luau.
+    """
+    fields = [
+        {"name": field.name, "luau": field.luau_type}
+        for field in type_def.fields
+        if field.is_exposed_to_scripting and field.is_serialized and field.luau_type != "any"
+    ]
+    return {"name": type_def.name, "fields": fields}
+
+
+def render_luau_defs(types: list[TypeDef]) -> str:
+    """Render the luau-lsp type-definition file (.d.luau) from the script-exposed blocks."""
+    blocks = [_luau_block_view(t) for t in types if t.exposed_to_scripting]
+    return _environment().get_template("luau_defs.d.luau.jinja").render(blocks=blocks)
+
+
+def write_luau_defs(types: list[TypeDef], out_dir: str) -> str:
+    tbx_dir = Path(out_dir) / "tbx"
+    tbx_dir.mkdir(parents=True, exist_ok=True)
+    path = tbx_dir / "tbx.d.luau"
+    path.write_text(render_luau_defs(types), encoding="utf-8")
+    return str(path)
+
+
 def write_reflection(types: list[TypeDef], out_dir: str) -> list[str]:
     # Always (re)write: these files are an add_custom_command OUTPUT, so their mtime must advance past
     # the headers that triggered the run — otherwise CMake would re-invoke codegen every build after a

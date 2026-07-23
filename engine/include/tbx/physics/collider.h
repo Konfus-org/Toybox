@@ -10,7 +10,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
-    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT Collider : Block
+    struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Collider : Block
     {
         Shape shape = Shape::BOX;
         Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);

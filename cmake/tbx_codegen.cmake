@@ -24,6 +24,7 @@ function(tbx_generate_reflection)
     set(generated_dir "${CMAKE_BINARY_DIR}/generated")
     set(generated_header "${generated_dir}/tbx/reflection.generated.h")
     set(generated_source "${generated_dir}/tbx/reflection.generated.cpp")
+    set(generated_luau "${generated_dir}/tbx/tbx.d.luau")
     set(include_root "${CMAKE_SOURCE_DIR}/engine/include")
 
     # Re-run only when something that can change the output changes: the headers that actually carry a
@@ -37,29 +38,32 @@ function(tbx_generate_reflection)
             list(APPEND _marked_headers "${_header}")
         endif()
     endforeach()
-    file(GLOB _codegen_tool CONFIGURE_DEPENDS "${codegen_dir}/*.py" "${codegen_dir}/templates/*.jinja")
+    file(GLOB _codegen_tool CONFIGURE_DEPENDS
+        "${codegen_dir}/*.py" "${codegen_dir}/templates/*.jinja" "${codegen_dir}/stubs/*.h")
 
-    # The annotated headers transitively reach the header-only backend seams (glm/nlohmann/entt); give
-    # libclang their include dirs so field types resolve.
+    # Field types must RESOLVE for the .d.luau to type them (Vec3 -> Vec3, not a clang error int). The
+    # math seam pulls in glm, so a codegen-only stub (tools/codegen/stubs, searched FIRST) supplies the
+    # math type names without needing glm on the parse path. nlohmann/entt seams resolve Json/Registry so
+    # container structs (Kit) parse cleanly.
     set(_clang_args
+        "--clang-arg=-I${codegen_dir}/stubs"
         "--clang-arg=-I${include_root}"
-        "--clang-arg=-I${CMAKE_SOURCE_DIR}/engine/src/math/${TBX_MATH_BACKEND}"
         "--clang-arg=-I${CMAKE_SOURCE_DIR}/engine/src/serialization/${TBX_SERIALIZATION_BACKEND}"
         "--clang-arg=-I${CMAKE_SOURCE_DIR}/engine/src/ecs/${TBX_ECS_BACKEND}")
 
     add_custom_command(
-        OUTPUT "${generated_header}" "${generated_source}"
+        OUTPUT "${generated_header}" "${generated_source}" "${generated_luau}"
         COMMAND "${Python3_EXECUTABLE}" "${codegen_dir}/codegen.py"
                 --input-root "${include_root}"
                 --out-dir "${generated_dir}"
                 ${_clang_args}
         DEPENDS ${_marked_headers} ${_codegen_tool}
-        COMMENT "Generating reflection/serialization registration from [[tbx::serializable]] annotations"
+        COMMENT "Generating reflection/serialization + Luau type defs from tbx attributes"
         VERBATIM)
 
     # A target so the whole generation completes before any tbx TU compiles (reflection.cpp and
-    # serializers.cpp include the generated header).
-    add_custom_target(tbx_codegen DEPENDS "${generated_header}" "${generated_source}")
+    # serializers.cpp include the generated header). tbx.d.luau (luau-lsp IntelliSense) rides along.
+    add_custom_target(tbx_codegen DEPENDS "${generated_header}" "${generated_source}" "${generated_luau}")
 
     set(TBX_GENERATED_SOURCES "${generated_source}" PARENT_SCOPE)
     set(TBX_GENERATED_DIR "${generated_dir}" PARENT_SCOPE)

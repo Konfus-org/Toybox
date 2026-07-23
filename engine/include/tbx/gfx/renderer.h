@@ -14,7 +14,7 @@ namespace tbx
     /// Purpose: Makes a toy visible: a model surfaced by a material. Builtin primitives are
     /// reserved model handles (tbx::Builtin::CUBE/PLANE/SPHERE; unset renders the cube); an
     /// unset material renders the builtin white PBR surface.
-    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT Renderer : Block
+    struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Renderer : Block
     {
         AssetHandle<Material> material = {};
         AssetHandle<Model> model = {};

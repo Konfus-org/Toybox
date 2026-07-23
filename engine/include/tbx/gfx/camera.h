@@ -14,7 +14,7 @@ namespace tbx
     /// empty = the main window) and a normalized viewport rect within it (x, y, width,
     /// height with a bottom-left origin, glViewport-style). Position/orientation come from
     /// Transform (looks along its -Z). Every enabled camera renders.
-    struct TBX_SERIALIZABLE() TBX_DLL_EXPORT Camera : Block
+    struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Camera : Block
     {
         float fov_degrees = 60.0f;
         float near_plane = 0.1f;
