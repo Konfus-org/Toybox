@@ -43,16 +43,17 @@ def _registered_fields(type_def: TypeDef) -> list:
 
 def _type_block(type_def: TypeDef) -> str:
     head = f'{_INDENT}register_type<{type_def.name}>("{type_def.wire_name}")'
-    fields = _registered_fields(type_def)
-    if not fields:
+    members = [
+        f'.field("{field.name}", &{type_def.name}::{field.name}{_field_options(field)})'
+        for field in _registered_fields(type_def)
+    ]
+    members += [f'.signal("{name}", &{type_def.name}::{name})' for name in type_def.signals]
+    if not members:
         return head + ";"
     lines = [head]
-    for index, field in enumerate(fields):
-        last = index == len(fields) - 1
-        lines.append(
-            f"{_INDENT}    .field(\"{field.name}\", &{type_def.name}::{field.name}"
-            f"{_field_options(field)}){';' if last else ''}"
-        )
+    for index, member in enumerate(members):
+        last = index == len(members) - 1
+        lines.append(f"{_INDENT}    {member}{';' if last else ''}")
     return "\n".join(lines)
 
 

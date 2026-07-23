@@ -46,6 +46,7 @@ class TypeDef:
     header: str  # include path, e.g. "tbx/math/transform.h"
     bases: list[str] = field(default_factory=list)  # ["Block"] / ["Asset"]
     fields: list[Field] = field(default_factory=list)  # public fields only
+    signals: list[str] = field(default_factory=list)  # names of Signal<> members
     methods: list[Method] = field(default_factory=list)
     exposed_to_scripting: bool = False
     serializer: SerializerSpec | None = None

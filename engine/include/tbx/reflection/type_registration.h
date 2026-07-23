@@ -3,6 +3,7 @@
 #include "tbx/assets/handle.h"
 #include "tbx/utils/color.h"
 #include "tbx/ecs/block.h"
+#include "tbx/events/signal.h"
 #include "tbx/utils/hash.h"
 #include "tbx/math/math.h"
 #include "tbx/reflection/type_registry.h"
@@ -18,6 +19,9 @@
 
 namespace tbx
 {
+    // Forward-declared for the Signal<Toy> event check (is_same needs only a declaration).
+    class Toy;
+
     /// @brief
     /// Purpose: Detects AssetHandle<T> fields so they reflect as FieldKind::ASSET.
     template <typename T>
@@ -27,6 +31,18 @@ namespace tbx
 
     template <typename TAsset>
     struct IsAssetHandle<AssetHandle<TAsset>> : std::true_type
+    {
+    };
+
+    /// @brief
+    /// Purpose: Detects Signal<TEvent> members so they register as reflected signals, not fields.
+    template <typename T>
+    struct IsSignal : std::false_type
+    {
+    };
+
+    template <typename TEvent>
+    struct IsSignal<Signal<TEvent>> : std::true_type
     {
     };
 
@@ -237,6 +253,35 @@ namespace tbx
                 list.resize(count);
             };
             _info.get().fields.push_back(std::move(field));
+            return *this;
+        }
+
+        /// @brief
+        /// Purpose: Registers a Signal<TEvent> member as a reflected signal — how scripts connect to a
+        /// component's events generically. The connect thunk (generated here, where TEvent is known)
+        /// subscribes a language slot that receives a pointer to the emitted event.
+        template <typename TEvent>
+        TypeRegistration& signal(std::string name, Signal<TEvent> T::* member)
+        {
+            auto probe = T();
+            const auto offset = static_cast<size>(
+                reinterpret_cast<const char*>(&(probe.*member))
+                - reinterpret_cast<const char*>(&probe));
+
+            auto info = SignalInfo {};
+            info.name = std::move(name);
+            info.offset = offset;
+            info.event_type_hash = TypeSlot<TEvent>::hash;
+            info.event_is_toy = std::is_same_v<TEvent, Toy>;
+            info.connect =
+                [offset](std::byte* object, const void* owner, std::function<void(const void*)> slot)
+            {
+                auto& live = *std::launder(reinterpret_cast<Signal<TEvent>*>(object + offset));
+                return live.subscribe(
+                    owner,
+                    [slot = std::move(slot)](const TEvent& event) { slot(&event); });
+            };
+            _info.get().signals.push_back(std::move(info));
             return *this;
         }
 

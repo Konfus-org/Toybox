@@ -19,6 +19,8 @@ struct Block {};
 struct Asset { int id; };
 struct Vec3 { float x, y, z; };
 template <typename T> struct AssetHandle { int id; };
+template <typename E> struct Signal {};
+struct Toy {};
 enum class Facing { LEFT, RIGHT };
 }
 """
@@ -76,6 +78,12 @@ class ParseTests(unittest.TestCase):
         self.assertTrue(fields["fov"].is_serialized)
         self.assertFalse(fields["cached"].is_serialized)
 
+    def test_signal_members_are_separated_from_fields(self):
+        module = _parse("struct TBX_SERIALIZABLE() Rocket : Block { float fuel; Signal<Toy> launched; };")
+        rocket = module.types[0]
+        self.assertEqual([f.name for f in rocket.fields], ["fuel"])
+        self.assertEqual(rocket.signals, ["launched"])
+
     def test_private_fields_are_excluded(self):
         module = _parse(
             "struct TBX_SERIALIZABLE() Thing : Block { public: int shown; private: int hidden; };"
@@ -120,6 +128,13 @@ class EmitTests(unittest.TestCase):
             '.field("cached", &Camera::cached, FieldOptions {.is_serialized = false})',
             source,
         )
+
+    def test_signal_registered_via_signal_not_field(self):
+        module = _parse("struct TBX_SERIALIZABLE() Rocket : Block { float fuel; Signal<Toy> launched; };")
+        _, source = emit.render_reflection(module.types)
+        self.assertIn('.field("fuel", &Rocket::fuel)', source)
+        self.assertIn('.signal("launched", &Rocket::launched)', source)
+        self.assertNotIn('.field("launched"', source)
 
     def test_custom_asset_registers_no_reflected_fields(self):
         module = _parse(

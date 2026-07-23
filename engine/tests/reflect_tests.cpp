@@ -231,4 +231,48 @@ namespace tbx
         EXPECT_TRUE(is_reflection_ready());
         EXPECT_TRUE(get_type_registry().find("App").has_value());
     }
+
+    struct Pinged
+    {
+        int value = 0;
+    };
+
+    struct SignalBeeper : Block
+    {
+        Signal<Pinged> pinged;
+    };
+
+    TEST(Reflect, SignalMemberConnectsAndReceivesEmittedEvent)
+    {
+        // Arrange: a block with a reflected Signal member.
+        register_type<SignalBeeper>("SignalBeeper").signal("pinged", &SignalBeeper::pinged);
+        const auto info = describe_type<SignalBeeper>();
+        ASSERT_TRUE(info.has_value());
+        ASSERT_EQ(info->get().signals.size(), 1u);
+        EXPECT_EQ(info->get().signals.front().name, "pinged");
+
+        auto beeper = SignalBeeper();
+        auto received = 0;
+        info->get().signals.front().connect(
+            reinterpret_cast<std::byte*>(&beeper),
+            nullptr,
+            [&received](const void* event) { received = static_cast<const Pinged*>(event)->value; });
+
+        // Act: a queue-less component signal dispatches inline on emit.
+        beeper.pinged.emit({.value = 42});
+
+        // Assert
+        EXPECT_EQ(received, 42);
+    }
+
+    TEST(Reflect, SignalWithNoConnectionsIsANoOpOnEmit)
+    {
+        // Arrange
+        register_type<SignalBeeper>("SignalBeeper").signal("pinged", &SignalBeeper::pinged);
+        auto beeper = SignalBeeper();
+
+        // Act + Assert: emitting with nothing connected must not crash.
+        beeper.pinged.emit({.value = 7});
+        SUCCEED();
+    }
 }

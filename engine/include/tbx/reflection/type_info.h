@@ -40,6 +40,9 @@ namespace tbx
         std::function<void(Json&, uint32)> migrate = {};
         std::vector<FieldInfo> fields = {};
         std::vector<MethodInfo> methods = {};
+        // Signal<TEvent> members — the events this type raises, reflected so scripts connect to them
+        // generically (toy.RigidBody.collided:connect(fn)).
+        std::vector<SignalInfo> signals = {};
         void (*construct)(std::byte*) = nullptr;
         void (*destroy)(std::byte*) = nullptr;
         // The type-erased JSON round trip, stamped for every registered type — the one

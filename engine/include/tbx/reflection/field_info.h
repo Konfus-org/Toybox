@@ -47,6 +47,28 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: One reflected signal member on a type (a Signal<TEvent> field): its name, where it lives,
+    /// and a language-agnostic connect thunk. connect subscribes a slot that receives a pointer to the
+    /// emitted event; the language backend wraps its own callback in that slot (marshalling the event via
+    /// event_type_hash / event_is_toy). This is how `toy.RigidBody.collided:connect(fn)` binds with no
+    /// per-signal code.
+    struct TBX_DLL_EXPORT SignalInfo
+    {
+        std::string name = {};
+        size offset = 0;
+        // The reflected TypeInfo hash of the event payload (0 when the event is not a registered type);
+        // the language backend uses it to marshal the emitted event into the script.
+        uint64 event_type_hash = 0;
+        // Signal<Toy>: the backend pushes a live toy handle instead of a reflected table.
+        bool event_is_toy = false;
+        // Subscribes a language slot (it receives a pointer to the emitted event) under an owner tag;
+        // returns the subscription token.
+        std::function<
+            uint64(std::byte* object, const void* owner, std::function<void(const void*)> slot)>
+            connect = {};
+    };
+
+    /// @brief
     /// Purpose: One reflected field: where it lives in the object and how to read/write it.
     struct TBX_DLL_EXPORT FieldInfo
     {

@@ -193,6 +193,7 @@ def _build_type(cursor) -> TypeDef:
 
     bases: list[str] = []
     fields: list[Field] = []
+    signals: list[str] = []
     methods: list[Method] = []
     for child in cursor.get_children():
         if child.kind == cx.CursorKind.CXX_BASE_SPECIFIER:
@@ -206,6 +207,10 @@ def _build_type(cursor) -> TypeDef:
                 spelling = child.type.spelling
             except ValueError:
                 spelling = ""
+            # Signal<TEvent> members are reflected as signals (register via .signal), not as fields.
+            if spelling.replace("tbx::", "").startswith("Signal<"):
+                signals.append(child.spelling)
+                continue
             fields.append(
                 Field(
                     name=child.spelling,
@@ -235,6 +240,7 @@ def _build_type(cursor) -> TypeDef:
         header=_header_include(str(cursor.location.file)),
         bases=bases,
         fields=fields,
+        signals=signals,
         methods=methods,
         exposed_to_scripting=exposed,
         serializer=serializer,
