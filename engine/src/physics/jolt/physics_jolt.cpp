@@ -206,7 +206,7 @@ namespace tbx
         Toy toy,
         const Vec3& scale)
     {
-        const auto* renderer = toy.try_get_block<Renderer>();
+        const auto* renderer = toy.get<Renderer>();
         if (!renderer)
         {
             TBX_WARN("Shape::MESH collider without a Renderer block; falling back to a box");
@@ -325,7 +325,7 @@ namespace tbx
             if (!toy.is_enabled())
                 return;
             const auto key = static_cast<uint32>(toy.get_id());
-            const auto* rigid_body = toy.try_get_block<RigidBody>();
+            const auto* rigid_body = toy.get<RigidBody>();
             // Jolt simulates in world space; place bodies at the toy's world transform.
             const Transform transform = world_pose(toy);
             const auto existing = physics.bodies_by_toy.find(key);

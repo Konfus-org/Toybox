@@ -37,7 +37,7 @@ namespace tbx
             id,
             name + ".luau",
             std::any(ScriptSource {.text = std::string(source)}));
-        if (const auto compiled = reload_script(runtime.scripts, id, name, source); !compiled)
+        if (const auto compiled = compile_script(runtime.scripts, id, name, source); !compiled)
             return std::unexpected(compiled.error());
         return ok(AssetHandle<ScriptSource>(id));
     }
@@ -48,16 +48,16 @@ namespace tbx
         const std::string& name,
         const std::string_view source)
     {
-        return reload_script(runtime.scripts, script_id(name), name, source);
+        return compile_script(runtime.scripts, script_id(name), name, source);
     }
 
-    // Reflection + serialization must be ready before scripting (initialize() asserts it); the
+    // Reflection + serialization must be ready before scripting (initialize_scripting() asserts it); the
     // registries are process-global and self-guarding, so this is safe to call per test.
     static void boot(RuntimeState& runtime)
     {
         initialize_reflection();
         register_builtin_serializers();
-        initialize(runtime); // wires the VM backends
+        initialize_scripting(runtime); // wires the VM backends
     }
 
     static constexpr const char* MOVER_SOURCE = R"(
@@ -87,7 +87,7 @@ end
 
         // Assert: start renamed once; update advanced position twice.
         EXPECT_EQ(toy.get_name(), "started");
-        EXPECT_EQ(toy.get_block<Transform>().position.x, 2.0f);
+        EXPECT_EQ(toy.add<Transform>().position.x, 2.0f);
     }
 
     TEST(Scripts, LoadRejectsBadSyntax)
@@ -148,7 +148,7 @@ end
 
         // Assert: reload failed (old bytecode kept), so the original script keeps moving the toy.
         EXPECT_FALSE(reloaded.has_value());
-        EXPECT_EQ(toy.get_block<Transform>().position.x, 2.0f);
+        EXPECT_EQ(toy.add<Transform>().position.x, 2.0f);
     }
 
     TEST(Scripts, ScriptCanSpawnAndStickerThroughTbxApi)
@@ -173,7 +173,7 @@ end
         // Assert
         const auto summoned = sandbox.find("Friend");
         ASSERT_TRUE(summoned.has_value());
-        EXPECT_TRUE(Toy(*summoned).has_sticker("summoned"));
+        EXPECT_TRUE(Toy(*summoned).has("summoned"));
     }
 
     TEST(Scripts, FixedUpdateRunsAtFixedCadenceOnly)
@@ -195,14 +195,14 @@ end
         // Act: variable updates do not run the fixed hook; fixed steps do.
         update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        const float after_updates = toy.get_block<Transform>().position.x;
+        const float after_updates = toy.add<Transform>().position.x;
         fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
         fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
         fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
 
         // Assert
         EXPECT_EQ(after_updates, 0.0f);
-        EXPECT_EQ(toy.get_block<Transform>().position.x, 3.0f);
+        EXPECT_EQ(toy.add<Transform>().position.x, 3.0f);
     }
 
     TEST(Scripts, MissingBlockReadsAsNilAndAssignmentAttaches)
@@ -228,9 +228,9 @@ end
 
         // Assert: the nil read proved absence, the assignment attached and populated.
         EXPECT_EQ(toy.get_name(), "bare");
-        ASSERT_TRUE(toy.has_block<RigidBody>());
-        EXPECT_EQ(toy.get_block<RigidBody>().mass, 5.0f);
-        EXPECT_TRUE(toy.get_block<RigidBody>().is_kinematic);
+        ASSERT_TRUE(toy.has<RigidBody>());
+        EXPECT_EQ(toy.add<RigidBody>().mass, 5.0f);
+        EXPECT_TRUE(toy.add<RigidBody>().is_kinematic);
     }
 
     TEST(Scripts, TbxMathMirrorsTheEngineMathLibrary)
@@ -256,7 +256,7 @@ end
         update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: (1+1) + rotate(-Z by 90° yaw).x = 2 + (-1) = 1.
-        const Vec3 position = toy.get_block<Transform>().position;
+        const Vec3 position = toy.add<Transform>().position;
         EXPECT_NEAR(position.x, 1.0f, 0.0001f);
         EXPECT_NEAR(position.y, 2.0f, 0.0001f);
         EXPECT_NEAR(position.z, 3.0f, 0.0001f);
@@ -285,11 +285,12 @@ end
         // Act
         update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
-        // Assert
-        const Vec3 position = toy.get_block<Transform>().position;
+        // Assert. Keys are exposed 1:1; mouse/gamepad enums are offset into their own value
+        // range (the luau input dispatch), so tbx.MouseButton.LEFT reads 1000 + LEFT.
+        const Vec3 position = toy.add<Transform>().position;
         EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(Key::W)));
         EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(Key::ESCAPE)));
-        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(MouseButton::LEFT)));
+        EXPECT_EQ(position.z, static_cast<float>(1000 + static_cast<int>(MouseButton::LEFT)));
     }
 
     TEST(Scripts, DisabledToysDoNotRunScripts)

@@ -284,7 +284,7 @@ namespace tbx
         const auto slot = std::string(luaL_checkstring(lua, 2));
         luaL_checktype(lua, 3, LUA_TFUNCTION);
         const int getter_ref = lua_ref(lua, 3); // refs the getter in place (Luau: no pop)
-        UI* ui = Toy(*data.sandbox, data.entity).try_get_block<UI>();
+        UI* ui = Toy(*data.sandbox, data.entity).get<UI>();
         if (!ui)
             luaL_error(lua, "bind: the UI component is gone");
         ui->bindings[slot] = [lua, getter_ref]() -> std::string
@@ -561,7 +561,7 @@ namespace tbx
         const ToyUserdata& data = check_toy(lua, 1);
         if (lua_type(lua, 2) == LUA_TSTRING)
         {
-            Toy(*data.sandbox, data.entity).sticker(lua_tostring(lua, 2));
+            Toy(*data.sandbox, data.entity).add(lua_tostring(lua, 2));
             lua_pushvalue(lua, 1); // fluent: return the toy
             return 1;
         }
@@ -581,7 +581,7 @@ namespace tbx
         Toy toy(*data.sandbox, data.entity);
         if (lua_type(lua, 2) == LUA_TSTRING)
         {
-            lua_pushboolean(lua, toy.has_sticker(lua_tostring(lua, 2)));
+            lua_pushboolean(lua, toy.has(lua_tostring(lua, 2)));
             return 1;
         }
         const uint64 hashed = block_token_hash(lua, 2);
@@ -598,7 +598,7 @@ namespace tbx
         Toy toy(*data.sandbox, data.entity);
         if (lua_type(lua, 2) == LUA_TSTRING)
         {
-            toy.remove_sticker(lua_tostring(lua, 2));
+            toy.remove(lua_tostring(lua, 2));
         }
         else
         {
@@ -623,7 +623,7 @@ namespace tbx
         switch (lua_type(lua, 2))
         {
             case LUA_TSTRING: // sticker
-                toy.sticker(lua_tostring(lua, 2));
+                toy.add(lua_tostring(lua, 2));
                 break;
             case LUA_TUSERDATA: // parent toy
             {

@@ -11,25 +11,25 @@ namespace tbx
     }
 
     template <typename TBlock>
-    TBlock& Toy::get_block()
+    TBlock& Toy::add()
     {
         return _registry->get().get_or_emplace<TBlock>(_id);
     }
 
     template <typename TBlock>
-    TBlock* Toy::try_get_block() const
+    TBlock* Toy::get() const
     {
         return _registry ? _registry->get().try_get<TBlock>(_id) : nullptr;
     }
 
     template <typename TBlock>
-    bool Toy::has_block() const
+    bool Toy::has() const
     {
         return _registry && _registry->get().all_of<TBlock>(_id);
     }
 
     template <typename TBlock>
-    Toy& Toy::remove_block()
+    Toy& Toy::remove()
     {
         _registry->get().remove<TBlock>(_id);
         return *this;

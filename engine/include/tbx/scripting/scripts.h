@@ -14,6 +14,8 @@
 // runtime.scripts. Main thread only.
 namespace tbx
 {
+    struct RuntimeState; // forward-declared to avoid a cycle (runtime.h includes this header)
+
     /// @brief
     /// Purpose: One scripting language. Backends coexist — C++, Lua, and C# can all run at
     /// once — so this is a real interface, not a link-time swap: each compiled-in backend
@@ -101,6 +103,10 @@ namespace tbx
         // dropped and re-started next update, picking up the new code.
         std::unordered_set<Uuid> reloaded_sources;
     };
+
+    /// @brief
+    /// Purpose: Builds the compiled-in scripting backends against this runtime. Idempotent.
+    TBX_API void initialize_scripting(RuntimeState& runtime);
 
     /// @brief
     /// Purpose: (Re)compiles a script source under its asset id and flags it so any running

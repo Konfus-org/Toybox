@@ -149,14 +149,6 @@ namespace tbx
                 TBX_INFO("app settings re-applied from the .tapp");
             });
 
-        // Idle-collected or hot-reloaded assets drop their render-side caches.
-        state.events.asset_unloaded.subscribe(
-            &state,
-            [&state](const AssetUnloaded& unloaded)
-            {
-                gpu_purge(state.renderer, unloaded.id);
-            });
-
         // Script sources are assets: compile on first load, recompile on change. Both paths run
         // the same (re)registration — reload_script also serves as the initial load — so a script
         // just listens for its own asset type and ignores everything else.
@@ -186,6 +178,14 @@ namespace tbx
                 register_script_asset(loaded.id, loaded.extension.data());
             });
 
+        // Idle-collected or hot-reloaded assets drop their render-side caches.
+        state.events.asset_unloaded.subscribe(
+            &state,
+            [&state](const AssetUnloaded& unloaded)
+            {
+                gpu_purge(state.renderer, unloaded.id);
+            });
+
         // Changed assets re-upload their GPU copies; changed .luau assets recompile and restart.
         state.events.asset_reloaded.subscribe(
             &state,
@@ -212,7 +212,7 @@ namespace tbx
                 open(state.sandbox, level->get());
         }
 
-        initialize(state);
+        initialize_scripting(state);
 
         if (state.windows.open_windows.empty())
             TBX_INFO("Toybox app up (headless)");
@@ -224,45 +224,6 @@ namespace tbx
     }
 
     //// THE LOOP ////
-
-    /// @brief
-    /// Purpose: One frustum per enabled camera in the scene — however many there are
-    /// (splitscreen coop, editor viewports), each matched to its window exactly the way the
-    /// renderer matches them (empty name = the main window, viewport rect scales the
-    /// aspect), so streaming and rendering agree on what is in sight.
-    static std::vector<Frustum> gather_camera_frustums(RuntimeState& state)
-    {
-        auto frustums = std::vector<Frustum>();
-        if (state.windows.open_windows.empty())
-            return frustums; // headless: no views, no streaming decisions
-        state.sandbox.for_each_with<Camera>(
-            [&](Toy toy, Camera& camera)
-            {
-                if (!toy.is_enabled())
-                    return;
-                const Window* window = nullptr;
-                for (const Window& candidate : state.windows.open_windows)
-                {
-                    const bool is_main = &candidate == &state.windows.open_windows.front();
-                    if (camera.window.empty() ? is_main : camera.window == candidate.name)
-                    {
-                        window = &candidate;
-                        break;
-                    }
-                }
-                if (!window || window->status != WindowStatus::OPEN)
-                    return;
-                const int width = static_cast<int>(camera.viewport.z * window->width);
-                const int height = static_cast<int>(camera.viewport.w * window->height);
-                if (width <= 0 || height <= 0)
-                    return;
-                frustums.push_back(make_frustum(
-                    camera,
-                    toy.get_world_transform(),
-                    static_cast<float>(width) / height));
-            });
-        return frustums;
-    }
 
     bool run(Runtime& runtime)
     {
@@ -338,8 +299,7 @@ namespace tbx
         // streaming loads what any enabled camera can see (also flushes a pending open()). Every
         // enabled camera contributes a frustum, gathered here after scripts/physics settled the
         // transforms and before rendering.
-        const auto frustums = gather_camera_frustums(state);
-        update_sandbox(state.sandbox, state.assets, state.events, state.jobs, frustums);
+        update_sandbox(state.sandbox, state.assets, state.events, state.jobs, state.windows);
 
         // The engine renders by default; hosts with their own pipeline opt out and draw
         // between run() calls instead. Every open window gets a graph run; the first is

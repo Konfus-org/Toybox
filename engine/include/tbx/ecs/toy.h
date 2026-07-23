@@ -28,7 +28,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Fluent handle to one toy: container.add("Grunt").with(Transform
-    /// {...}).with(Health {...}).sticker("enemy"). A toy is the handle you query and mutate a
+    /// {...}).with(Health {...}).add("enemy"). A toy is the handle you query and mutate a
     /// toy through — the same handle works whether the toy lives in a Sandbox (the world) or a
     /// Kit (a bundle). The owning container's registry stays hidden; everything goes through
     /// the handle.
@@ -47,12 +47,12 @@ namespace tbx
         /// @brief
         /// Purpose: Returns the block of this type, adding a default-constructed one if absent.
         template <typename TBlock>
-        TBlock& get_block();
+        TBlock& add();
 
         /// @brief
         /// Purpose: The block of this type if attached, else nullptr (never inserts).
         template <typename TBlock>
-        TBlock* try_get_block() const;
+        TBlock* get() const;
 
         /// @brief
         /// Purpose: The toy's per-session registry id.
@@ -98,21 +98,21 @@ namespace tbx
         /// @brief
         /// Purpose: True when this block type is attached.
         template <typename TBlock>
-        bool has_block() const;
+        bool has() const;
 
         /// @brief
         /// Purpose: True when the sticker is on this toy.
-        bool has_sticker(std::string_view name) const;
+        bool has(std::string_view name) const;
 
         /// @brief
         /// Purpose: Detaches the block of this type (no-op when absent). Fluent: returns the toy
         /// for chaining.
         template <typename TBlock>
-        Toy& remove_block();
+        Toy& remove();
 
         /// @brief
         /// Purpose: Peels a sticker off (no-op when absent). Fluent: returns the toy for chaining.
-        Toy& remove_sticker(std::string_view name);
+        Toy& remove(std::string_view name);
 
         /// @brief
         /// Purpose: Turns the toy on or off for rendering, scripting, and physics (persisted
@@ -130,7 +130,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Fluent: slaps a sticker on and returns the toy for chaining.
-        Toy& sticker(std::string name);
+        Toy& add(std::string name);
 
         /// @brief
         /// Purpose: Fluent: attaches (or replaces) a block and returns the toy for chaining.

@@ -28,7 +28,7 @@ namespace tbx
             update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
-        const float resting_y = cube.get_block<Transform>().position.y;
+        const float resting_y = cube.add<Transform>().position.y;
         EXPECT_NEAR(resting_y, 0.5f, 0.1f);
     }
 
@@ -47,7 +47,7 @@ namespace tbx
             update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: no RigidBody means scenery — gravity does not apply.
-        EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
+        EXPECT_EQ(wall.add<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
     }
 
     TEST(Physics, CollisionEventReachesSubscribersThroughThePump)

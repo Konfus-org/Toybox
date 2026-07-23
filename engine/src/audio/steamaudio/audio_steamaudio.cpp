@@ -306,7 +306,7 @@ namespace tbx
 
             // A Collider softens attenuation by its extent (the shared Shape vocabulary).
             float extent = 0.0f;
-            if (const auto* collider = toy.try_get_block<Collider>())
+            if (const auto* collider = toy.get<Collider>())
             {
                 switch (collider->shape)
                 {
@@ -336,7 +336,7 @@ namespace tbx
         for (auto it = state.voices.begin(); it != state.voices.end();)
         {
             auto toy = Toy(sandbox, static_cast<ToyId>(it->first));
-            const bool is_stale = !toy.is_alive() || !toy.has_block<AudioSource>();
+            const bool is_stale = !toy.is_alive() || !toy.has<AudioSource>();
             it = is_stale ? state.voices.erase(it) : std::next(it);
         }
     }

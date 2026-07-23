@@ -79,7 +79,7 @@ namespace tbx
         return _registry.has_value() && _registry->get().valid(_id);
     }
 
-    bool Toy::has_sticker(const std::string_view name) const
+    bool Toy::has(const std::string_view name) const
     {
         const uint64 wanted = hash(name);
         for (const std::string& sticker : get_info().stickers)
@@ -88,7 +88,7 @@ namespace tbx
         return false;
     }
 
-    Toy& Toy::remove_sticker(const std::string_view name)
+    Toy& Toy::remove(const std::string_view name)
     {
         const uint64 wanted = hash(name);
         std::erase_if(
@@ -110,9 +110,9 @@ namespace tbx
         return *this;
     }
 
-    Toy& Toy::sticker(std::string name)
+    Toy& Toy::add(std::string name)
     {
-        if (!has_sticker(name))
+        if (!has(name))
             get_info().stickers.push_back(std::move(name));
         return *this;
     }

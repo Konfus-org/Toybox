@@ -72,13 +72,13 @@ namespace tbx
         auto other_calls = 0;
         auto owner_tag = 1;
         auto other_tag = 2;
-        events.key.subscribe(&owner_tag, [&owner_calls](const KeyEvent&) { ++owner_calls; });
-        events.key.subscribe(&owner_tag, [&owner_calls](const KeyEvent&) { ++owner_calls; });
-        events.key.subscribe(&other_tag, [&other_calls](const KeyEvent&) { ++other_calls; });
+        events.input.subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
+        events.input.subscribe(&owner_tag, [&owner_calls](const InputEvent&) { ++owner_calls; });
+        events.input.subscribe(&other_tag, [&other_calls](const InputEvent&) { ++other_calls; });
 
         // Act
-        events.key.unsubscribe_owner(&owner_tag);
-        events.key.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
+        events.input.unsubscribe_owner(&owner_tag);
+        events.input.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
         update_events(events);
 
         // Assert
@@ -93,12 +93,12 @@ namespace tbx
         auto first_calls = 0;
         auto second_calls = 0;
         auto tag = 0;
-        const Token first = events.key.subscribe(&tag, [&](const KeyEvent&) { ++first_calls; });
-        events.key.subscribe(&tag, [&](const KeyEvent&) { ++second_calls; });
+        const Token first = events.input.subscribe(&tag, [&](const InputEvent&) { ++first_calls; });
+        events.input.subscribe(&tag, [&](const InputEvent&) { ++second_calls; });
 
         // Act
-        events.key.unsubscribe(first);
-        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.input.unsubscribe(first);
+        events.input.emit({.key = Key::A, .is_down = true, .is_repeat = false});
         update_events(events);
 
         // Assert
@@ -112,11 +112,11 @@ namespace tbx
         auto events = EventsState();
         auto order = std::vector<int>();
         events.window_resized.subscribe(&order, [&](const WindowResized&) { order.push_back(1); });
-        events.key.subscribe(&order, [&](const KeyEvent&) { order.push_back(2); });
+        events.input.subscribe(&order, [&](const InputEvent&) { order.push_back(2); });
 
         // Act
         events.window_resized.emit({.width = 1, .height = 1});
-        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.input.emit({.key = Key::A, .is_down = true, .is_repeat = false});
         events.window_resized.emit({.width = 2, .height = 2});
         update_events(events);
 

@@ -7,12 +7,27 @@
 #include "tbx/runtime.h"
 #include "tbx/serialization/json.h"
 #include "tbx/serialization/read_write.h"
+#include "tbx/serialization/serializers.h"
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <thread>
 
 namespace tbx
 {
+    // Kit add now lives on the Sandbox, which reads the asset system through wired-in refs
+    // (set at boot). Tests build fresh sandboxes, so this wires them before instantiating a kit.
+    template <typename TKit>
+    static Result<Toy> add_kit(
+        Sandbox& sandbox,
+        AssetsState& assets,
+        EventsState& events,
+        const TKit& kit,
+        const Vec3& position = Vec3(0.0f, 0.0f, 0.0f))
+    {
+        sandbox.assets = &assets;
+        sandbox.events = &events;
+        return sandbox.add(kit, position);
+    }
 
     struct TestHealth : Block
     {
@@ -46,6 +61,7 @@ namespace tbx
             // is plain data now and no longer self-registers. set_asset_root (unlike
             // initialize_assets) does not do this, so do it explicitly.
             initialize_reflection();
+            register_builtin_serializers();
             const auto* info = testing::UnitTest::GetInstance()->current_test_info();
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
@@ -108,19 +124,19 @@ namespace tbx
         Toy grunt = sandbox.add("Grunt")
                              .with(Transform {.position = Vec3(1.0f, 2.0f, 3.0f)})
                              .with(TestHealth {.hp = 50.0f, .armor = 10.0f})
-                             .sticker("enemy");
+                             .add("enemy");
 
         // Assert
         EXPECT_TRUE(grunt.is_alive());
         EXPECT_EQ(grunt.get_name(), "Grunt");
-        EXPECT_TRUE(grunt.has_block<TestHealth>());
-        EXPECT_TRUE(grunt.has_sticker("enemy"));
-        EXPECT_FALSE(grunt.has_sticker("pickup"));
-        EXPECT_EQ(grunt.get_block<TestHealth>().hp, 50.0f);
+        EXPECT_TRUE(grunt.has<TestHealth>());
+        EXPECT_TRUE(grunt.has("enemy"));
+        EXPECT_FALSE(grunt.has("pickup"));
+        EXPECT_EQ(grunt.add<TestHealth>().hp, 50.0f);
         EXPECT_TRUE(grunt.get_uuid().is_valid());
     }
 
-    TEST(Sandbox, DespawnKillsToyAndOrphansChildren)
+    TEST(Sandbox, RemoveKillsToyAndItsSubtree)
     {
         // Arrange
         auto sandbox = Sandbox();
@@ -131,24 +147,23 @@ namespace tbx
         // Act
         sandbox.remove(parent);
 
-        // Assert
+        // Assert: remove cascades to the whole subtree.
         EXPECT_FALSE(parent.is_alive());
-        EXPECT_TRUE(child.is_alive());
-        EXPECT_FALSE(child.get_parent().has_value());
+        EXPECT_FALSE(child.is_alive());
     }
 
     TEST(Sandbox, FindsToysBySearchAndSticker)
     {
         // Arrange
         auto sandbox = Sandbox();
-        Toy grunt = sandbox.add("Grunt").sticker("enemy");
+        Toy grunt = sandbox.add("Grunt").add("enemy");
         sandbox.add("Crate");
         auto stickered = std::vector<std::string>();
 
         // Act
         const auto by_name = sandbox.find("Grunt");
         const auto by_uuid = sandbox.find(grunt.get_uuid());
-        sandbox.for_each_sticker(
+        sandbox.for_each_with(
             "enemy",
             [&stickered](Toy toy)
             {
@@ -174,7 +189,7 @@ namespace tbx
         auto source = Sandbox();
         Toy parent = source.add("Room")
                               .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
-                              .sticker("level");
+                              .add("level");
         Toy child = source.add("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         child.set_parent(parent);
         ASSERT_TRUE(serialize(source, world.root / "world.kit").has_value());
@@ -183,7 +198,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "world.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        const auto loaded = add(target, world.runtime.assets, world.runtime.events, *kit);
+        const auto loaded = add_kit(target, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -192,9 +207,9 @@ namespace tbx
         const auto grunt = target.find("Grunt");
         ASSERT_TRUE(room.has_value());
         ASSERT_TRUE(grunt.has_value());
-        EXPECT_TRUE(room->has_sticker("level"));
-        EXPECT_EQ(Toy(*room).get_block<Transform>().position, Vec3(5.0f, 0.0f, 0.0f));
-        EXPECT_EQ(Toy(*grunt).get_block<TestHealth>().hp, 33.0f);
+        EXPECT_TRUE(room->has("level"));
+        EXPECT_EQ(Toy(*room).add<Transform>().position, Vec3(5.0f, 0.0f, 0.0f));
+        EXPECT_EQ(Toy(*grunt).add<TestHealth>().hp, 33.0f);
         ASSERT_TRUE(grunt->get_parent().has_value());
         EXPECT_EQ(grunt->get_parent()->get_id(), room->get_id());
     }
@@ -247,7 +262,7 @@ namespace tbx
 
         // Act
         auto sandbox = Sandbox();
-        const auto loaded = add(
+        const auto loaded = add_kit(
             sandbox,
             world.runtime.assets,
             world.runtime.events,
@@ -277,7 +292,7 @@ namespace tbx
 
         // Act
         const auto loaded =
-            add(sandbox, world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
+            add_kit(sandbox, world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -295,7 +310,7 @@ namespace tbx
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = add(
+        const auto loaded = add_kit(
             sandbox,
             world.runtime.assets,
             world.runtime.events,
@@ -322,7 +337,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "widget.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         const auto loaded =
-            add(sandbox, world.runtime.assets, world.runtime.events, *kit);
+            add_kit(sandbox, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -442,7 +457,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "lamp.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        ASSERT_TRUE(add(target, world.runtime.assets, world.runtime.events, *kit).has_value());
+        ASSERT_TRUE(add_kit(target, world.runtime.assets, world.runtime.events, *kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");

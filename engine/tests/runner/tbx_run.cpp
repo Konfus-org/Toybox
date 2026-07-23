@@ -102,11 +102,11 @@ static int run_scene_selftest()
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
         if (frame == 3)
-            camera.get_block<tbx::Transform>() = tbx::Transform {
+            camera.add<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
         if (frame == 5)
-            camera.get_block<tbx::Transform>() = tbx::Transform {
+            camera.add<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(-2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 

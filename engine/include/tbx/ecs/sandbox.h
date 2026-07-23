@@ -5,11 +5,10 @@
 #include "tbx/ecs/kit.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/math/frustum.h"
-#include "tbx/utils/result.h"
+#include "tbx/platform/window.h"
 #include <filesystem>
 #include <optional>
 #include <span>
-#include <vector>
 
 namespace tbx
 {
@@ -26,6 +25,8 @@ namespace tbx
         bool is_loaded = false;
     };
 
+    struct EventsState; // wired in at boot (below); the asset/kit path reaches events through it
+
     /// @brief
     /// Purpose: THE world container: a ToyContainer that also opens a level kit and streams
     /// its streamed child kits by camera sight. Plain data — every toy query/mutation goes
@@ -36,8 +37,6 @@ namespace tbx
     /// @details
     /// Movable so read<Sandbox> can hand one over — move it only while no streamed loads are
     /// in flight (startup, or right after close()). Copy is deleted: a world is unique.
-    struct EventsState; // wired in at boot (below); the asset/kit path reaches events through it
-
     struct TBX_API Sandbox : ToyContainer
     {
         Sandbox() = default;
@@ -82,6 +81,17 @@ namespace tbx
     /// frustum can see and collapsing what none can. tbx::run() calls this once, after
     /// scripts/physics settle transforms and before rendering.
     TBX_API void update_sandbox(
+        Sandbox& sandbox,
+        AssetsState& assets,
+        EventsState& events,
+        JobsState& jobs,
+        WindowsState& windows);
+
+    /// @brief
+    /// Purpose: The streaming primitive update_sandbox drives — loads streamed kits in sight of
+    /// any frustum and collapses those out of sight of all, flushing a pending open() first.
+    /// Public so tests can drive streaming with explicit frustum sets.
+    TBX_API void stream(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
