@@ -144,38 +144,10 @@ declare tbx: {
         onCollision: (handler: (event: any) -> ()) -> (),
     },
 
-    Key: {
-        UNKNOWN: number,
-        A: number, B: number, C: number, D: number, E: number, F: number, G: number,
-        H: number, I: number, J: number, K: number, L: number, M: number, N: number,
-        O: number, P: number, Q: number, R: number, S: number, T: number, U: number,
-        V: number, W: number, X: number, Y: number, Z: number,
-        NUM_0: number, NUM_1: number, NUM_2: number, NUM_3: number, NUM_4: number,
-        NUM_5: number, NUM_6: number, NUM_7: number, NUM_8: number, NUM_9: number,
-        F1: number, F2: number, F3: number, F4: number, F5: number, F6: number,
-        F7: number, F8: number, F9: number, F10: number, F11: number, F12: number,
-        ESCAPE: number, TAB: number, CAPS_LOCK: number, SPACE: number, ENTER: number,
-        BACKSPACE: number, DEL: number, INSERT: number, HOME: number, END: number,
-        PAGE_UP: number, PAGE_DOWN: number, LEFT: number, RIGHT: number, UP: number,
-        DOWN: number, LEFT_SHIFT: number, RIGHT_SHIFT: number, LEFT_CTRL: number,
-        RIGHT_CTRL: number, LEFT_ALT: number, RIGHT_ALT: number, MINUS: number,
-        EQUALS: number, LEFT_BRACKET: number, RIGHT_BRACKET: number, BACKSLASH: number,
-        SEMICOLON: number, APOSTROPHE: number, GRAVE: number, COMMA: number,
-        PERIOD: number, SLASH: number,
-    },
-    MouseButton: { LEFT: number, RIGHT: number, MIDDLE: number },
-    MouseAxis: { X: number, Y: number, SCROLL: number },
-    CursorMode: { NORMAL: number, HIDDEN: number, LOCKED: number },
-    GamepadButton: {
-        SOUTH: number, EAST: number, WEST: number, NORTH: number, BACK: number,
-        GUIDE: number, START: number, LEFT_STICK: number, RIGHT_STICK: number,
-        LEFT_SHOULDER: number, RIGHT_SHOULDER: number, DPAD_UP: number, DPAD_DOWN: number,
-        DPAD_LEFT: number, DPAD_RIGHT: number,
-    },
-    GamepadAxis: {
-        LEFT_X: number, LEFT_Y: number, RIGHT_X: number, RIGHT_Y: number,
-        LEFT_TRIGGER: number, RIGHT_TRIGGER: number,
-    },
+    -- Enum tables (generated from the script-exposed enums). Every member reads as a number.
+{% for enum in enums %}
+    {{ enum.name }}: { {% for member in enum.members %}{{ member }}: number{{ ", " if not loop.last }}{% endfor %} },
+{% endfor %}
 }
 
 -- Block tokens are also exposed as globals, so you can drop the `tbx.blocks.` prefix.

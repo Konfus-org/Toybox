@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/reflection/attributes.h"
 #include "tbx/utils/typedefs.h"
 
 namespace tbx
@@ -6,7 +7,7 @@ namespace tbx
     /// @brief
     /// Purpose: Engine-owned key identities; platform backends translate their native codes
     /// into these. DEL is deliberately not DELETE — that collides with a windows.h macro.
-    enum class Key : uint16
+    enum class TBX_EXPOSED_TO_SCRIPTING Key : uint16
     {
         UNKNOWN = 0,
 
@@ -100,7 +101,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Mouse button identities fed by the platform backend.
-    enum class MouseButton : uint8
+    enum class TBX_EXPOSED_TO_SCRIPTING MouseButton : uint8
     {
         LEFT = 0,
         RIGHT,
@@ -114,7 +115,7 @@ namespace tbx
     /// SDL_GamepadButton so the backend translator can range-map straight across. Face buttons
     /// are named by position (SOUTH/EAST/WEST/NORTH), not letters, so layouts stay controller-
     /// agnostic.
-    enum class GamepadButton : uint8
+    enum class TBX_EXPOSED_TO_SCRIPTING GamepadButton : uint8
     {
         SOUTH = 0,
         EAST,
@@ -138,7 +139,7 @@ namespace tbx
     /// @brief
     /// Purpose: Gamepad analog axis identities fed by the platform backend. Order matches SDL's
     /// SDL_GamepadAxis. Stick axes read in [-1, 1] (up/left negative); triggers read in [0, 1].
-    enum class GamepadAxis : uint8
+    enum class TBX_EXPOSED_TO_SCRIPTING GamepadAxis : uint8
     {
         LEFT_X = 0,
         LEFT_Y,
@@ -154,7 +155,7 @@ namespace tbx
     /// Purpose: Mouse analog axes, so get_axis/get_axis_delta read the pointer like a stick:
     /// X/Y are the pointer position (get_axis) or this frame's movement (get_axis_delta); SCROLL
     /// is the wheel (delta only).
-    enum class MouseAxis : uint8
+    enum class TBX_EXPOSED_TO_SCRIPTING MouseAxis : uint8
     {
         X = 0,
         Y,
@@ -167,7 +168,7 @@ namespace tbx
     /// Purpose: What the OS cursor does over the window: NORMAL is a visible free pointer,
     /// HIDDEN is a free pointer without the arrow, LOCKED grabs the cursor for mouse-look —
     /// invisible, pinned to the window, with movement still flowing as deltas.
-    enum class CursorMode : uint8
+    enum class TBX_EXPOSED_TO_SCRIPTING CursorMode : uint8
     {
         NORMAL = 0,
         HIDDEN,

@@ -110,17 +110,23 @@ def _luau_block_view(type_def: TypeDef) -> dict:
     return {"name": type_def.name, "fields": fields}
 
 
-def render_luau_defs(types: list[TypeDef]) -> str:
-    """Render the luau-lsp type-definition file (.d.luau) from the script-exposed blocks."""
+def _luau_enum_view(enum_def) -> dict:
+    # COUNT is a sentinel for enum size, not a real value — never expose it to scripts.
+    return {"name": enum_def.name, "members": [name for name, _ in enum_def.values if name != "COUNT"]}
+
+
+def render_luau_defs(types: list[TypeDef], enums=()) -> str:
+    """Render the luau-lsp type-definition file (.d.luau) from the script-exposed blocks and enums."""
     blocks = [_luau_block_view(t) for t in types if t.exposed_to_scripting]
-    return _environment().get_template("luau_defs.d.luau.jinja").render(blocks=blocks)
+    enum_views = [_luau_enum_view(e) for e in enums]
+    return _environment().get_template("luau_defs.d.luau.jinja").render(blocks=blocks, enums=enum_views)
 
 
-def write_luau_defs(types: list[TypeDef], out_dir: str) -> str:
+def write_luau_defs(types: list[TypeDef], enums, out_dir: str) -> str:
     tbx_dir = Path(out_dir) / "tbx"
     tbx_dir.mkdir(parents=True, exist_ok=True)
     path = tbx_dir / "tbx.d.luau"
-    path.write_text(render_luau_defs(types), encoding="utf-8")
+    path.write_text(render_luau_defs(types, enums), encoding="utf-8")
     return str(path)
 
 

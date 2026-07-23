@@ -168,6 +168,12 @@ class EmitTests(unittest.TestCase):
         self.assertNotIn("cache", defs)  # non-serialized runtime field is dropped
         self.assertIn("Widget: BlockType<Widget, WidgetProps>", defs)  # token + global
 
+    def test_luau_defs_generate_enum_tables_dropping_count(self):
+        module = _parse("enum class TBX_EXPOSED_TO_SCRIPTING Button { LEFT, RIGHT, COUNT };")
+        defs = emit.render_luau_defs(module.types, module.enums)
+        self.assertIn("Button: { LEFT: number, RIGHT: number },", defs)
+        self.assertNotIn("COUNT", defs)
+
     def test_luau_defs_exclude_non_exposed_types(self):
         module = _parse(
             "struct TBX_SERIALIZABLE(SerializerFormat::DEFAULT) Material : Asset { float roughness; };"
