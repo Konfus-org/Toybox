@@ -1,4 +1,5 @@
 #include "tbx/ecs/container.h"
+#include "ecs_internal.h"
 #include "tbx/debug/log.h"
 #include "tbx/ecs/kit.h" // KitInstance — kit-instance contents are skipped when serializing
 #include "tbx/math/transform.h"
@@ -10,14 +11,19 @@ namespace tbx
 {
     //// TOY LIFECYCLE ////
 
+    Toy internal::create_toy(Registry& registry, std::string name, const ToyId parent)
+    {
+        const ToyId id = registry.create();
+        registry.emplace<ToyInfo>(
+            id,
+            ToyInfo {.uuid = Uuid::generate(), .name = std::move(name), .parent = parent});
+        registry.emplace<Transform>(id);
+        return Toy(registry, id);
+    }
+
     Toy ToyContainer::add(std::string name)
     {
-        const ToyId id = _registry->create();
-        _registry->emplace<ToyInfo>(
-            id,
-            ToyInfo {.uuid = Uuid::generate(), .name = std::move(name)});
-        _registry->emplace<Transform>(id);
-        return Toy(*this, id);
+        return internal::create_toy(*_registry, std::move(name));
     }
 
     std::optional<Toy> ToyContainer::find(const Uuid& uuid)

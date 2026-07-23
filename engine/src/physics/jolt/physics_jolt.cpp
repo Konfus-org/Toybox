@@ -1,4 +1,5 @@
 #include "jolt_first.h"
+#include "physics/physics_internal.h"
 #include "tbx/runtime.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
@@ -222,7 +223,7 @@ namespace tbx
             return new JPH::BoxShape(
                 JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
 
-        if (const auto model = load_asset_now(assets, events, renderer->model))
+        if (const auto model = load_now(assets, events, renderer->model))
         {
             // Interleaved position(3)+normal(3)+uv(2) triangle list from the importer.
             const auto& vertices = model->get().vertices;

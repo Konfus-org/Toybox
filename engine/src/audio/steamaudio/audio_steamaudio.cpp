@@ -1,3 +1,4 @@
+#include "audio/audio_internal.h"
 #include "tbx/audio/audio.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/audio/source.h"
@@ -273,7 +274,7 @@ namespace tbx
                 auto& cached = state.clips[source.clip.id];
                 if (!cached)
                 {
-                    const auto clip = load_asset_now(assets, events, source.clip); // resolves by tracked path
+                    const auto clip = load_now(assets, events, source.clip); // resolves by tracked path
                     if (!clip)
                         return;
                     cached = std::make_shared<AudioClip>(clip->get());

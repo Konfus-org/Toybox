@@ -7,6 +7,7 @@
 #include "tbx/math/frustum.h"
 #include "tbx/math/transform.h"
 #include "tbx/utils/hash.h"
+#include "ecs_internal.h" // internal::bounds_to_json — shared with kit serialization
 #include <optional>
 
 namespace tbx
@@ -44,7 +45,7 @@ namespace tbx
                 const Vec3 world_position =
                     Vec3(toy.get_world_transform() * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
                 auto to_camera = camera_position - world_position;
-                if (billboard.lock_y)
+                if (billboard.is_upright)
                     to_camera.y = 0.0f; // upright: face the camera on the horizontal plane only
                 if (length(to_camera) < 0.0001f)
                     return; // camera is on top of the toy — leave the current facing
@@ -118,7 +119,7 @@ namespace tbx
         Toy instance,
         const AssetHandle<Kit>& kit)
     {
-        const auto peeked = load_asset_now(assets, events, kit);
+        const auto peeked = load_now(assets, events, kit);
         if (!peeked)
         {
             TBX_ERROR("streamed kit '{}': {}", kit.path, peeked.error());
@@ -153,7 +154,7 @@ namespace tbx
                 continue;
 
             // Streamed nested kits defer to the streaming system; immediate ones expand now.
-            if (kit_instance->streamed)
+            if (kit_instance->is_streamed)
             {
                 register_streamed_kit(sandbox, assets, events, instance, kit_instance->kit);
                 continue;
@@ -164,7 +165,7 @@ namespace tbx
                 if (seen == reference)
                     return fail("kit reference cycle detected at '{}'", kit_instance->kit.path);
 
-            const auto nested = load_asset_now(assets, events, kit_instance->kit);
+            const auto nested = load_now(assets, events, kit_instance->kit);
             if (!nested)
                 return fail("kit '{}': {}", kit_instance->kit.path, nested.error());
 
@@ -220,7 +221,7 @@ namespace tbx
         const AssetHandle<Kit>& kit,
         const Vec3& position)
     {
-        const auto loaded = load_asset_now(assets, events, kit);
+        const auto loaded = load_now(assets, events, kit);
         if (!loaded)
             return fail("kit '{}': {}", kit.path, loaded.error());
         auto root = instantiate_kit(sandbox, assets, events, loaded->get(), position);
@@ -232,6 +233,17 @@ namespace tbx
     // Spawns the pending level (open() defers so opening never needs the asset system in hand).
     static void open_pending(Sandbox& sandbox, AssetsState& assets, EventsState& events)
     {
+        // A root opened by handle (open(root)/open(kit, REPLACE)) resolves here, the one place with
+        // the asset system in hand — so open() itself never needs it.
+        if (sandbox.pending_root)
+        {
+            const AssetHandle<Kit> root = *sandbox.pending_root;
+            sandbox.pending_root.reset();
+            if (auto opened =
+                    instantiate_kit(sandbox, assets, events, root, Vec3(0.0f, 0.0f, 0.0f));
+                !opened)
+                TBX_ERROR("opened root kit: {}", opened.error());
+        }
         if (!sandbox.pending_level)
             return;
         const Kit level = std::move(*sandbox.pending_level);
@@ -243,7 +255,7 @@ namespace tbx
 
     //// STREAMING ////
 
-    void stream(
+    void internal::stream(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -298,7 +310,7 @@ namespace tbx
                        AssetHandle<Kit> kit) -> Task<void>
                     {
                         co_await on_worker(jobs);
-                        auto loaded = load_asset_now(assets, events, kit);
+                        auto loaded = load_now(assets, events, kit);
                         auto body = loaded ? Result<Kit>(loaded->get())
                                            : Result<Kit>(std::unexpected(loaded.error()));
                         co_await on_main(jobs);
@@ -351,11 +363,6 @@ namespace tbx
 
     //// SERIALIZATION ////
 
-    static Json bounds_to_json(const Vec3& center, const float radius)
-    {
-        return Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
-    }
-
     Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path)
     {
         auto level = deserialize_kit(path);
@@ -370,7 +377,7 @@ namespace tbx
     {
         auto body = Json::object();
         body["toys"] = serialize_toys(sandbox);
-        body["bounds"] = bounds_to_json(Vec3(0.0f), 0.0f);
+        body["bounds"] = internal::bounds_to_json(Vec3(0.0f), 0.0f);
         return write_text(path.string(), body.dump(4));
     }
 
@@ -385,6 +392,7 @@ namespace tbx
     {
         sandbox.streamed_kits.clear();
         sandbox.pending_level.reset();
+        sandbox.pending_root.reset();
         sandbox.clear(); // every toy (ToyContainer)
     }
 
@@ -420,5 +428,22 @@ namespace tbx
         if (!assets || !events)
             return fail("sandbox is not wired to the asset system");
         return instantiate_kit(*this, *assets, *events, kit, position);
+    }
+
+    Sandbox& Sandbox::open(const AssetHandle<Kit>& kit, const OpenMode mode)
+    {
+        if (mode == OpenMode::REPLACE)
+        {
+            close(*this); // drop the current world (and any pending open) first
+            pending_root = kit; // the fresh world resolves on the next stream() tick
+        }
+        else if (auto added = add(kit); !added)
+            TBX_ERROR("opened kit (additive): {}", added.error());
+        return *this;
+    }
+
+    Toy Sandbox::spawn(std::string name)
+    {
+        return add(std::move(name));
     }
 }

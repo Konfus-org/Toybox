@@ -45,7 +45,7 @@ namespace tbx
             &unload_count,
             [&unload_count](const AssetUnloaded&) { ++unload_count; });
         const auto loaded =
-            load_asset_now(runtime.assets, runtime.events, AssetHandle<ThingAsset>("thing.json"));
+            load_now(runtime.assets, runtime.events, AssetHandle<ThingAsset>("thing.json"));
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         ASSERT_EQ(get_loaded_asset_count(runtime.assets), 1u);
         EXPECT_EQ(loaded->get().answer, 42);
@@ -64,7 +64,7 @@ namespace tbx
 
         // A fresh reference simply reloads it from disk.
         const auto reloaded =
-            load_asset_now(runtime.assets, runtime.events, AssetHandle<ThingAsset>("thing.json"));
+            load_now(runtime.assets, runtime.events, AssetHandle<ThingAsset>("thing.json"));
         ASSERT_TRUE(reloaded.has_value()) << reloaded.error();
         EXPECT_EQ(reloaded->get().answer, 42);
     }
@@ -85,14 +85,14 @@ namespace tbx
 
         // is_assets_ready flips only once the subsystem is stood up.
         EXPECT_FALSE(is_assets_ready(runtime.assets));
-        initialize_assets(runtime.assets, runtime.events, runtime.jobs, asset_root);
+        internal::initialize_assets(runtime.assets, runtime.events, runtime.jobs, asset_root);
         EXPECT_TRUE(is_assets_ready(runtime.assets));
 
         auto unload_count = 0;
         runtime.events.signal<AssetUnloaded>().subscribe(
             &unload_count,
             [&unload_count](const AssetUnloaded&) { ++unload_count; });
-        const auto loaded = load_asset_now(
+        const auto loaded = load_now(
             runtime.assets, runtime.events, AssetHandle<PurgeThing>("purge_thing.json"));
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         ASSERT_EQ(get_loaded_asset_count(runtime.assets), 1u);

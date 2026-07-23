@@ -1,4 +1,5 @@
 #include "tbx/serialization/serializers.h"
+#include "serializers_internal.h"
 #include "tbx/debug/log.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/reflection.generated.h"
@@ -7,7 +8,12 @@
 
 namespace tbx
 {
-    void register_builtin_serializers()
+    // Dedicated idempotency latch. Do NOT infer "already ran" from registry emptiness:
+    // a caller may register_serializer<T>() before us and pre-populate the registry, which
+    // would fool an emptiness check into skipping the generated builtins entirely.
+    static bool g_serializers_initialized = false;
+
+    void internal::register_builtin_serializers()
     {
         if (!is_reflection_ready())
         {
@@ -15,8 +21,7 @@ namespace tbx
             return;
         }
 
-        // Readiness IS the idempotency latch — a populated registry means we already ran.
-        if (is_serialization_ready())
+        if (g_serializers_initialized)
             return;
 
         // Every builtin serializer is generated from its type's [[tbx::serializable]] annotation
@@ -30,6 +35,8 @@ namespace tbx
             .format(SerializerFormat::CUSTOM)
             .deserializer(deserialize_sandbox)
             .serializer(serialize_sandbox);
+
+        g_serializers_initialized = true;
     }
 
     bool is_serialization_ready()
@@ -40,5 +47,6 @@ namespace tbx
     void internal::purge_serialization_registry()
     {
         get_serializer_registry().clear();
+        g_serializers_initialized = false;
     }
 }

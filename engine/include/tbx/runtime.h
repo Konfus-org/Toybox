@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/api.h"
 #include "tbx/app.h"
+#include "tbx/assets/handle.h"
+#include "tbx/utils/command_list.h"
 #include <memory>
 
 namespace tbx
@@ -23,6 +25,12 @@ namespace tbx
     {
         Runtime();
         explicit Runtime(App app);
+
+        /// @brief
+        /// Purpose: Boots from the app's .tapp asset — THE file-based entry: pass a handle to the
+        /// .tapp (its folder becomes the asset root) plus the parsed command line, and run() loads
+        /// and applies the config on the first frame. No manual init/deserialize — run() owns it.
+        explicit Runtime(AssetHandle<App> app, CommandList commands = {});
         ~Runtime();
 
         Runtime(Runtime&&) noexcept;

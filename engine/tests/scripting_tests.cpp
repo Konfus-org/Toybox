@@ -54,8 +54,8 @@ namespace tbx
     // it); the registries are process-global and self-guarding, so this is safe to call per test.
     static void boot(internal::RuntimeState& runtime)
     {
-        initialize_reflection();
-        register_builtin_serializers();
+        internal::initialize_reflection();
+        internal::register_builtin_serializers();
         internal::initialize_scripting(runtime); // wires the VM backends
     }
 

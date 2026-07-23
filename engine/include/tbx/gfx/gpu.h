@@ -42,11 +42,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Initializes the selected backend's GPU access; must run once after window
-    /// creation. Each backend loads its functions its own way — no platform types leak here.
-    TBX_DLL_EXPORT void initialize_rendering();
-
-    /// @brief
     /// Purpose: Acquires the frame and begins the swapchain render pass, cleared. Hosts call
     /// begin_frame, then draw (directly or via render()), then tbx::run presents.
     TBX_DLL_EXPORT void begin_render_frame(const FrameDescription& description = {});
@@ -169,4 +164,5 @@ namespace tbx
         int width,
         int height,
         std::span<const std::byte> rgba_pixels);
+
 }

@@ -13,11 +13,11 @@ namespace tbx
     struct TBX_SERIALIZABLE() TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Billboard : Block
     {
         // Upright: only yaw toward the camera (labels, sprites). Off = face it fully.
-        bool lock_y = true;
+        bool is_upright = true;
 
-        Billboard& set_lock_y(bool value)
+        Billboard& set_upright(bool value)
         {
-            lock_y = value;
+            is_upright = value;
             return *this;
         }
     };

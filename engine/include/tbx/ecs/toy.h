@@ -133,6 +133,11 @@ namespace tbx
         Toy& add(std::string name);
 
         /// @brief
+        /// Purpose: Spawns a sibling toy (same container, same parent) and returns it — so a spawn
+        /// chain keeps flowing: spawn("A").spawn("B"), or spawn("Grunt").with(Transform{}).spawn("Bullet").
+        Toy spawn(std::string name);
+
+        /// @brief
         /// Purpose: Fluent: attaches (or replaces) a block and returns the toy for chaining.
         template <typename TBlock>
         Toy& with(TBlock block);

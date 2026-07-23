@@ -18,7 +18,7 @@ namespace tbx
     }
 
     template <typename TAsset>
-    Task<Result<std::reference_wrapper<TAsset>>> load_asset(
+    Task<Result<std::reference_wrapper<TAsset>>> load(
         AssetsState& state,
         EventsState& events,
         JobsState& jobs,
@@ -53,7 +53,7 @@ namespace tbx
     }
 
     template <typename TAsset>
-    Result<std::reference_wrapper<TAsset>> load_asset_now(
+    Result<std::reference_wrapper<TAsset>> load_now(
         AssetsState& state,
         EventsState& events,
         AssetHandle<TAsset> handle)

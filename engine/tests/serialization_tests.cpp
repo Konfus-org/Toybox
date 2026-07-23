@@ -1,3 +1,4 @@
+#include "serialization/serializers_internal.h"
 #include "tbx/assets/asset.h"
 #include "tbx/files/files.h"
 #include "tbx/reflection/type_registration.h"
@@ -200,13 +201,13 @@ namespace tbx
     TEST(Serialization, PurgeEmptiesTheRegistryAndReInitRestoresIt)
     {
         // Arrange: builtins present.
-        register_builtin_serializers();
+        internal::register_builtin_serializers();
         ASSERT_TRUE(is_serialization_ready());
 
         // Act + Assert: purge empties it, re-init refills it.
         internal::purge_serialization_registry();
         EXPECT_FALSE(is_serialization_ready());
-        register_builtin_serializers();
+        internal::register_builtin_serializers();
         EXPECT_TRUE(is_serialization_ready());
 
         // Restore the custom test serializers a purge dropped, so order-independent siblings still

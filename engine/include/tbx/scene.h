@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/api.h"
+#include "tbx/ecs/sandbox.h"
 #include "tbx/ecs/toy.h"
 #include <optional>
 #include <string>
-#include <vector>
 
 // The scene verbs over the running runtime (tbx::get_runtime().sandbox) — the SAME functions C++ systems and
 // scripts call, so there is one clean API and the bindings generate from it. Main-thread only (they read
@@ -23,6 +23,12 @@ namespace tbx
     TBX_DLL_EXPORT void despawn(Toy toy);
 
     /// @brief
-    /// Purpose: Every toy in the running world, as handles.
-    TBX_DLL_EXPORT std::vector<Toy> toys();
+    /// Purpose: Opens a kit as the whole running world (REPLACE) and returns the world for chaining —
+    /// open(root).open(extra, OpenMode::ADDITIVE).spawn("A"). The world resolves on the next tick.
+    TBX_DLL_EXPORT Sandbox& open(const AssetHandle<Kit>& root);
+
+    /// @brief
+    /// Purpose: Closes the running world — every toy and all streaming state gone, ready to open
+    /// another. No argument: there is one running world.
+    TBX_DLL_EXPORT void close();
 }

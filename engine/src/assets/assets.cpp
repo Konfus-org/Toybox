@@ -1,4 +1,7 @@
 #include "tbx/assets/assets.h"
+#include "assets_internal.h"
+#include "reflection/reflection_internal.h"
+#include "serialization/serializers_internal.h"
 #include "tbx/debug/log.h"
 #include "tbx/events/events.h"
 #include "tbx/files/files.h"
@@ -353,7 +356,7 @@ namespace tbx
         }
     }
 
-    void initialize_assets(
+    void internal::initialize_assets(
         AssetsState& state,
         EventsState& events,
         JobsState& jobs,

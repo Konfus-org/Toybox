@@ -23,7 +23,7 @@ namespace tbx
     struct TBX_SERIALIZABLE() TBX_DLL_EXPORT KitInstance : Block
     {
         AssetHandle<Kit> kit = {};
-        bool streamed = false;
+        bool is_streamed = false;
 
         KitInstance& set_kit(AssetHandle<Kit> value)
         {
@@ -32,7 +32,7 @@ namespace tbx
         }
         KitInstance& set_streamed(bool value)
         {
-            streamed = value;
+            is_streamed = value;
             return *this;
         }
     };

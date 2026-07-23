@@ -50,7 +50,7 @@ namespace tbx
         auto fragment_text = std::string();
         if (material.vertex.is_set())
         {
-            const auto source = load_asset_now(context.assets, context.events, material.vertex);
+            const auto source = load_now(context.assets, context.events, material.vertex);
             if (!source)
             {
                 warn_once(state, material.vertex.id, "material vertex shader: " + source.error());
@@ -64,7 +64,7 @@ namespace tbx
             vertex_text = state.pbr_vertex_text;
         if (material.fragment.is_set())
         {
-            const auto source = load_asset_now(context.assets, context.events, material.fragment);
+            const auto source = load_now(context.assets, context.events, material.fragment);
             if (!source)
             {
                 warn_once(
@@ -109,7 +109,7 @@ namespace tbx
 
         // Ask the asset system every frame — the reference keeps the asset resident; the GPU
         // upload is only a cache over it (dropped via forget_asset when the asset goes).
-        const auto model = load_asset_now(context.assets, context.events, renderer.model);
+        const auto model = load_now(context.assets, context.events, renderer.model);
         if (!model)
         {
             warn_once(state, renderer.model.id, "model unavailable: " + model.error());
@@ -134,7 +134,7 @@ namespace tbx
         const auto cached = state.textures_by_asset.find(handle.id);
         if (cached != state.textures_by_asset.end())
             return {.texture = *cached->second};
-        if (const auto texture = load_asset_now(context.assets, context.events, handle))
+        if (const auto texture = load_now(context.assets, context.events, handle))
         {
             auto uploaded = upload_texture_to_gpu(
                 texture->get().width,
@@ -163,7 +163,7 @@ namespace tbx
         if (!renderer.material.is_set())
             return surface; // the builtin white PBR surface
 
-        const auto material = load_asset_now(context.assets, context.events, renderer.material);
+        const auto material = load_now(context.assets, context.events, renderer.material);
         if (!material)
         {
             warn_once(state, renderer.material.id, "material unavailable: " + material.error());
@@ -238,7 +238,7 @@ namespace tbx
                 return {};
             return cached->second;
         }
-        const auto source = load_asset_now(context.assets, context.events, handle);
+        const auto source = load_now(context.assets, context.events, handle);
         if (!source)
         {
             warn_once(state, handle.id, "post shader unavailable: " + source.error());

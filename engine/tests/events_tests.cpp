@@ -1,3 +1,4 @@
+#include "events/events_internal.h"
 #include "tbx/events/events.h"
 #include <gtest/gtest.h>
 #include <vector>

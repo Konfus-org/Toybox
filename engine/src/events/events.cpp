@@ -1,4 +1,5 @@
 #include "tbx/events/events.h"
+#include "events_internal.h"
 
 namespace tbx::internal
 {

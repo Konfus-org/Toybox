@@ -1,4 +1,6 @@
 #include "tbx/assets/assets.h"
+#include "platform/window_internal.h"
+#include "gfx/gpu_internal.h"
 #include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/platform/input.h"
@@ -49,6 +51,7 @@ namespace tbx
         // The icon asset last applied — re-apply only when the handle points at a different asset.
         Uuid applied_icon_id = {};
         CursorMode applied_cursor_mode = CursorMode::NORMAL;
+        WindowMode applied_mode = WindowMode::WINDOWED;
         bool is_first_frame = true;
     };
 
@@ -72,11 +75,18 @@ namespace tbx
 
         auto backend = std::make_unique<Window::Backend>();
         ++g_backend_count; // paired with the decrement in ~Backend
+        // The window's mode folds into the creation flags — cheaper and flicker-free vs. creating a
+        // plain window and toggling it right after.
+        SDL_WindowFlags mode_flags = 0;
+        if (window.mode == WindowMode::FULLSCREEN)
+            mode_flags = SDL_WINDOW_FULLSCREEN;
+        else if (window.mode == WindowMode::BORDERLESS)
+            mode_flags = SDL_WINDOW_BORDERLESS;
         backend->window = SDL_CreateWindow(
             window.title.c_str(),
             static_cast<int>(window.width),
             static_cast<int>(window.height),
-            SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+            SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | mode_flags);
         if (!backend->window)
         {
             TBX_ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
@@ -84,6 +94,7 @@ namespace tbx
         }
         backend->id = SDL_GetWindowID(backend->window);
         backend->applied_title = window.title;
+        backend->applied_mode = window.mode;
 
         if (!g_gl_context)
         {
@@ -93,7 +104,7 @@ namespace tbx
                 TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
                 std::abort();
             }
-            initialize_rendering();
+            internal::initialize_rendering();
         }
         SDL_GL_MakeCurrent(backend->window, g_gl_context);
         // The swap interval sticks per window surface, not per context.
@@ -125,11 +136,17 @@ namespace tbx
             SDL_GL_SetSwapInterval(is_vsync_enabled() ? 1 : 0);
             backend.applied_vsync = is_vsync_enabled();
         }
+        if (window.mode != backend.applied_mode)
+        {
+            SDL_SetWindowFullscreen(backend.window, window.mode == WindowMode::FULLSCREEN);
+            SDL_SetWindowBordered(backend.window, window.mode != WindowMode::BORDERLESS);
+            backend.applied_mode = window.mode;
+        }
         // The icon is a Texture asset: load it (once, when the handle changes) and read its pixels
         // here, rather than the runtime carrying a decoded pixel buffer on the window.
         if (window.icon.is_set() && window.icon.id != backend.applied_icon_id)
         {
-            if (const auto loaded = load_asset_now(assets, events, window.icon))
+            if (const auto loaded = load_now(assets, events, window.icon))
             {
                 const Texture& icon = loaded->get();
                 if (icon.width > 0 && icon.height > 0

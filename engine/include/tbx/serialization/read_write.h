@@ -184,4 +184,23 @@ namespace tbx
         }
         return fail("'{}' has an unknown serializer format", path.string());
     }
+
+    /// @brief
+    /// Purpose: THE generic save endpoint — writes a value through whatever serializer its type
+    /// registered, no matter the format. A missing serializer is a programmer error, so it asserts
+    /// (build catches it) AND returns a failure Result (release fails gracefully rather than
+    /// silently dropping the write). Thin over serialize(); use it when "must be saveable" is an
+    /// invariant of the call site.
+    template <typename T>
+    Result<void> save(const T& value, const std::filesystem::path& path)
+    {
+        if (!SerializerSlot<T>::info)
+        {
+            TBX_ASSERT(
+                false,
+                "no serializer registered for this type — tbx::register_serializer<T> it first");
+            return fail("no serializer registered for '{}'", path.string());
+        }
+        return serialize(value, path);
+    }
 }

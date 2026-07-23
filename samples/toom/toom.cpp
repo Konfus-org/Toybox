@@ -1,12 +1,8 @@
 #include "tbx/app.h"
-#include "tbx/utils/command_list.h"
 #include "tbx/debug/log.h"
-#include "tbx/gfx/gpu.h"
-#include "tbx/reflection/reflection.h"
 #include "tbx/runtime.h"
 #include "tbx/scene.h"
-#include "tbx/serialization/read_write.h"
-#include "tbx/serialization/serializers.h"
+#include "tbx/utils/command_list.h"
 #include <filesystem>
 
 // Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
@@ -18,27 +14,19 @@ int main(int argc, char** argv)
 {
     const auto commands = tbx::CommandList(argc, argv);
     const bool selftest = commands.has("selftest");
+    if (selftest)
+        TBX_INFO("Running selftest!");
 
-    // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in
-    // the .tapp; this file is only the loop and the selftest checks. The .tapp decodes
-    // generically through the reflected App schema, so registration comes first.
-    tbx::initialize_reflection();
-    tbx::register_builtin_serializers();
+    // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in the
+    // .tapp. run() loads and applies it (standing reflection/assets up itself), so main just hands
+    // the runtime a handle to the .tapp (its folder is the asset root) plus the parsed command line.
     const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
-    auto loaded = tbx::deserialize<tbx::App>(tapp);
-    if (!loaded)
-    {
-        TBX_ERROR("Toom.tapp: {}", loaded.error());
-        return 1;
-    }
-    loaded->config.root_dir = tapp.parent_path(); // derived, never serialized
-    loaded->commands = commands; // the runtime honors -w/-h and --screenshot
+    auto runtime = tbx::Runtime(tbx::AssetHandle<tbx::App>(tapp.string()), commands);
 
     bool scored = false;
     bool streamed_room_seen = false;
-
-    auto runtime = tbx::Runtime(std::move(*loaded));
-    // The game reaches the world through the free-function API (tbx::find), never the runtime state.
+    // The game reaches the world through the free-function API (tbx::find), never the runtime
+    // state.
     uint64 frame = 0;
     while (tbx::run(runtime))
     {

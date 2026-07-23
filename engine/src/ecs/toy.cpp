@@ -1,4 +1,6 @@
 #include "tbx/ecs/toy.h"
+#include "ecs_internal.h"
+#include "tbx/ecs/container.h" // internal::create_toy — shared with ToyContainer::add
 #include "tbx/utils/hash.h"
 #include "tbx/math/math.h"
 #include "tbx/math/transform.h"
@@ -115,6 +117,13 @@ namespace tbx
         if (!has(name))
             get_info().stickers.push_back(std::move(name));
         return *this;
+    }
+
+    Toy Toy::spawn(std::string name)
+    {
+        // A sibling: same registry, same parent — the spawn chain keeps adding to the world, not
+        // building a hierarchy (use set_parent for that).
+        return internal::create_toy(_registry->get(), std::move(name), get_info().parent);
     }
 
     //// REFLECTED-BY-NAME BLOCK ACCESS ////

@@ -1,4 +1,5 @@
 #include "luau_bindings.h"
+#include "events/events_internal.h"
 #include "tbx/debug/log.h"
 #include "runtime_state.h"
 #include "tbx/scripting/scripts.h"

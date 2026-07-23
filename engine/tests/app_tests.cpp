@@ -1,3 +1,5 @@
+#include "reflection/reflection_internal.h"
+#include "serialization/serializers_internal.h"
 #include "tbx/app.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/serialization/read_write.h"
@@ -12,8 +14,8 @@ namespace tbx
     {
         // Arrange: a .tapp with every settings group, handles authored as paths. The App
         // decodes generically through its reflected schema, so registration comes first.
-        initialize_reflection();
-        register_builtin_serializers();
+        internal::initialize_reflection();
+        internal::register_builtin_serializers();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Game.tapp";
@@ -58,8 +60,8 @@ namespace tbx
     TEST(App, MissingTappKeysKeepDefaults)
     {
         // Arrange
-        initialize_reflection();
-        register_builtin_serializers();
+        internal::initialize_reflection();
+        internal::register_builtin_serializers();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Sparse.tapp";

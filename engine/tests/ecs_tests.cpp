@@ -60,8 +60,8 @@ namespace tbx
             // Stand reflection + serializers up before anything touches the sandbox — the world
             // is plain data now and no longer self-registers. set_asset_root (unlike
             // initialize_assets) does not do this, so do it explicitly.
-            initialize_reflection();
-            register_builtin_serializers();
+            internal::initialize_reflection();
+            internal::register_builtin_serializers();
             const auto* info = testing::UnitTest::GetInstance()->current_test_info();
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
@@ -74,7 +74,7 @@ namespace tbx
         /// making any streaming decisions.
         void flush_open(Sandbox& sandbox)
         {
-            stream(sandbox, runtime.assets, runtime.events, runtime.jobs, {});
+            internal::stream(sandbox, runtime.assets, runtime.events, runtime.jobs, {});
         }
     };
 
@@ -356,7 +356,7 @@ namespace tbx
         ASSERT_TRUE(serialize(author, world.root / "room.kit").has_value());
         auto level = Kit();
         level.add("far_room")
-            .with(KitInstance {.kit = AssetHandle<Kit>("room.kit"), .streamed = true});
+            .with(KitInstance {.kit = AssetHandle<Kit>("room.kit"), .is_streamed = true});
         auto sandbox = Sandbox();
         open(sandbox, level);
         world.flush_open(sandbox);
@@ -373,20 +373,23 @@ namespace tbx
 
         // Act: a camera looking straight at the origin — the kit streams in (async).
         const auto seeing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
-        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, seeing);
+        internal::stream(
+            sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, seeing);
         wait_for(true);
         const bool loaded = sandbox.find("RoomToy").has_value();
 
         // A camera close by but looking AWAY: the origin is ~10 behind it — outside the +5
         // load volume but inside the +15 unload volume, so hysteresis keeps it loaded.
         const auto glancing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f, 0.0f, 20.0f))};
-        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
+        internal::stream(
+            sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
         internal::update_jobs(world.runtime.jobs);
         const bool kept = sandbox.find("RoomToy").has_value();
 
         // Far away and looking away — out of every volume: unloads.
         const auto blind = std::array {look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f))};
-        stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
+        internal::stream(
+            sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
         internal::update_jobs(world.runtime.jobs);
         const bool unloaded = sandbox.find("RoomToy").has_value();
 
@@ -394,7 +397,7 @@ namespace tbx
         const auto split_screen = std::array {
             look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f)),
             look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f))};
-        stream(
+        internal::stream(
             sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, split_screen);
         wait_for(true);
 

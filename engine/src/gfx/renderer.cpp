@@ -1,4 +1,5 @@
 #include "render_primitives.h"
+#include "platform/window_internal.h"
 #include "render_resolve.h"
 #include "tbx/app.h"
 #include "tbx/assets/assets.h"
@@ -536,7 +537,7 @@ namespace tbx
                 if (!ui_block.document.is_set() || !toy.is_enabled())
                     return;
                 const auto document =
-                    load_asset_now(context.assets, context.events, ui_block.document);
+                    load_now(context.assets, context.events, ui_block.document);
                 if (!document)
                 {
                     const Uuid key = ui_block.document.is_valid()
@@ -577,7 +578,7 @@ namespace tbx
                 if (ui_block.vertex.is_set())
                 {
                     if (const auto source =
-                            load_asset_now(context.assets, context.events, ui_block.vertex))
+                            load_now(context.assets, context.events, ui_block.vertex))
                         vertex_source = source->get().text;
                     else
                         warn_once(state, ui_block.vertex.id, "ui vertex shader: " + source.error());
@@ -585,7 +586,7 @@ namespace tbx
                 if (ui_block.fragment.is_set())
                 {
                     if (const auto source =
-                            load_asset_now(context.assets, context.events, ui_block.fragment))
+                            load_now(context.assets, context.events, ui_block.fragment))
                         fragment_source = source->get().text;
                     else
                         warn_once(

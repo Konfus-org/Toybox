@@ -1,5 +1,4 @@
 #include "runtime_state.h"
-#include "tbx/utils/cmdline_handler.h"
 
 namespace tbx
 {
@@ -14,19 +13,18 @@ namespace tbx
     {
     }
 
+    // Both ctors only stash inputs; boot() (first run()) owns all init — assets/reflection stand-up,
+    // the window, command-line overrides — so hosts never init or create windows themselves.
     Runtime::Runtime(App app)
         : state(std::make_unique<internal::RuntimeState>())
     {
-        // Parse-time command handling (-w/-h size overrides) before the window exists.
-        apply_cmdline(app);
-        if (!app.config.is_headless)
-        {
-            auto window = Window();
-            window.title = app.config.title;
-            window.width = static_cast<uint32>(app.config.width);
-            window.height = static_cast<uint32>(app.config.height);
-            state->windows.open_windows.push_back(std::move(window));
-        }
         state->app = std::move(app);
+    }
+
+    Runtime::Runtime(AssetHandle<App> app, CommandList commands)
+        : state(std::make_unique<internal::RuntimeState>())
+    {
+        state->app_source = std::move(app);
+        state->app.commands = std::move(commands);
     }
 }

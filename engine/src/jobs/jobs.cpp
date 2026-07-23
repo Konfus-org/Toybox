@@ -1,4 +1,5 @@
 #include "tbx/jobs/jobs.h"
+#include "jobs_internal.h"
 #include "tbx/debug/log.h"
 #include <atomic>
 #include <condition_variable>

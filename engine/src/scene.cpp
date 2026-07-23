@@ -25,9 +25,14 @@ namespace tbx
         internal::get_runtime().sandbox.remove(toy);
     }
 
-    std::vector<Toy> toys()
+    Sandbox& open(const AssetHandle<Kit>& root)
     {
-        return internal::get_runtime().sandbox.get_toys();
+        return internal::get_runtime().sandbox.open(root, OpenMode::REPLACE);
+    }
+
+    void close()
+    {
+        close(internal::get_runtime().sandbox);
     }
 
     bool is_key_down(Key key)
@@ -68,10 +73,5 @@ namespace tbx
     std::optional<RaycastHit> raycast(const Vec3& origin, const Vec3& direction, float max_distance)
     {
         return internal::raycast(internal::get_runtime().physics, origin, direction, max_distance);
-    }
-
-    const std::vector<Window>& get_open_windows()
-    {
-        return internal::get_runtime().windows.open_windows;
     }
 }

@@ -101,14 +101,4 @@ namespace tbx
     /// Purpose: This frame's change in a mouse axis — X/Y are pointer movement, SCROLL is wheel
     /// travel. (Gamepad axes are absolute levels, so they have no delta.)
     TBX_DLL_EXPORT float get_axis_delta(const InputState& input, MouseAxis axis);
-
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: The per-frame input pass: rolls frame state, then pumps OS input events
-        /// (keyboard, mouse, controllers) into the input state, emitting key transitions through
-        /// events. Implemented by the platform backend; headless runs roll but skip the pump.
-        TBX_DLL_EXPORT void update_input(InputState& input, EventsState& events);
-    }
 }

@@ -1,16 +1,12 @@
 #include "tbx/ecs/kit.h"
 #include "tbx/files/files.h"
 #include "tbx/math/transform.h"
+#include "ecs_internal.h" // internal::bounds_to_json — shared with sandbox serialization
 #include <filesystem>
 
 namespace tbx
 {
     //// JSON BOUNDARY ////
-
-    static Json bounds_to_json(const Vec3& center, const float radius)
-    {
-        return Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
-    }
 
     /// @brief
     /// Purpose: Back-compat: an older .kit stored nested kits in a separate "kits" array of
@@ -88,7 +84,7 @@ namespace tbx
     {
         auto body = Json::object();
         body["toys"] = serialize_toys(kit);
-        body["bounds"] = bounds_to_json(kit.bounds_center, kit.bounds_radius);
+        body["bounds"] = internal::bounds_to_json(kit.bounds_center, kit.bounds_radius);
         return write_text(path.string(), body.dump(4));
     }
 }

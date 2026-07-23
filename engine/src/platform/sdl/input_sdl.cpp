@@ -1,3 +1,4 @@
+#include "platform/input_internal.h"
 #include "tbx/platform/input.h"
 #include "tbx/debug/log.h"
 #include "tbx/events/events.h"

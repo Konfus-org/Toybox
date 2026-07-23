@@ -172,12 +172,4 @@ namespace tbx
         bind(state, {.name = std::move(name), .source = std::move(source)});
     }
 
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
-        /// documents. Called by tbx::run() every frame.
-        TBX_DLL_EXPORT void update_ui(UiState& state, float delta_time);
-    }
 }

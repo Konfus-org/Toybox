@@ -1,3 +1,4 @@
+#include "reflection/reflection_internal.h"
 #include "tbx/gfx/texture.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/serialization/read_write.h"
@@ -11,7 +12,7 @@ namespace tbx
     {
         // Arrange: a 2x2 texture with four distinct opaque pixels. The serializer registry
         // dispatches read/write, so registration comes first.
-        initialize_reflection();
+        internal::initialize_reflection();
         auto original = Texture();
         original.width = 2;
         original.height = 2;
@@ -39,7 +40,7 @@ namespace tbx
     TEST(Texture, SaveRejectsAnEmptyTexture)
     {
         // Arrange
-        initialize_reflection();
+        internal::initialize_reflection();
         const auto empty = Texture();
         const auto path = std::filesystem::temp_directory_path() / "tbx_texture_empty.bmp";
 

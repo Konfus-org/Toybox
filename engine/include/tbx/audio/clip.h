@@ -3,7 +3,6 @@
 #include "tbx/assets/asset.h"
 #include "tbx/reflection/attributes.h"
 #include "tbx/utils/result.h"
-#include "tbx/utils/typedefs.h"
 #include <cstddef>
 #include <filesystem>
 #include <span>
@@ -13,7 +12,8 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded audio asset: interleaved float samples.
-    struct TBX_SERIALIZABLE(SerializerFormat::CUSTOM, reader=&deserialize_clip) TBX_DLL_EXPORT AudioClip : Asset
+    struct TBX_SERIALIZABLE(SerializerFormat::CUSTOM, reader = &deserialize_clip) TBX_DLL_EXPORT
+        AudioClip : Asset
     {
         int channels = 0;
         int sample_rate = 0;

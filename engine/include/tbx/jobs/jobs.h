@@ -98,14 +98,6 @@ namespace tbx
     template <typename T>
     T wait_for_task(Task<T> task);
 
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: Runs queued main-thread continuations. Called once per frame by the runtime's
-        /// pump; work posted during a drain runs on the next drain.
-        TBX_DLL_EXPORT void update_jobs(JobsState& jobs);
-    }
 }
 
 #include "tbx/jobs/jobs.inl"

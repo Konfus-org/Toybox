@@ -9,7 +9,6 @@
 // detailed worker (update_debug_view) is an internal impl detail in src/debug/view.h.
 namespace tbx
 {
-    namespace internal { struct RuntimeState; }
 
     /// @brief
     /// Purpose: The debug overlay's state, held by value on the Runtime: its document text,
@@ -23,13 +22,4 @@ namespace tbx
         float refresh_timer = 0.0f;
     };
 
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: Runs the debug overlay for one frame from the whole runtime — F3 toggles it,
-        /// the first open loads its document, and its stats land in the ui bindings. Called by
-        /// tbx::run() every frame.
-        TBX_DLL_EXPORT void update_debugging(RuntimeState& state);
-    }
 }

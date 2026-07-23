@@ -28,6 +28,16 @@ namespace tbx
     struct EventsState; // wired in at boot (below); the asset/kit path reaches events through it
 
     /// @brief
+    /// Purpose: How open(kit) folds the kit into the world: REPLACE makes the kit the whole world
+    /// (closing what's there first), ADDITIVE instantiates it into the current world alongside
+    /// everything already open.
+    enum class OpenMode : uint8
+    {
+        REPLACE = 0,
+        ADDITIVE
+    };
+
+    /// @brief
     /// Purpose: THE world container: a ToyContainer that also opens a level kit and streams
     /// its streamed child kits by camera sight. Plain data — every toy query/mutation goes
     /// through the shared ToyContainer surface (add/find/each/remove/...), and world
@@ -52,6 +62,9 @@ namespace tbx
 
         std::vector<StreamedKit> streamed_kits;
         std::optional<Kit> pending_level;
+        // A root kit opened by handle, resolved on the next stream() tick (so open() never needs the
+        // asset system in hand). Set by open(handle, REPLACE); the free open(root) routes here.
+        std::optional<AssetHandle<Kit>> pending_root = {};
 
         using ToyContainer::add; // keep add(name) (empty toy) alongside the kit add overloads
 
@@ -62,6 +75,17 @@ namespace tbx
         /// Returns the root toy; remove(root) removes the whole instance.
         Result<Toy> add(const AssetHandle<Kit>& kit, const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
         Result<Toy> add(const Kit& kit, const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
+
+        /// @brief
+        /// Purpose: Opens a kit into the world and returns the world for chaining — REPLACE makes it
+        /// the whole world (deferred to the next tick), ADDITIVE instantiates it now. Fluent: an
+        /// additive open that fails is logged and skipped (call add(kit) when you need the Result).
+        Sandbox& open(const AssetHandle<Kit>& kit, OpenMode mode = OpenMode::ADDITIVE);
+
+        /// @brief
+        /// Purpose: Spawns a toy in the world and returns its handle — the world-verb spelling of
+        /// add(name).
+        Toy spawn(std::string name);
     };
 
     /// @brief
@@ -76,17 +100,6 @@ namespace tbx
     TBX_DLL_EXPORT void close(Sandbox& sandbox);
 
     /// @brief
-    /// Purpose: The streaming primitive update_sandbox drives — loads streamed kits in sight of
-    /// any frustum and collapses those out of sight of all, flushing a pending open() first.
-    /// Public so tests can drive streaming with explicit frustum sets.
-    TBX_DLL_EXPORT void stream(
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        JobsState& jobs,
-        std::span<const Frustum> frustums);
-
-    /// @brief
     /// Purpose: Sandbox's registered reader — a level file IS a sandbox: reads a .kit and
     /// opens it as a fresh world (its toys add on the first stream() tick). Call it through
     /// deserialize<Sandbox>(path).
@@ -99,19 +112,4 @@ namespace tbx
         const Sandbox& sandbox,
         const std::filesystem::path& path);
 
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: The per-frame sandbox tick: settles builtin components (billboards face the
-        /// active camera), flushes a pending open(), then streams kits by camera sight — loading
-        /// what any frustum can see and collapsing what none can. tbx::run() calls this once, after
-        /// scripts/physics settle transforms and before rendering.
-        TBX_DLL_EXPORT void update_sandbox(
-            Sandbox& sandbox,
-            AssetsState& assets,
-            EventsState& events,
-            JobsState& jobs,
-            WindowsState& windows);
-    }
 }

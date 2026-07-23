@@ -1,3 +1,4 @@
+#include "jobs/jobs_internal.h"
 #include "tbx/jobs/jobs.h"
 #include <gtest/gtest.h>
 #include <atomic>

@@ -54,23 +54,64 @@ namespace tbx
         static void boot(RuntimeState& state)
         {
             App& app = state.app;
-            if (app.config.root_dir.empty())
+            // The app is an asset. Runtime(AssetHandle<App>) hands us the .tapp handle: its folder is
+            // the asset root and the config is loaded below; Runtime(App) brings its own config + root.
+            std::filesystem::path root = app.config.root_dir;
+            if (state.app_source.is_set())
+                root = std::filesystem::path(state.app_source.path).parent_path();
+            if (root.empty())
             {
                 TBX_ASSERT(
                     false,
-                    "Root dir is not configured on App.config.root_dir, ensure this is set before "
-                    "launching a Toybox app!");
+                    "Runtime has no app source — construct Runtime(AssetHandle<App>) with a .tapp, or "
+                    "a Runtime(App) whose config.root_dir is set.");
                 app.status = AppStatus::QUIT_REQUESTED;
                 return;
             }
     
-            app.status = AppStatus::RUNNING;
             state.frame.previous = std::chrono::steady_clock::now();
             // Wire the sandbox to the asset system so kit add/instantiation reaches it directly.
             state.sandbox.assets = &state.assets;
             state.sandbox.events = &state.events;
             // Stands reflection + serializers up, sets the root, and discovers every asset.
-            initialize_assets(state.assets, state.events, state.jobs, app.config.root_dir);
+            initialize_assets(state.assets, state.events, state.jobs, root);
+
+            // Load THE app config from its .tapp (when handed a handle), adopting it while preserving
+            // the runtime-only command line; a directly-supplied App keeps its own config.
+            if (state.app_source.is_set())
+            {
+                auto commands = std::move(app.commands);
+                const auto filename =
+                    std::filesystem::path(state.app_source.path).filename().generic_string();
+                if (const auto loaded =
+                        load_now(state.assets, state.events, AssetHandle<App>(filename)))
+                    app = loaded->get();
+                else
+                {
+                    TBX_ERROR("app config '{}': {}", filename, loaded.error());
+                    app.status = AppStatus::QUIT_REQUESTED;
+                    return;
+                }
+                app.commands = std::move(commands);
+            }
+            app.config.root_dir = root;
+            // RUNNING only after adopting the loaded config — `app = loaded->get()` above would
+            // otherwise stomp the status back to CREATED and re-boot every frame.
+            app.status = AppStatus::RUNNING;
+            // Parse-time command handling (-w/-h size overrides) before the window exists.
+            apply_cmdline(app);
+
+            // Create the window from the loaded config (headless apps — tests/tooling — skip it).
+            if (!app.config.is_headless)
+            {
+                auto window = Window();
+                window.title = app.config.title;
+                window.width = static_cast<uint32>(app.config.width);
+                window.height = static_cast<uint32>(app.config.height);
+                window.icon = app.config.icon;
+                state.windows.open_windows.push_back(std::move(window));
+            }
+
             apply_settings(app, state);
             // The render graph lives on the render state (plain data). Seed it with the standard
             // passes (games may replace state.renderer.render_graph.passes to author their own).
@@ -78,35 +119,13 @@ namespace tbx
     
             // The engine ui font is an ordinary asset (resolved through the engine resources
             // root); games call set_font for their own faces.
-            if (!app.config.root_dir.empty())
-            {
-                if (const auto font = load_asset_now(
-                        state.assets,
-                        state.events,
-                        AssetHandle<Font>("Fonts/MontserratMedium.otf")))
-                    set_font(state.ui, font->get(), "Montserrat");
-                else
-                    TBX_WARN("builtin ui font: {}", font.error());
-            }
-    
-            // The app was already loaded before the runtime existed; scanning the app root
-            // for its .tapp only registers the file with the watcher — no remembered path.
-            auto ec = std::error_code();
-            for (auto it = std::filesystem::directory_iterator(app.config.root_dir, ec);
-                 !ec && it != std::filesystem::directory_iterator();
-                 it.increment(ec))
-            {
-                const auto& entry = *it;
-                if (entry.path().extension() != ".tapp")
-                    continue;
-                if (const auto self = load_asset_now(
-                        state.assets,
-                        state.events,
-                        AssetHandle<App>(entry.path().filename().generic_string()));
-                    !self)
-                    TBX_WARN("app config: {}", self.error());
-                break; // the first .tapp is THE app file
-            }
+            if (const auto font = load_now(
+                    state.assets,
+                    state.events,
+                    AssetHandle<Font>("Fonts/MontserratMedium.otf")))
+                set_font(state.ui, font->get(), "Montserrat");
+            else
+                TBX_WARN("builtin ui font: {}", font.error());
     
             // Subscribe to settings reload events
             state.events.signal<AssetReloaded>().subscribe(
@@ -116,7 +135,7 @@ namespace tbx
                     if (std::string_view(reloaded.extension.data()) != ".tapp")
                         return;
                     const auto fresh =
-                        load_asset_now(state.assets, state.events, AssetHandle<App>(reloaded.id));
+                        load_now(state.assets, state.events, AssetHandle<App>(reloaded.id));
                     if (!fresh)
                     {
                         TBX_ERROR("app config reload: {}", fresh.error());
@@ -147,7 +166,7 @@ namespace tbx
                     return; // not a script source — nothing to (re)register
     
                 const auto script =
-                    load_asset_now(state.assets, state.events, AssetHandle<ScriptSource>(id));
+                    load_now(state.assets, state.events, AssetHandle<ScriptSource>(id));
                 if (!script)
                     return;
     
@@ -189,7 +208,7 @@ namespace tbx
             // the sandbox by hand instead.
             if (app.config.sandbox.is_set())
             {
-                const auto level = load_asset_now(state.assets, state.events, app.config.sandbox);
+                const auto level = load_now(state.assets, state.events, app.config.sandbox);
                 if (!level)
                 {
                     TBX_ERROR("level '{}': {}", app.config.sandbox.path, level.error());

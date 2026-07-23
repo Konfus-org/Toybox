@@ -14,8 +14,6 @@
 // runtime.scripts. Main thread only.
 namespace tbx
 {
-    namespace internal { struct RuntimeState; } // forward-declared to avoid a cycle (runtime.h includes this header)
-
     /// @brief
     /// Purpose: One scripting language. Backends coexist — C++, Lua, and C# can all run at
     /// once — so this is a real interface, not a link-time swap: each compiled-in backend
@@ -115,39 +113,4 @@ namespace tbx
         const std::string& name,
         std::string_view source);
 
-    // ---- Internal (engine machinery; not the user-facing API) ----
-    // The per-frame script passes and the shutdown reap — driven by tbx::run(), not by scripts.
-    namespace internal
-    {
-        /// @brief
-        /// Purpose: Builds the compiled-in scripting backends against this runtime. Idempotent.
-        TBX_DLL_EXPORT void initialize_scripting(RuntimeState& runtime);
-
-        /// @brief
-        /// Purpose: Runs every scripted toy's fixed-cadence hook; called from the fixed step alongside
-        /// physics so scripts can do physics-rate work. Iterates the sandbox's scripted toys (the
-        /// coordinator owns the loop; backends just run one toy at a time).
-        TBX_DLL_EXPORT void fixed_update_scripts(
-            ScriptsState& state,
-            Sandbox& sandbox,
-            float fixed_delta_time);
-
-        /// @brief
-        /// Purpose: Runs every scripted toy across every backend, first loading (once) every
-        /// script-source asset a spawned toy references — the store announces it and the reload
-        /// glue hands it to the owning backend. Then reaps any script that vanished since last frame
-        /// (toy despawned or Script block removed): fires its cleanup hook and frees it. Called by
-        /// tbx::run() every frame.
-        TBX_DLL_EXPORT void update_scripts(
-            ScriptsState& state,
-            Sandbox& sandbox,
-            AssetsState& assets,
-            EventsState& events,
-            float delta_time);
-
-        /// @brief
-        /// Purpose: Fires cleanup then frees every live script instance — the shutdown pass, run once
-        /// while the sandbox is still alive (so cleanup gets live toys) before the VMs are destroyed.
-        TBX_DLL_EXPORT void purge_scripts(ScriptsState& state, Sandbox& sandbox);
-    }
 }

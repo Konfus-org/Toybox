@@ -12,6 +12,24 @@
 #include "tbx/runtime.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/ui/ui.h"
+// The relocated internal machinery (src/<module>/<module>_internal.h): aggregated here so any TU
+// with the full runtime (app.cpp, tests) sees the per-frame verbs without pulling each module's
+// internal header itself.
+#include "assets/assets_internal.h"
+#include "audio/audio_internal.h"
+#include "debug/debugging_internal.h"
+#include "ecs/ecs_internal.h"
+#include "events/events_internal.h"
+#include "gfx/gpu_internal.h"
+#include "jobs/jobs_internal.h"
+#include "physics/physics_internal.h"
+#include "platform/input_internal.h"
+#include "platform/window_internal.h"
+#include "reflection/reflection_internal.h"
+#include "scripting/scripts_internal.h"
+#include "serialization/serializers_internal.h"
+#include "ui/ui_internal.h"
+#include "utils/cmdline_internal.h"
 #include <chrono>
 
 // The engine's whole state, kept OUT of the public runtime.h so external code never sees it — the
@@ -43,6 +61,10 @@ namespace tbx::internal
     struct TBX_DLL_EXPORT RuntimeState
     {
         App app = {};
+        // The .tapp this runtime boots from, when constructed via Runtime(AssetHandle<App>): boot()
+        // derives the asset root from its folder and load_now's the app config. Empty when the
+        // App was supplied directly (Runtime(App)).
+        AssetHandle<App> app_source = {};
         Sandbox sandbox = {};
         FrameState frame = {};
         InputState input = {};

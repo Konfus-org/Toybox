@@ -1,4 +1,5 @@
 #include "tbx/debug/log.h"
+#include "gfx/gpu_internal.h"
 #include "tbx/gfx/gpu.h"
 #include <cstddef>
 #include <cstring>
@@ -282,7 +283,7 @@ namespace tbx
         return g_viewport_width;
     }
 
-    void initialize_rendering()
+    void internal::initialize_rendering()
     {
         // glad's own platform loader (wgl + opengl32) — no window/loader coupling here.
         if (!gladLoadGL())

@@ -1,4 +1,5 @@
 #include "tbx/ui/ui.h"
+#include "ui/ui_internal.h"
 #include "tbx/debug/log.h"
 #include "tbx/files/files.h"
 #include "tbx/gfx/gpu.h"

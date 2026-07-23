@@ -1,4 +1,5 @@
 #include "tbx/scripting/scripts.h"
+#include "scripts_internal.h"
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/reflection/reflection.h"
@@ -155,7 +156,7 @@ namespace tbx
                 if (!state.acquired_sources.contains(script.source.id))
                 {
                     state.acquired_sources.insert(script.source.id);
-                    if (const auto acquired = load_asset_now(assets, events, script.source);
+                    if (const auto acquired = load_now(assets, events, script.source);
                         !acquired)
                         TBX_ERROR(
                             "script source '{}': {}",
