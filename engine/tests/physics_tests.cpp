@@ -15,10 +15,10 @@ namespace tbx
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        sandbox.spawn("Floor")
+        sandbox.add("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
-        Toy cube = sandbox.spawn("Cube")
+        Toy cube = sandbox.add("Cube")
                        .with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)})
                        .with(Collider {})
                        .with(RigidBody {});
@@ -38,7 +38,7 @@ namespace tbx
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        Toy wall = sandbox.spawn("Wall")
+        Toy wall = sandbox.add("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
                        .with(Collider {});
 
@@ -61,10 +61,10 @@ namespace tbx
             &collisions,
             [&collisions](const CollisionEvent& hit)
             { collisions.push_back({hit.toy_a, hit.toy_b}); });
-        sandbox.spawn("Floor")
+        sandbox.add("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
-        Toy cube = sandbox.spawn("Cube")
+        Toy cube = sandbox.add("Cube")
                        .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
                        .with(Collider {})
                        .with(RigidBody {});
@@ -89,7 +89,7 @@ namespace tbx
         auto toybox = Runtime();
         RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
-        Toy target = sandbox.spawn("Target")
+        Toy target = sandbox.add("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(Collider {});
         update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in

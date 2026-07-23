@@ -5,9 +5,7 @@
 #include "tbx/ecs/kit.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/math/frustum.h"
-#include "tbx/math/math.h"
 #include "tbx/utils/result.h"
-#include "tbx/utils/typedefs.h"
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -31,8 +29,8 @@ namespace tbx
     /// @brief
     /// Purpose: THE world container: a ToyContainer that also opens a level kit and streams
     /// its streamed child kits by camera sight. Plain data — every toy query/mutation goes
-    /// through the shared ToyContainer surface (spawn/find/each/despawn/...), and world
-    /// lifecycle (open/close/spawn/stream/update_ecs) lives in the free functions below.
+    /// through the shared ToyContainer surface (add/find/each/remove/...), and world
+    /// lifecycle (open/close/add/stream/update_ecs) lives in the free functions below.
     /// Serialization lives on read/write — write(sandbox, path) saves the world as a kit,
     /// read<Sandbox>(kit_path) loads one.
     /// @details
@@ -51,7 +49,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Opens a kit as the whole world (a "level"): its toys spawn on the next stream()
+    /// Purpose: Opens a kit as the whole world (a "level"): its toys add on the next stream()
     /// tick — immediate child kits expand at once, streamed ones when a camera looks their way.
     TBX_API void open(Sandbox& sandbox, Kit level);
 
@@ -61,11 +59,19 @@ namespace tbx
     TBX_API void close(Sandbox& sandbox);
 
     /// @brief
+    /// Purpose: Adds a single empty toy to the world at `position` — the toy counterpart of the
+    /// kit `add` below (Sandbox::add(name) is the same, minus the position). Returns the toy.
+    TBX_API Toy
+        add(Sandbox& sandbox,
+            const std::string& name,
+            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
+
+    /// @brief
     /// Purpose: Instantiates a kit: creates the instance's root toy (a KitInstance block naming
-    /// the kit) at `position` and spawns the kit's toys as its children. Nested immediate kits
+    /// the kit) at `position` and adds the kit's toys as its children. Nested immediate kits
     /// expand recursively; nested streamed kits register for streaming. Returns the root toy;
-    /// despawn_subtree(root) removes the whole instance.
-    TBX_API Result<Toy> spawn(
+    /// remove_subtree(root) removes the whole instance.
+    TBX_API Result<Toy> add(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -75,7 +81,7 @@ namespace tbx
     /// @brief
     /// Purpose: Spawns an in-memory kit (the handle overload resolves through assets and lands
     /// here).
-    TBX_API Result<Toy> spawn(
+    TBX_API Result<Toy> add(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -106,12 +112,14 @@ namespace tbx
 
     /// @brief
     /// Purpose: Sandbox's registered reader — a level file IS a sandbox: reads a .kit and
-    /// opens it as a fresh world (its toys spawn on the first stream() tick). Call it through
+    /// opens it as a fresh world (its toys add on the first stream() tick). Call it through
     /// deserialize<Sandbox>(path).
     TBX_API Result<Sandbox> deserialize_sandbox(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Sandbox's registered writer — every live toy captured as a kit file. Call it
     /// through serialize(sandbox, path).
-    TBX_API Result<void> serialize_sandbox(const Sandbox& sandbox, const std::filesystem::path& path);
+    TBX_API Result<void> serialize_sandbox(
+        const Sandbox& sandbox,
+        const std::filesystem::path& path);
 }

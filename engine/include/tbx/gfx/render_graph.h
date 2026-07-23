@@ -53,7 +53,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The renderer as plain data — an ordered list of passes run every frame between
-    /// gpu_begin_frame and present. make_default_render_graph() builds the standard list
+    /// begin_render_frame and present. make_default_render_graph() builds the standard list
     /// (shadow, geometry with sky, post, ui); games mutate `passes` directly (reorder, erase,
     /// push_back) or build one from scratch. tbx::render() runs it.
     struct TBX_API RenderGraph
@@ -69,7 +69,7 @@ namespace tbx
     /// @brief
     /// Purpose: Runs the render state's graph (context.renderer.render_graph) for one window —
     /// owns the per-window render concerns: binds the window (make_current) and its viewport,
-    /// opens the frame (gpu_begin_frame), then runs every pass in order. run() calls this for
+    /// opens the frame (begin_render_frame), then runs every pass in order. run() calls this for
     /// each open window; custom hosts set renderer.render_graph.passes and call it too.
     TBX_API void render(RenderContext& context);
 

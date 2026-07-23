@@ -28,7 +28,7 @@ namespace tbx
 
     Mat4 Toy::get_world_transform() const
     {
-        // A pure read walking the parent chain by id: every toy gets its Transform at spawn,
+        // A pure read walking the parent chain by id: every toy gets its Transform at add,
         // so a missing one is a default, never an insertion.
         Registry& registry = _registry->get();
         auto world = Mat4(1.0f);

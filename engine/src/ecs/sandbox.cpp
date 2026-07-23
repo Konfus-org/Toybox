@@ -2,6 +2,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/math/frustum.h"
+#include "tbx/math/transform.h"
 #include "tbx/reflection/reflection.h"
 #include "sandbox_internal.h"
 #include <algorithm>
@@ -25,6 +26,13 @@ namespace tbx
         sandbox.clear(); // every toy (ToyContainer)
     }
 
+    Toy add(Sandbox& sandbox, const std::string& name, const Vec3& position)
+    {
+        Toy toy = sandbox.add(name);
+        toy.get_transform().position = position;
+        return toy;
+    }
+
     // Spawns the pending level (open() defers so opening never needs the asset system in hand).
     static void open_pending(Sandbox& sandbox, AssetsState& assets, EventsState& events)
     {
@@ -32,7 +40,7 @@ namespace tbx
             return;
         const Kit level = std::move(*sandbox.pending_level);
         sandbox.pending_level.reset();
-        if (auto opened = spawn(sandbox, assets, events, level); !opened)
+        if (auto opened = add(sandbox, assets, events, level); !opened)
             TBX_ERROR("opened level: {}", opened.error());
     }
 
@@ -110,7 +118,7 @@ namespace tbx
                         {
                             TBX_ERROR("streamed kit '{}': {}", target.kit.path, expanded.error());
                             for (const ToyId id : spawned)
-                                sandbox.despawn(Toy(sandbox, id));
+                                sandbox.remove(Toy(sandbox, id));
                             co_return;
                         }
                         target.is_loaded = true;
@@ -118,7 +126,7 @@ namespace tbx
             }
             else if (entry.is_loaded && !is_in_sight)
             {
-                sandbox.despawn_children(instance); // keep the KitInstance toy, drop its contents
+                sandbox.remove_children(instance); // keep the KitInstance toy, drop its contents
                 entry.is_loaded = false;
             }
         }

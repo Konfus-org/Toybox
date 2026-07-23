@@ -46,6 +46,12 @@ namespace tbx
         SerializerInfo& add(SerializerInfo info);
 
         /// @brief
+        /// Purpose: Drops every registered serializer — a clean slate for tests
+        /// (purge_serialization_registry). Not for runtime use: the per-type SerializerSlot<T>::info
+        /// pointers dangle until the next register_serializer<T>() re-points them.
+        void clear();
+
+        /// @brief
         /// Purpose: Every registered serializer — hot reload scans this for a matching
         /// asset_shape.
         std::vector<std::reference_wrapper<const SerializerInfo>> get_all() const;

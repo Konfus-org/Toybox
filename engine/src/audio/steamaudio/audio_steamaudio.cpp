@@ -239,7 +239,7 @@ namespace tbx
         // The first enabled listener frames the world; no listener, everything is silent.
         auto listener_inverse = Mat4(1.0f);
         bool has_listener = false;
-        sandbox.each<AudioListener>(
+        sandbox.for_each_with<AudioListener>(
             [&](Toy toy, AudioListener& listener)
             {
                 if (has_listener || !toy.is_enabled())
@@ -252,7 +252,7 @@ namespace tbx
         const std::scoped_lock lock(state.voices_mutex);
 
         // Mirror playing sources into voices; spatial extent comes from the toy's Collider.
-        sandbox.each<AudioSource>(
+        sandbox.for_each_with<AudioSource>(
             [&](Toy toy, AudioSource& source)
             {
             const auto key = static_cast<uint32>(toy.get_id());
@@ -306,7 +306,7 @@ namespace tbx
 
             // A Collider softens attenuation by its extent (the shared Shape vocabulary).
             float extent = 0.0f;
-            if (const auto* collider = toy.try_block<Collider>())
+            if (const auto* collider = toy.try_get_block<Collider>())
             {
                 switch (collider->shape)
                 {

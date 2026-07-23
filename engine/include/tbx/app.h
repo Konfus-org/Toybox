@@ -4,7 +4,6 @@
 #include "tbx/assets/assets.h"
 #include "tbx/audio/listener.h"
 #include "tbx/audio/source.h"
-#include "tbx/utils/command_list.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include "tbx/gfx/camera.h"
@@ -19,8 +18,9 @@
 #include "tbx/physics/rigid_body.h"
 #include "tbx/scripting/script.h"
 #include "tbx/scripting/scripts.h"
-#include "tbx/utils/typedefs.h"
 #include "tbx/ui/ui_block.h"
+#include "tbx/utils/command_list.h"
+#include "tbx/utils/typedefs.h"
 #include <filesystem>
 #include <string>
 
@@ -99,7 +99,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The application, as pure data: configuration in, per-frame data out. The
-    /// whole runtime is one loop — `while (tbx::run(app)) { gpu_begin_frame(); ... }` — and
+    /// whole runtime is one loop — `while (tbx::run(app)) { begin_render_frame(); ... }` — and
     /// run() fills state each iteration. The App is itself an asset: a .tapp file IS a
     /// serialized App (config + settings; state stays runtime-only), decoded generically
     /// through its reflected fields — deserialize<App>(path) after
@@ -109,6 +109,7 @@ namespace tbx
         AppStatus status = AppStatus::CREATED;
         AppConfig config = {};
         AppSettings settings = {};
+
         // Per-launch, never serialized — the host hands main()'s arguments over and the
         // runtime honors the built-in options (see cmdline_handler.h).
         CommandList commands = {};

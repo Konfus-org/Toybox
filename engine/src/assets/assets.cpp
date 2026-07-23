@@ -6,6 +6,7 @@
 #include "tbx/reflection/reflection.h"
 #include "tbx/serialization/json.h"
 #include "tbx/serialization/registry.h"
+#include "tbx/serialization/serializers.h"
 #include <algorithm>
 #include <chrono>
 #include <memory>
@@ -140,8 +141,7 @@ namespace tbx
                 {"id", id.to_string()},
                 {"version", 1},
                 {"type", asset_path.extension().string()}};
-            if (const auto written = write_text(meta_path, meta.dump(4));
-                !written)
+            if (const auto written = write_text(meta_path, meta.dump(4)); !written)
                 TBX_WARN("could not write '{}': {}", meta_path, written.error());
         }
         const std::scoped_lock lock(state.mutex);
@@ -180,8 +180,9 @@ namespace tbx
         // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
         // re-enters prepare), then swap the result back in. The decoder is the asset facet
         // on the registered serializer (register_serializer<TAsset>()).
-        Result<std::any> (*deserialize_asset)(
-            const std::filesystem::path&, const Uuid&, const std::string&) = nullptr;
+        Result<std::any> (
+            *deserialize_asset)(const std::filesystem::path&, const Uuid&, const std::string&) =
+            nullptr;
         {
             const std::scoped_lock lock(state.mutex);
             const size shape = state.loaded_assets[id].data.type().hash_code();
@@ -193,10 +194,12 @@ namespace tbx
                 }
         }
 
-        auto refreshed = deserialize_asset
-            ? deserialize_asset(path, id, relative)
-            : Result<std::any>(std::unexpected(std::string(
-                  "unregistered asset type (register_serializer<T>() is missing)")));
+        auto refreshed =
+            deserialize_asset
+                ? deserialize_asset(path, id, relative)
+                : Result<std::any>(std::unexpected(
+                      std::string(
+                          "unregistered asset type (register_serializer<T>() is missing)")));
         if (!refreshed)
         {
             TBX_ERROR("hot reload of '{}' failed: {}", relative, refreshed.error());
@@ -211,9 +214,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    std::optional<std::reference_wrapper<std::any>> find_asset(
-        AssetsState& state,
-        const Uuid& id)
+    std::optional<std::reference_wrapper<std::any>> find_asset(AssetsState& state, const Uuid& id)
     {
         const std::scoped_lock lock(state.mutex);
         const auto it = state.loaded_assets.find(id);
@@ -260,6 +261,33 @@ namespace tbx
         }
     }
 
+    void purge_assets(AssetsState& state, EventsState& events)
+    {
+        // update_assets, but unconditional: every resident asset goes, no idle-skip, no throttle.
+        // The identity map, root, and watcher stay put — this frees memory, it doesn't de-init.
+        auto unloaded = std::vector<AssetReloaded>(); // reuse the id+extension shape
+        {
+            const std::scoped_lock lock(state.mutex);
+            for (const auto& entry : state.loaded_assets)
+                unloaded.push_back(make_reloaded_event(
+                    entry.first,
+                    find_path_of_locked(state, entry.first).value_or("")));
+            state.loaded_assets.clear();
+        }
+        for (const AssetReloaded& gone : unloaded)
+        {
+            auto event = AssetUnloaded {.id = gone.id, .extension = gone.extension};
+            events.asset_unloaded.emit(event);
+        }
+    }
+
+    bool is_assets_ready(const AssetsState& state)
+    {
+        // set_asset_root sets the root then engages the watcher as its last step, so the pair is
+        // the "initialize_assets fully ran" signal (discovery is synchronous after it).
+        return !state.root.empty() && state.watcher.has_value();
+    }
+
     Result<ResolvedAssetHandle> resolve_handle(
         AssetsState& state,
         const Uuid& id,
@@ -269,9 +297,7 @@ namespace tbx
         {
             // Resolved identity; the tracked path (meta index) is where re-decodes come from.
             const auto tracked = find_relative_path(state, id);
-            return ok(ResolvedAssetHandle {
-                .id = id,
-                .relative_path = tracked ? *tracked : path});
+            return ok(ResolvedAssetHandle {.id = id, .relative_path = tracked ? *tracked : path});
         }
         if (path.empty())
             return fail("cannot load: the handle references nothing (no id, no path)");
@@ -281,7 +307,9 @@ namespace tbx
         return ok(ResolvedAssetHandle {.id = *prepared, .relative_path = path});
     }
 
-    std::filesystem::path resolve_asset_path(const AssetsState& state, const std::string& relative_path)
+    std::filesystem::path resolve_asset_path(
+        const AssetsState& state,
+        const std::string& relative_path)
     {
         // The app's asset root wins; the engine's resources folder is the second root, making
         // engine-shipped models/textures/shaders ordinary assets.
@@ -313,7 +341,8 @@ namespace tbx
         {
             if (!it->is_regular_file() || it->path().extension() == ".meta")
                 continue;
-            const auto relative = std::filesystem::relative(it->path(), state.root, ec).generic_string();
+            const auto relative =
+                std::filesystem::relative(it->path(), state.root, ec).generic_string();
             if (ec)
             {
                 ec.clear();
@@ -330,7 +359,16 @@ namespace tbx
         JobsState& jobs,
         std::filesystem::path root)
     {
-        initialize_reflection(); // reflection shapes + every serializer
+        // Readiness IS the idempotency latch — a stood-up subsystem means we already ran.
+        if (is_assets_ready(state))
+            return;
+
+        // reflection shapes
+        initialize_reflection();
+        // Shapes first, serializers second — Format::DEFAULT validates reflection exists.
+        // register_builtin_serializers() self-guards on is_serialization_ready().
+        register_builtin_serializers();
+
         set_asset_root(state, events, jobs, std::move(root));
         discover_assets(state);
     }
@@ -358,7 +396,10 @@ namespace tbx
             {
                 post_main(
                     jobs,
-                    [&state, &events, path] { handle_file_changed(state, events, path); });
+                    [&state, &events, path]
+                    {
+                        handle_file_changed(state, events, path);
+                    });
             });
     }
 
@@ -376,7 +417,9 @@ namespace tbx
                 .last_access = std::chrono::steady_clock::now()};
             state.assets[relative_path] = id;
         }
-        // First loads announce too — glue (e.g. script registration) reacts uniformly.
-        events.asset_reloaded.emit(make_reloaded_event(id, relative_path));
+        // First loads announce on asset_loaded (reloads use asset_reloaded); glue such as script
+        // registration listens to both.
+        const AssetReloaded stamped = make_reloaded_event(id, relative_path);
+        events.asset_loaded.emit(AssetLoaded {.id = stamped.id, .extension = stamped.extension});
     }
 }

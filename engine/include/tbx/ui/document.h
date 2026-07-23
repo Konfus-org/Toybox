@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/api.h"
 #include "tbx/assets/asset.h"
-#include "tbx/assets/handle.h"
-#include "tbx/ui/font.h"
 #include <string>
 
 namespace tbx
@@ -13,6 +11,5 @@ namespace tbx
     struct TBX_API Document : Asset
     {
         std::string text = {};
-        AssetHandle<Font> font = {};
     };
 }

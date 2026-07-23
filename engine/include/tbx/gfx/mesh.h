@@ -6,7 +6,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: GPU mesh — RAII: the destructor (defined by the selected gpu backend) releases
-    /// the buffers. Obtain via gpu_upload_mesh().
+    /// the buffers. Obtain via upload_mesh_to_gpu().
     class TBX_API Mesh final
     {
       public:

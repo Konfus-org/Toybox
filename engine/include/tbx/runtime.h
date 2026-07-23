@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/api.h"
 #include "tbx/app.h"
 #include "tbx/audio/audio.h"
 #include "tbx/debug/debugging.h"
@@ -11,7 +12,6 @@
 #include "tbx/platform/window.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/ui/ui.h"
-#include "tbx/api.h"
 #include <chrono>
 #include <memory>
 
@@ -30,7 +30,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Everything the engine owns, as plain public state — read and write it
-    /// directly (runtime.events.key.emit(...), runtime.physics.gravity). Declaration order
+    /// directly (runtime.events.input.emit(...), runtime.physics.gravity). Declaration order
     /// IS the dependency graph and reverse-order destruction IS shutdown: the module states
     /// (declared last) die first — ui (Lua-closure bindings) before scripts, scripts (the
     /// VMs) before the sandbox, renderer (GPU caches) before the windows and their shared GL
@@ -41,10 +41,10 @@ namespace tbx
     struct TBX_API RuntimeState
     {
         App app = {};
+        Sandbox sandbox = {};
         FrameState frame = {};
         InputState input = {};
         WindowsState windows = {};
-        Sandbox sandbox = {};
         JobsState jobs = {};
         EventsState events = {};
         AssetsState assets = {};

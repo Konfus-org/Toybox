@@ -48,7 +48,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Acquires the frame and begins the swapchain render pass, cleared. Hosts call
-    /// begin_frame, then gpu_draw (directly or via render()), then tbx::run presents.
+    /// begin_frame, then draw (directly or via render()), then tbx::run presents.
     TBX_API void begin_render_frame(const FrameDescription& description = {});
 
     /// @brief
@@ -71,12 +71,12 @@ namespace tbx
     TBX_API std::unique_ptr<Pipeline> make_render_pipeline(const PipelineDescription& description);
 
     /// @brief
-    /// Purpose: Binds a pipeline; subsequent gpu_draw() calls use it.
+    /// Purpose: Binds a pipeline; subsequent draw() calls use it.
     TBX_API void set_render_pipeline(const Pipeline& pipeline);
 
     /// @brief
     /// Purpose: Draws a mesh as triangles with the bound pipeline; the given textures bind
-    /// for exactly this gpu_draw (modern-API shape — no loose slot state).
+    /// for exactly this draw (modern-API shape — no loose slot state).
     TBX_API void draw(const Mesh& mesh, std::span<const TextureBinding> textures = {});
 
     /// @brief
@@ -107,7 +107,7 @@ namespace tbx
     TBX_API Result<void> render_screenshot(Texture& result);
 
     /// @brief
-    /// Purpose: The clear color of the most recent gpu_begin_frame()/CLEAR pass — offscreen
+    /// Purpose: The clear color of the most recent begin_render_frame()/CLEAR pass — offscreen
     /// passes that re-render the scene reuse it.
     TBX_API Color get_render_clear_color();
 

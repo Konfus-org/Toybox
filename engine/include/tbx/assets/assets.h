@@ -63,7 +63,7 @@ namespace tbx
     /// Purpose: Stands the asset system up in one call, the way initialize_reflection stands
     /// reflection up: registers every serializer, sets the root (and starts hot-reload
     /// watching), then walks the root so every asset file's path and id populate the identity
-    /// map up front. Idempotent per state.
+    /// map up front. Self-guards on is_assets_ready(), so calling it twice is a no-op.
     TBX_API void initialize_assets(
         AssetsState& state,
         EventsState& events,
@@ -84,6 +84,17 @@ namespace tbx
     /// state.idle_lifetime_seconds, announcing each via the asset_unloaded signal. tbx::run()
     /// calls this every frame; it self-throttles.
     TBX_API void update_assets(AssetsState& state, EventsState& events);
+
+    /// @brief
+    /// Purpose: Unloads every resident asset right now (unconditional update_assets), announcing
+    /// each via asset_unloaded — for tests that need a clean memory slate. Leaves the identity
+    /// map, root, and watcher intact, so the subsystem stays initialized (is_assets_ready holds).
+    TBX_API void purge_assets(AssetsState& state, EventsState& events);
+
+    /// @brief
+    /// Purpose: True once initialize_assets has stood the subsystem up (root set, watcher
+    /// engaged) — the readiness check that makes initialize_assets a no-op on a second call.
+    TBX_API bool is_assets_ready(const AssetsState& state);
 
     /// @brief
     /// Purpose: Number of resident (decoded) assets — debug/tooling.

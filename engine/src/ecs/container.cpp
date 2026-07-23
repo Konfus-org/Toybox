@@ -1,19 +1,21 @@
 #include "tbx/ecs/container.h"
 #include "tbx/debug/log.h"
 #include "tbx/ecs/kit.h" // KitInstance — kit-instance contents are skipped when serializing
-#include "tbx/utils/hash.h"
 #include "tbx/math/transform.h"
 #include "tbx/reflection/type_registry.h"
+#include "tbx/utils/hash.h"
 #include <unordered_map>
 
 namespace tbx
 {
     //// TOY LIFECYCLE ////
 
-    Toy ToyContainer::spawn(std::string name)
+    Toy ToyContainer::add(std::string name)
     {
         const ToyId id = _registry->create();
-        _registry->emplace<ToyInfo>(id, ToyInfo {.uuid = Uuid::generate(), .name = std::move(name)});
+        _registry->emplace<ToyInfo>(
+            id,
+            ToyInfo {.uuid = Uuid::generate(), .name = std::move(name)});
         _registry->emplace<Transform>(id);
         return Toy(*this, id);
     }
@@ -34,7 +36,7 @@ namespace tbx
         return {};
     }
 
-    void ToyContainer::for_each_sticker(
+    void ToyContainer::for_each_with(
         std::string_view name,
         const std::function<void(Toy)>& callback)
     {
@@ -63,7 +65,7 @@ namespace tbx
         return toys;
     }
 
-    void ToyContainer::despawn(Toy toy)
+    void ToyContainer::remove(Toy toy)
     {
         const ToyId id = toy.get_id();
         // Children are orphaned, not destroyed — despawning a parent never cascades.
@@ -73,7 +75,7 @@ namespace tbx
         _registry->destroy(id);
     }
 
-    void ToyContainer::despawn_subtree(Toy root)
+    void ToyContainer::remove_subtree(Toy root)
     {
         auto pending = std::vector<ToyId> {root.get_id()};
         auto doomed = std::vector<ToyId>();
@@ -93,10 +95,10 @@ namespace tbx
                 _registry->destroy(id);
     }
 
-    void ToyContainer::despawn_children(Toy root)
+    void ToyContainer::remove_children(Toy root)
     {
         for (const Toy child : root.get_children())
-            despawn_subtree(child);
+            remove_subtree(child);
     }
 
     void ToyContainer::clear()
@@ -106,7 +108,7 @@ namespace tbx
 
     //// COPY (instantiation) ////
 
-    std::vector<Toy> ToyContainer::copy_toys_from(const ToyContainer& source, Toy parent)
+    std::vector<Toy> ToyContainer::copy(const ToyContainer& source, Toy parent)
     {
         Registry& destination = *_registry;
         Registry& from = *source._registry; // logically read-only; entt views want non-const
@@ -142,8 +144,8 @@ namespace tbx
             const ToyId source_parent = source_info ? source_info->parent : NULL_TOY;
             destination.get<ToyInfo>(id).parent =
                 (source_parent != NULL_TOY && id_map.contains(source_parent))
-                ? id_map.at(source_parent)
-                : parent.get_id();
+                    ? id_map.at(source_parent)
+                    : parent.get_id();
             copied.emplace_back(*this, id);
         }
         return copied;
@@ -234,8 +236,7 @@ namespace tbx
             if (toy_json.contains("parent"))
                 parent_links.emplace_back(id, parse_toy_uuid(toy_json["parent"]));
 
-            for (const Json& block_json :
-                 toy_json.value("blocks", Json::array()))
+            for (const Json& block_json : toy_json.value("blocks", Json::array()))
             {
                 const auto type_name = block_json.value("type", std::string());
                 const uint64 hashed = hash(type_name);

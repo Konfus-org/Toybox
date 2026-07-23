@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/api.h"
-#include "tbx/ecs/registry.h"
 #include "tbx/ecs/toy.h"
 #include "tbx/utils/result.h"
-#include "tbx/serialization/json.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
 #include <functional>
@@ -19,7 +17,8 @@ namespace tbx
     /// Purpose: The shape both a Sandbox (the world) and a Kit (a bundle) share: a container
     /// of toys arranged by parent/child, queried and mutated ONLY through wrapper methods —
     /// the underlying registry is private, so nothing outside the container names the ECS
-    /// library. Systems iterate with each<Components...>(); everything else goes through Toy.
+    /// library. Systems iterate with for_each_with<Components...>(); everything else goes through
+    /// Toy.
     /// @details
     /// The registry is shared_ptr so a Kit stays copyable (it rides in the asset cache and is
     /// shallow-copied during streaming); a resident kit is only ever read, never mutated after
@@ -37,13 +36,13 @@ namespace tbx
       public:
         /// @brief
         /// Purpose: Creates a toy with identity and a default Transform.
-        Toy spawn(std::string name);
+        Toy add(std::string name);
 
         /// @brief
-        /// Purpose: Literal-friendly toy spawn.
-        Toy spawn(const char* name)
+        /// Purpose: Literal-friendly toy add.
+        Toy add(const char* name)
         {
-            return spawn(std::string(name));
+            return add(std::string(name));
         }
 
         /// @brief
@@ -55,10 +54,6 @@ namespace tbx
         std::optional<Toy> find(std::string_view name);
 
         /// @brief
-        /// Purpose: Invokes the callback for every toy wearing the sticker.
-        void for_each_sticker(std::string_view name, const std::function<void(Toy)>& callback);
-
-        /// @brief
         /// Purpose: Number of live toys.
         size get_toy_count() const;
 
@@ -68,31 +63,37 @@ namespace tbx
 
         /// @brief
         /// Purpose: Despawns a toy; its children are orphaned (parent cleared), not destroyed.
-        void despawn(Toy toy);
+        void remove(Toy toy);
 
         /// @brief
         /// Purpose: Despawns a toy and its whole subtree.
-        void despawn_subtree(Toy root);
+        void remove_subtree(Toy root);
 
         /// @brief
         /// Purpose: Despawns every descendant of a toy but keeps the toy itself (how a
         /// streamed kit instance collapses).
-        void despawn_children(Toy root);
+        void remove_children(Toy root);
 
         /// @brief
         /// Purpose: Removes every toy — the container is empty afterward.
         void clear();
 
         /// @brief
+        /// Purpose: Invokes the callback for every toy wearing the sticker.
+        void for_each_with(std::string_view sticker, const std::function<void(Toy)>& callback);
+
+        /// @brief
         /// Purpose: The one iteration seam for systems: invokes fn(Toy, Components&...) for
         /// every toy carrying all of Components. Access other components off the Toy.
         template <typename... TComponents, typename TFn>
-        void each(TFn&& fn)
+        void for_each_with(TFn&& fn)
         {
             for (auto&& row : _registry->view<TComponents...>().each())
                 std::apply(
                     [&](const ToyId id, TComponents&... components)
-                    { fn(Toy(*this, id), components...); },
+                    {
+                        fn(Toy(*this, id), components...);
+                    },
                     row);
         }
 
@@ -100,7 +101,7 @@ namespace tbx
         /// Purpose: Copies every toy of `source` into this container as children of `parent`
         /// (fresh uuids, in-source parents remapped) — how a kit instantiates into a world.
         /// Returns the toys it created, in source order.
-        std::vector<Toy> copy_toys_from(const ToyContainer& source, Toy parent);
+        std::vector<Toy> copy(const ToyContainer& source, Toy parent);
 
       private:
         std::shared_ptr<Registry> _registry = std::make_shared<Registry>();

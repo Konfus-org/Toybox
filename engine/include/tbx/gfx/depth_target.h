@@ -6,7 +6,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Depth-only render target for shadow passes — RAII via the backend.
-    /// Obtain via gpu_make_depth_target(); render into it via a depth-only render pass.
+    /// Obtain via make_depth_render_target(); render into it via a depth-only render pass.
     class TBX_API DepthTarget final
     {
       public:

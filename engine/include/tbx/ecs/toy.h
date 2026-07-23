@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/api.h"
-#include "tbx/ecs/registry.h"
 #include "tbx/math/transform.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
@@ -28,7 +27,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Fluent handle to one toy: container.spawn("Grunt").with(Transform
+    /// Purpose: Fluent handle to one toy: container.add("Grunt").with(Transform
     /// {...}).with(Health {...}).sticker("enemy"). A toy is the handle you query and mutate a
     /// toy through — the same handle works whether the toy lives in a Sandbox (the world) or a
     /// Kit (a bundle). The owning container's registry stays hidden; everything goes through
@@ -53,7 +52,7 @@ namespace tbx
         /// @brief
         /// Purpose: The block of this type if attached, else nullptr (never inserts).
         template <typename TBlock>
-        TBlock* try_block() const;
+        TBlock* try_get_block() const;
 
         /// @brief
         /// Purpose: The toy's per-session registry id.
@@ -138,7 +137,7 @@ namespace tbx
         template <typename TBlock>
         Toy& with(TBlock block);
 
-        //// REFLECTED-BY-NAME BLOCK ACCESS (scripting/tooling; no registry needed) ////
+        //// REFLECTED-BY-NAME BLOCK ACCESS (scripting/tooling) ////
 
         /// @brief
         /// Purpose: Raw bytes of the reflected block with this type-name hash, or nullptr —

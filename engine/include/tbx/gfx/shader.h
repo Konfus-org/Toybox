@@ -8,7 +8,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: GPU shader module — RAII: the destructor (defined by the selected gpu
-    /// backend) releases the program. Obtain via gpu_compile_shader().
+    /// backend) releases the program. Obtain via compile_shader().
     class TBX_API Shader final
     {
       public:
@@ -50,7 +50,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: One uniform a shader exposes, discovered by gpu_reflect().
+    /// Purpose: One uniform a shader exposes, discovered by reflect_shader().
     struct TBX_API UniformInfo
     {
         std::string name = {};

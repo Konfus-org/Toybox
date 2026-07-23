@@ -7,6 +7,7 @@
 #include "tbx/gfx/model.h"
 #include "tbx/gfx/shader_source.h"
 #include "tbx/gfx/texture.h"
+#include "tbx/reflection/reflection.h"
 #include "tbx/scripting/source.h"
 #include "tbx/serialization/registration.h"
 #include "tbx/ui/document.h"
@@ -16,6 +17,16 @@ namespace tbx
 {
     void register_builtin_serializers()
     {
+        if (!is_reflection_ready())
+        {
+            TBX_ASSERT(false, "Serializer init is dependent on reflection, init that first!");
+            return;
+        }
+
+        // Readiness IS the idempotency latch — a populated registry means we already ran.
+        if (is_serialization_ready())
+            return;
+
         // Types with real codecs bring a reader (and a writer when writing makes sense);
         // text assets are SerializerFormat::TEXT; plain data types round-trip through their
         // reflection.
@@ -49,10 +60,9 @@ namespace tbx
             .extension(".flac")
             .deserializer(deserialize_clip);
         register_serializer<ScriptSource>()
-            .format(SerializerFormat::CUSTOM)
+            .format(SerializerFormat::TEXT)
             .extension(".luau")
-            .extension(".lua")
-            .deserializer(deserialize_script_source);
+            .extension(".lua");
         register_serializer<Document>().format(SerializerFormat::TEXT).extension(".html");
         register_serializer<Font>()
             .format(SerializerFormat::CUSTOM)
@@ -71,5 +81,15 @@ namespace tbx
             .serializer(serialize_sandbox);
         register_serializer<Material>().format(SerializerFormat::DEFAULT).extension(".mat");
         register_serializer<App>().format(SerializerFormat::DEFAULT).extension(".tapp");
+    }
+
+    bool is_serialization_ready()
+    {
+        return !get_serializer_registry().get_all().empty();
+    }
+
+    void purge_serialization_registry()
+    {
+        get_serializer_registry().clear();
     }
 }

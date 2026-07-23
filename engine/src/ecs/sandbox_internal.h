@@ -7,7 +7,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Copies a kit's toys under `parent`, expanding nested immediate kits and
-    /// registering nested streamed kits — the shared body of spawn() and stream-in. Defined in
+    /// registering nested streamed kits — the shared body of add() and stream-in. Defined in
     /// kit.cpp with the kit machinery; declared here so stream() (sandbox.cpp) can reach it.
     /// Internal to the ecs implementation — not part of the public sandbox API.
     Result<void> instantiate_under(

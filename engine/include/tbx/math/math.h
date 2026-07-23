@@ -8,8 +8,23 @@
 namespace tbx
 {
     /// @brief
+    /// Purpose: The position, rotation, and scale pulled out of an affine transform matrix
+    /// (skew and perspective are discarded). The inverse of composing T * R * S.
+    struct DecomposedTransform
+    {
+        Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
+        Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
+        Vec3 scale = Vec3(1.0f, 1.0f, 1.0f);
+    };
+
+    /// @brief
     /// Purpose: A rotation of the given angle (radians) around an axis.
     TBX_API Quat angle_axis(float radians, const Vec3& axis);
+
+    /// @brief
+    /// Purpose: Splits an affine transform matrix into position/rotation/scale (e.g. a world
+    /// transform composed up the parent chain).
+    TBX_API DecomposedTransform decompose(const Mat4& matrix);
 
     /// @brief
     /// Purpose: Vector cross product.

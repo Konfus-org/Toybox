@@ -40,6 +40,12 @@ namespace tbx
         TypeInfo& add(TypeInfo info);
 
         /// @brief
+        /// Purpose: Drops every registered type — a clean slate for tests
+        /// (purge_reflection_registry). Not for runtime use; live TypeSlot<T>::hash values keep
+        /// their old hash but route through this table, so lookups just miss until re-registered.
+        void clear();
+
+        /// @brief
         /// Purpose: Every registered type, for tooling/editor enumeration.
         std::vector<std::reference_wrapper<const TypeInfo>> get_all() const;
 

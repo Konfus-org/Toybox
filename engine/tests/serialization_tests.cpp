@@ -4,6 +4,7 @@
 #include "tbx/serialization/json.h"
 #include "tbx/serialization/read_write.h"
 #include "tbx/serialization/registration.h"
+#include "tbx/serialization/serializers.h"
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -48,24 +49,31 @@ namespace tbx
 
     static void register_serialization_test_types()
     {
-        static bool g_registered = false;
-        if (g_registered)
-            return;
-        g_registered = true;
-        register_type<DiskThing>("DiskThing")
-            .field("answer", &DiskThing::answer)
-            .field("label", &DiskThing::label);
-        register_serializer<DiskThing>()
-            .format(SerializerFormat::DEFAULT)
-            .meta(&DiskThing::label);
-        register_type<NoteThing>("NoteThing")
-            .field("author", &NoteThing::author);
-        register_serializer<NoteThing>()
-            .format(SerializerFormat::TEXT)
-            .meta(&NoteThing::author);
-        register_serializer<BlobThing>()
-            .format(SerializerFormat::CUSTOM)
-            .deserializer(deserialize_blob_thing);
+        // Types register once — .field() appends, so a second pass would duplicate fields. Guard
+        // on the type table (never on the dangling SerializerSlot after a purge) so this stays
+        // safe and repeatable across the purge tests below.
+        if (!get_type_registry().find("DiskThing"))
+        {
+            register_type<DiskThing>("DiskThing")
+                .field("answer", &DiskThing::answer)
+                .field("label", &DiskThing::label);
+            register_type<NoteThing>("NoteThing")
+                .field("author", &NoteThing::author);
+        }
+        // Serializers re-register whenever they're missing (after purge_serialization_registry),
+        // which also re-points the SerializerSlot<T>::info pointers.
+        if (!get_serializer_registry().find(typeid(DiskThing).hash_code()))
+        {
+            register_serializer<DiskThing>()
+                .format(SerializerFormat::DEFAULT)
+                .meta(&DiskThing::label);
+            register_serializer<NoteThing>()
+                .format(SerializerFormat::TEXT)
+                .meta(&NoteThing::author);
+            register_serializer<BlobThing>()
+                .format(SerializerFormat::CUSTOM)
+                .deserializer(deserialize_blob_thing);
+        }
     }
 
     static std::filesystem::path test_root()
@@ -187,5 +195,23 @@ namespace tbx
         ASSERT_FALSE(written.has_value());
         EXPECT_NE(loaded.error().find("register_serializer"), std::string::npos);
         EXPECT_NE(written.error().find("register_serializer"), std::string::npos);
+    }
+
+    TEST(Serialization, PurgeEmptiesTheRegistryAndReInitRestoresIt)
+    {
+        // Arrange: builtins present.
+        register_builtin_serializers();
+        ASSERT_TRUE(is_serialization_ready());
+
+        // Act + Assert: purge empties it, re-init refills it.
+        purge_serialization_registry();
+        EXPECT_FALSE(is_serialization_ready());
+        register_builtin_serializers();
+        EXPECT_TRUE(is_serialization_ready());
+
+        // Restore the custom test serializers a purge dropped, so order-independent siblings still
+        // find them (the helper re-points SerializerSlot<T>::info as it re-registers).
+        register_serialization_test_types();
+        EXPECT_TRUE(get_serializer_registry().find(typeid(DiskThing).hash_code()).has_value());
     }
 }

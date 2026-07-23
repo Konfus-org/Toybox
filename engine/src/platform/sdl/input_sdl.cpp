@@ -16,6 +16,84 @@ namespace tbx
     static std::array<SDL_Gamepad*, MAX_GAMEPADS> g_gamepad_handles = {};
     static bool g_gamepad_subsystem_ready = false;
 
+    //// STATE FEED ////
+    // Writing InputState is the backend's own business — there is no public feed API. These roll
+    // the frame and record transitions straight into the plain-data state during update_input.
+
+    static bool is_valid_gamepad(const int slot)
+    {
+        return slot >= 0 && slot < MAX_GAMEPADS;
+    }
+
+    static void roll_input_frame(InputState& input)
+    {
+        input.previous_keys = input.keys;
+        input.previous_mouse = input.mouse;
+        input.mouse_delta = Vec2(0.0f, 0.0f);
+        input.scroll_delta = 0.0f;
+        // Buttons roll for edge queries; axes are absolute levels, so they persist untouched.
+        for (GamepadState& gamepad : input.gamepads)
+            gamepad.previous_buttons = gamepad.buttons;
+    }
+
+    static void feed_key(InputState& input, const Key key, const bool is_down)
+    {
+        input.keys[static_cast<size>(key)] = is_down;
+    }
+
+    static void feed_mouse_button(InputState& input, const MouseButton button, const bool is_down)
+    {
+        input.mouse[static_cast<size>(button)] = is_down;
+    }
+
+    static void feed_mouse_move(InputState& input, const Vec2 position, const Vec2 delta)
+    {
+        input.mouse_position = position;
+        input.mouse_delta += delta;
+    }
+
+    static void feed_scroll(InputState& input, const float delta)
+    {
+        input.scroll_delta += delta;
+    }
+
+    static void feed_gamepad_connected(InputState& input, const int slot, const bool is_connected)
+    {
+        if (!is_valid_gamepad(slot))
+            return;
+        GamepadState& gamepad = input.gamepads[static_cast<size>(slot)];
+        gamepad.is_connected = is_connected;
+        if (!is_connected)
+        {
+            // A vacated slot must not report stale held buttons or off-center sticks.
+            gamepad.buttons = {};
+            gamepad.previous_buttons = {};
+            gamepad.axes = {};
+        }
+    }
+
+    static void feed_gamepad_button(
+        InputState& input,
+        const int slot,
+        const GamepadButton button,
+        const bool is_down)
+    {
+        if (!is_valid_gamepad(slot))
+            return;
+        input.gamepads[static_cast<size>(slot)].buttons[static_cast<size>(button)] = is_down;
+    }
+
+    static void feed_gamepad_axis(
+        InputState& input,
+        const int slot,
+        const GamepadAxis axis,
+        const float value)
+    {
+        if (!is_valid_gamepad(slot))
+            return;
+        input.gamepads[static_cast<size>(slot)].axes[static_cast<size>(axis)] = value;
+    }
+
     //// TRANSLATION ////
 
     static Key translate_key(const SDL_Scancode scancode)
@@ -227,7 +305,7 @@ namespace tbx
     {
         // The frame roll is backend-agnostic and must run even headless: gameplay's edge queries
         // (is_pressed/is_released) depend on previous-state rolling regardless of any window.
-        advance_input_frame(input);
+        roll_input_frame(input);
 
         // No window means SDL was never initialized (headless tests/tooling): nothing to pump.
         if (!SDL_WasInit(SDL_INIT_VIDEO))
@@ -270,7 +348,7 @@ namespace tbx
                         break;
                     if (!event.key.repeat)
                         feed_key(input, key, event.key.down);
-                    events.key.emit(
+                    events.input.emit(
                         {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }

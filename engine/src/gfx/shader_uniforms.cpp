@@ -22,12 +22,12 @@ namespace tbx
 
     //// APPLY (backend-agnostic: reflection types the values, set_uniform does the work) ////
 
-    void gpu_apply_uniforms(const Shader& shader, const Json& values)
+    void apply_shader_uniforms(const Shader& shader, const Json& values)
     {
         // The empty bag is the per-draw common case: bail before the GL reflection query.
         if (!values.is_object() || values.empty())
             return;
-        const ShaderInfo info = gpu_reflect(shader);
+        const ShaderInfo info = reflect_shader(shader);
         for (const UniformInfo& uniform : info.uniforms)
         {
             const auto it = values.find(uniform.name);
@@ -42,33 +42,33 @@ namespace tbx
                 case UniformKind::FLOAT:
                     applied = value.is_number();
                     if (applied)
-                        gpu_set_uniform(shader, name, value.get<float>());
+                        set_shader_uniform(shader, name, value.get<float>());
                     break;
                 case UniformKind::INT:
                 case UniformKind::TEXTURE:
                     applied = value.is_number_integer();
                     if (applied)
-                        gpu_set_uniform(shader, name, value.get<int>());
+                        set_shader_uniform(shader, name, value.get<int>());
                     break;
                 case UniformKind::BOOL:
                     applied = value.is_boolean();
                     if (applied)
-                        gpu_set_uniform(shader, name, value.get<bool>() ? 1 : 0);
+                        set_shader_uniform(shader, name, value.get<bool>() ? 1 : 0);
                     break;
                 case UniformKind::VEC2:
                     applied = read_floats(value, std::span(floats).first(2));
                     if (applied)
-                        gpu_set_uniform(shader, name, Vec2(floats[0], floats[1]));
+                        set_shader_uniform(shader, name, Vec2(floats[0], floats[1]));
                     break;
                 case UniformKind::VEC3:
                     applied = read_floats(value, std::span(floats).first(3));
                     if (applied)
-                        gpu_set_uniform(shader, name, Vec3(floats[0], floats[1], floats[2]));
+                        set_shader_uniform(shader, name, Vec3(floats[0], floats[1], floats[2]));
                     break;
                 case UniformKind::VEC4:
                     applied = read_floats(value, std::span(floats).first(4));
                     if (applied)
-                        gpu_set_uniform(
+                        set_shader_uniform(
                             shader, name, Vec4(floats[0], floats[1], floats[2], floats[3]));
                     break;
                 case UniformKind::MAT4:
@@ -78,7 +78,7 @@ namespace tbx
                     {
                         auto matrix = Mat4(1.0f);
                         std::memcpy(&matrix[0][0], floats, sizeof(floats));
-                        gpu_set_uniform(shader, name, matrix);
+                        set_shader_uniform(shader, name, matrix);
                     }
                     break;
                 }

@@ -1,0 +1,9 @@
+{
+  "languageMode": "strict",
+  "lint": {
+    "LocalShadow": true,
+    "UnknownGlobal": true,
+    "FunctionUnused": false,
+    "BuiltinGlobalWrite": false
+  }
+}

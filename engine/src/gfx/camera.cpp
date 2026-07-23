@@ -15,7 +15,7 @@ namespace tbx
         return projection * inverse(world_matrix);
     }
 
-    Frustum gpu_make_frustum(
+    Frustum make_frustum(
         const Camera& camera,
         const Mat4& world_matrix,
         const float aspect_ratio)

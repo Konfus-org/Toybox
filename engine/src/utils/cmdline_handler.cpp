@@ -43,9 +43,9 @@ namespace tbx
                 path.stem().string() + "_" + std::to_string(shot) + path.extension().string());
 
         make_current(window);
-        gpu_set_viewport(window.width, window.height);
+        set_render_viewport(window.width, window.height);
         auto capture = Texture();
-        if (const auto read = gpu_screenshot(capture); !read)
+        if (const auto read = render_screenshot(capture); !read)
             TBX_ERROR("screenshot: {}", read.error());
         else if (const auto saved = serialize(capture, path); !saved)
             TBX_ERROR("screenshot '{}': {}", path.string(), saved.error());

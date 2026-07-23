@@ -216,4 +216,19 @@ namespace tbx
         // Assert
         EXPECT_FALSE(missing.has_value());
     }
+
+    TEST(Reflect, PurgeEmptiesTheRegistryAndReInitRestoresIt)
+    {
+        // Arrange: builtins present.
+        initialize_reflection();
+        ASSERT_TRUE(is_reflection_ready());
+
+        // Act + Assert: purge empties it, re-init refills the builtins.
+        purge_reflection_registry();
+        EXPECT_FALSE(is_reflection_ready());
+        EXPECT_TRUE(get_type_registry().get_all().empty());
+        initialize_reflection();
+        EXPECT_TRUE(is_reflection_ready());
+        EXPECT_TRUE(get_type_registry().find("App").has_value());
+    }
 }

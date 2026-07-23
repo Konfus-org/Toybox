@@ -10,7 +10,7 @@ namespace tbx
     static std::optional<Vec3> primary_camera_position(Sandbox& sandbox)
     {
         auto position = std::optional<Vec3>();
-        sandbox.each<Camera>(
+        sandbox.for_each_with<Camera>(
             [&](Toy toy, Camera&)
             {
                 if (position || !toy.is_enabled())
@@ -24,7 +24,7 @@ namespace tbx
     // builtin component driven only through update_ecs.
     static void update_billboards(Sandbox& sandbox, const Vec3& camera_position)
     {
-        sandbox.each<Billboard>(
+        sandbox.for_each_with<Billboard>(
             [&](Toy toy, Billboard& billboard)
             {
                 const Vec3 world_position =

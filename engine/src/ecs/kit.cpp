@@ -1,13 +1,13 @@
 #include "tbx/ecs/kit.h"
+#include "sandbox_internal.h"
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/files/files.h"
-#include "tbx/utils/hash.h"
 #include "tbx/math/transform.h"
 #include "tbx/serialization/json.h"
 #include "tbx/serialization/read_write.h"
-#include "sandbox_internal.h"
+#include "tbx/utils/hash.h"
 #include <filesystem>
 #include <vector>
 
@@ -32,7 +32,7 @@ namespace tbx
     {
         for (const Json& entry : body.value("kits", Json::array()))
         {
-            Toy toy = kit.spawn("KitReference");
+            Toy toy = kit.add("KitReference");
             auto& transform = toy.get_transform();
             if (entry.contains("position"))
                 transform.position = Vec3(
@@ -54,9 +54,10 @@ namespace tbx
             auto stripped = text;
             std::erase(stripped, '-');
             const Uuid uuid = Uuid::parse(stripped);
-            toy.with(KitInstance {
-                .kit = uuid.is_valid() ? AssetHandle<Kit>(uuid)
-                                       : AssetHandle<Kit>(std::move(text))});
+            toy.with(
+                KitInstance {
+                    .kit = uuid.is_valid() ? AssetHandle<Kit>(uuid)
+                                           : AssetHandle<Kit>(std::move(text))});
         }
     }
 
@@ -84,11 +85,12 @@ namespace tbx
             TBX_ERROR("streamed kit '{}': {}", kit.path, peeked.error());
             return;
         }
-        sandbox.streamed_kits.push_back(StreamedKit {
-            .instance = instance.get_id(),
-            .kit = kit,
-            .bounds_center = peeked->get().bounds_center,
-            .bounds_radius = peeked->get().bounds_radius});
+        sandbox.streamed_kits.push_back(
+            StreamedKit {
+                .instance = instance.get_id(),
+                .kit = kit,
+                .bounds_center = peeked->get().bounds_center,
+                .bounds_radius = peeked->get().bounds_radius});
     }
 
     Result<void> instantiate_under(
@@ -100,14 +102,14 @@ namespace tbx
         std::vector<uint64>& reference_stack,
         std::vector<ToyId>& spawned)
     {
-        const auto copied = sandbox.copy_toys_from(kit, parent);
+        const auto copied = sandbox.copy(kit, parent);
         for (const Toy& toy : copied)
             spawned.push_back(toy.get_id());
 
         for (const Toy& toy : copied)
         {
             auto instance = toy;
-            const auto* kit_instance = instance.try_block<KitInstance>();
+            const auto* kit_instance = instance.try_get_block<KitInstance>();
             if (!kit_instance || !kit_instance->kit.is_set())
                 continue;
 
@@ -129,7 +131,13 @@ namespace tbx
 
             reference_stack.push_back(reference);
             auto expanded = instantiate_under(
-                sandbox, assets, events, instance, nested->get(), reference_stack, spawned);
+                sandbox,
+                assets,
+                events,
+                instance,
+                nested->get(),
+                reference_stack,
+                spawned);
             reference_stack.pop_back();
             if (!expanded)
                 return expanded;
@@ -137,7 +145,7 @@ namespace tbx
         return {};
     }
 
-    Result<Toy> spawn(
+    Result<Toy> add(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -148,7 +156,7 @@ namespace tbx
         // whose children are the kit's toys.
         const auto name =
             kit.path.empty() ? std::string("Kit") : std::filesystem::path(kit.path).stem().string();
-        Toy root = sandbox.spawn(name);
+        Toy root = sandbox.add(name);
         root.get_transform().position = position;
         root.with(KitInstance {.kit = AssetHandle<Kit>(kit.id, kit.path)});
 
@@ -160,13 +168,13 @@ namespace tbx
                 instantiate_under(sandbox, assets, events, root, kit, reference_stack, spawned);
             !result)
         {
-            sandbox.despawn_subtree(root);
+            sandbox.remove_subtree(root);
             return std::unexpected(result.error());
         }
         return root;
     }
 
-    Result<Toy> spawn(
+    Result<Toy> add(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,
@@ -176,7 +184,7 @@ namespace tbx
         const auto loaded = load_asset_now(assets, events, kit);
         if (!loaded)
             return fail("kit '{}': {}", kit.path, loaded.error());
-        auto root = spawn(sandbox, assets, events, loaded->get(), position);
+        auto root = add(sandbox, assets, events, loaded->get(), position);
         if (root)
             root->get_block<KitInstance>().kit = kit; // record the original handle
         return root;
@@ -198,8 +206,7 @@ namespace tbx
         auto kit = Kit();
         try
         {
-            if (auto toys = deserialize_toys(kit, body.value("toys", Json::array()));
-                !toys)
+            if (auto toys = deserialize_toys(kit, body.value("toys", Json::array())); !toys)
                 return std::unexpected(toys.error());
             read_legacy_references(kit, body); // older .kit "kits" array, if any
             const auto bounds = body.value("bounds", Json::object());

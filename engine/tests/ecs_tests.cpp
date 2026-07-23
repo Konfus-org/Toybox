@@ -105,7 +105,7 @@ namespace tbx
         auto sandbox = Sandbox();
 
         // Act
-        Toy grunt = sandbox.spawn("Grunt")
+        Toy grunt = sandbox.add("Grunt")
                              .with(Transform {.position = Vec3(1.0f, 2.0f, 3.0f)})
                              .with(TestHealth {.hp = 50.0f, .armor = 10.0f})
                              .sticker("enemy");
@@ -124,12 +124,12 @@ namespace tbx
     {
         // Arrange
         auto sandbox = Sandbox();
-        Toy parent = sandbox.spawn("Parent");
-        Toy child = sandbox.spawn("Child");
+        Toy parent = sandbox.add("Parent");
+        Toy child = sandbox.add("Child");
         child.set_parent(parent);
 
         // Act
-        sandbox.despawn(parent);
+        sandbox.remove(parent);
 
         // Assert
         EXPECT_FALSE(parent.is_alive());
@@ -141,8 +141,8 @@ namespace tbx
     {
         // Arrange
         auto sandbox = Sandbox();
-        Toy grunt = sandbox.spawn("Grunt").sticker("enemy");
-        sandbox.spawn("Crate");
+        Toy grunt = sandbox.add("Grunt").sticker("enemy");
+        sandbox.add("Crate");
         auto stickered = std::vector<std::string>();
 
         // Act
@@ -172,10 +172,10 @@ namespace tbx
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto source = Sandbox();
-        Toy parent = source.spawn("Room")
+        Toy parent = source.add("Room")
                               .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
                               .sticker("level");
-        Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
+        Toy child = source.add("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         child.set_parent(parent);
         ASSERT_TRUE(serialize(source, world.root / "world.kit").has_value());
 
@@ -183,7 +183,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "world.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        const auto loaded = spawn(target, world.runtime.assets, world.runtime.events, *kit);
+        const auto loaded = add(target, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -205,7 +205,7 @@ namespace tbx
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto source = Sandbox();
-        source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
+        source.add("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
         ASSERT_TRUE(serialize(source, world.root / "first.kit").has_value());
 
         // Act: read the kit back and write it again. (Instantiating into a world and
@@ -228,18 +228,18 @@ namespace tbx
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox();
-        author.spawn("Pickup");
+        author.add("Pickup");
         ASSERT_TRUE(serialize(author, world.root / "prefab.kit").has_value());
 
         auto room = Kit();
-        room.spawn("prefab_ref")
+        room.add("prefab_ref")
             .with(KitInstance {.kit = AssetHandle<Kit>("prefab.kit")})
             .get_transform()
             .position = Vec3(1.0f, 0.0f, 0.0f);
         ASSERT_TRUE(serialize(room, world.root / "room.kit").has_value());
 
         auto level = Kit();
-        level.spawn("room_ref")
+        level.add("room_ref")
             .with(KitInstance {.kit = AssetHandle<Kit>("room.kit")})
             .get_transform()
             .position = Vec3(10.0f, 0.0f, 0.0f);
@@ -247,7 +247,7 @@ namespace tbx
 
         // Act
         auto sandbox = Sandbox();
-        const auto loaded = spawn(
+        const auto loaded = add(
             sandbox,
             world.runtime.assets,
             world.runtime.events,
@@ -267,17 +267,17 @@ namespace tbx
         // Arrange: a's child kit is b, b's child kit is a.
         auto world = TestWorld();
         auto a = Kit();
-        a.spawn("InsideA");
-        a.spawn("a_to_b").with(KitInstance {.kit = AssetHandle<Kit>("b.kit")});
+        a.add("InsideA");
+        a.add("a_to_b").with(KitInstance {.kit = AssetHandle<Kit>("b.kit")});
         ASSERT_TRUE(serialize(a, world.root / "a.kit").has_value());
         auto b = Kit();
-        b.spawn("b_to_a").with(KitInstance {.kit = AssetHandle<Kit>("a.kit")});
+        b.add("b_to_a").with(KitInstance {.kit = AssetHandle<Kit>("a.kit")});
         ASSERT_TRUE(serialize(b, world.root / "b.kit").has_value());
         auto sandbox = Sandbox();
 
         // Act
         const auto loaded =
-            spawn(sandbox, world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
+            add(sandbox, world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -290,12 +290,12 @@ namespace tbx
         // Arrange: a child kit that references an asset that does not exist.
         auto world = TestWorld();
         auto broken = Kit();
-        broken.spawn("bad_ref").with(KitInstance {.kit = AssetHandle<Kit>("missing.kit")});
+        broken.add("bad_ref").with(KitInstance {.kit = AssetHandle<Kit>("missing.kit")});
         ASSERT_TRUE(serialize(broken, world.root / "broken.kit").has_value());
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = spawn(
+        const auto loaded = add(
             sandbox,
             world.runtime.assets,
             world.runtime.events,
@@ -322,7 +322,7 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "widget.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         const auto loaded =
-            spawn(sandbox, world.runtime.assets, world.runtime.events, *kit);
+            add(sandbox, world.runtime.assets, world.runtime.events, *kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -337,10 +337,10 @@ namespace tbx
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox();
-        author.spawn("RoomToy");
+        author.add("RoomToy");
         ASSERT_TRUE(serialize(author, world.root / "room.kit").has_value());
         auto level = Kit();
-        level.spawn("far_room")
+        level.add("far_room")
             .with(KitInstance {.kit = AssetHandle<Kit>("room.kit"), .streamed = true});
         auto sandbox = Sandbox();
         open(sandbox, level);
@@ -395,10 +395,10 @@ namespace tbx
         // Arrange: a level kit with an immediate child kit (KitInstance toy, streamed=false).
         auto world = TestWorld();
         auto author = Sandbox();
-        author.spawn("Skybox");
+        author.add("Skybox");
         ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
+        level.add("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         auto sandbox = Sandbox();
 
         // Act: open defers; the first stream tick (even with no cameras) spawns the level.
@@ -414,10 +414,10 @@ namespace tbx
         // Arrange: a level kit on disk — read<Sandbox> turns it into a world.
         auto world = TestWorld();
         auto author = Sandbox();
-        author.spawn("Skybox");
+        author.add("Skybox");
         ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
+        level.add("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         ASSERT_TRUE(serialize(level, world.root / "level.kit").has_value());
 
         // Act
@@ -434,7 +434,7 @@ namespace tbx
         // Arrange
         auto world = TestWorld();
         auto source = Sandbox();
-        Toy toy = source.spawn("Lamp");
+        Toy toy = source.add("Lamp");
         toy.set_enabled(false);
         ASSERT_TRUE(serialize(source, world.root / "lamp.kit").has_value());
 
@@ -442,13 +442,13 @@ namespace tbx
         const auto kit = deserialize<Kit>(world.root / "lamp.kit");
         ASSERT_TRUE(kit.has_value()) << kit.error();
         auto target = Sandbox();
-        ASSERT_TRUE(spawn(target, world.runtime.assets, world.runtime.events, *kit).has_value());
+        ASSERT_TRUE(add(target, world.runtime.assets, world.runtime.events, *kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");
         ASSERT_TRUE(reloaded.has_value());
         EXPECT_FALSE(Toy(*reloaded).is_enabled());
-        EXPECT_TRUE(source.spawn("Fresh").is_enabled()); // default stays on
+        EXPECT_TRUE(source.add("Fresh").is_enabled()); // default stays on
     }
 
     TEST(Sandbox, CloseEmptiesTheSandboxForReopening)
@@ -456,10 +456,10 @@ namespace tbx
         // Arrange
         auto world = TestWorld();
         auto author = Sandbox();
-        author.spawn("Skybox");
+        author.add("Skybox");
         ASSERT_TRUE(serialize(author, world.root / "sky.kit").has_value());
         auto level = Kit();
-        level.spawn("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
+        level.add("sky").with(KitInstance {.kit = AssetHandle<Kit>("sky.kit")});
         auto sandbox = Sandbox();
         open(sandbox, level);
         world.flush_open(sandbox);
@@ -480,9 +480,9 @@ namespace tbx
         // Arrange
         auto sandbox = Sandbox();
         Toy parent =
-            sandbox.spawn("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
+            sandbox.add("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
         Toy child =
-            sandbox.spawn("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
+            sandbox.add("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
         child.set_parent(parent);
 
         // Act

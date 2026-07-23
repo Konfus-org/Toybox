@@ -2,6 +2,7 @@
 #include "tbx/math/frustum.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 namespace tbx
 {
@@ -88,6 +89,21 @@ namespace tbx
     Mat4 inverse(const Mat4& matrix)
     {
         return glm::inverse(matrix);
+    }
+
+    DecomposedTransform decompose(const Mat4& matrix)
+    {
+        auto result = DecomposedTransform();
+        auto skew = Vec3(0.0f);
+        auto perspective = Vec4(0.0f);
+        glm::decompose(
+            matrix,
+            result.scale,
+            result.rotation,
+            result.position,
+            skew,
+            perspective);
+        return result;
     }
 
     float length(const Vec3& vector)

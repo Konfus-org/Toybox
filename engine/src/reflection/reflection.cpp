@@ -62,11 +62,8 @@ namespace tbx
             .field("vertex", &UI::vertex)
             .field("fragment", &UI::fragment)
             .field("mode", &UI::mode);
-        register_type<Sky>("Sky")
-            .field("texture", &Sky::texture)
-            .field("tint", &Sky::tint);
-        register_type<PostProcessing>("PostProcessing")
-            .field("shaders", &PostProcessing::shaders);
+        register_type<Sky>("Sky").field("texture", &Sky::texture).field("tint", &Sky::tint);
+        register_type<PostProcessing>("PostProcessing").field("shaders", &PostProcessing::shaders);
         register_type<Script>("Script").field("source", &Script::source);
         register_type<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
         register_type<AudioSource>("AudioSource")
@@ -142,16 +139,22 @@ namespace tbx
 
     void initialize_reflection()
     {
-        static bool g_registered = false;
-        if (g_registered)
+        // Readiness IS the idempotency latch — a populated registry means we already ran.
+        if (is_reflection_ready())
             return;
 
         register_blocks();
         register_builtin_assets();
         register_app_types();
-        // Shapes first, serializers second — Format::DEFAULT validates reflection exists.
-        register_builtin_serializers();
+    }
 
-        g_registered = true;
+    bool is_reflection_ready()
+    {
+        return !get_type_registry().get_all().empty();
+    }
+
+    void purge_reflection_registry()
+    {
+        get_type_registry().clear();
     }
 }

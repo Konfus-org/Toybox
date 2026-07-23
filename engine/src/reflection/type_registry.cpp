@@ -7,13 +7,19 @@ namespace tbx
 
     TypeInfo& TypeRegistry::add(TypeInfo info)
     {
-        // Idempotent on purpose: a name registered twice keeps its one record, so repeated
-        // lazy initialize_reflection() calls (app, renderer, sandbox, ...) all land on the same table.
+        // Idempotent on purpose: a name registered twice keeps its one record. initialize_reflection()
+        // self-guards on is_reflection_ready(), but this dedupe is what lets a purge + re-init (test
+        // resets) land cleanly back on the same table.
         for (auto& existing : _types)
             if (existing->name_hash == info.name_hash)
                 return *existing;
         _types.push_back(std::make_unique<TypeInfo>(std::move(info)));
         return *_types.back();
+    }
+
+    void TypeRegistry::clear()
+    {
+        _types.clear();
     }
 
     std::vector<std::reference_wrapper<const TypeInfo>> TypeRegistry::get_all() const

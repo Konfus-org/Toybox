@@ -24,12 +24,12 @@ namespace tbx
     // interval per window surface.
     static bool g_vsync_enabled = false;
 
-    bool gpu_is_vsync_enabled()
+    bool is_vsync_enabled()
     {
         return g_vsync_enabled;
     }
 
-    void gpu_set_vsync(const bool is_enabled)
+    void set_vsync(const bool is_enabled)
     {
         g_vsync_enabled = is_enabled;
     }
@@ -148,7 +148,7 @@ namespace tbx
         g_drawable_height = g_viewport_height;
     }
 
-    Color gpu_get_clear_color()
+    Color get_render_clear_color()
     {
         return g_clear_color;
     }
@@ -193,7 +193,7 @@ namespace tbx
         return std::make_unique<Pipeline>(description);
     }
 
-    void gpu_set_pipeline(const Pipeline& pipeline)
+    void set_render_pipeline(const Pipeline& pipeline)
     {
         const PipelineDescription& description = pipeline.get_description();
         glUseProgram(description.shader.get().get_id());
@@ -232,7 +232,7 @@ namespace tbx
         }
     }
 
-    void gpu_draw(const Mesh& mesh, const std::span<const TextureBinding> textures)
+    void draw(const Mesh& mesh, const std::span<const TextureBinding> textures)
     {
         for (const TextureBinding& binding : textures)
         {
@@ -255,7 +255,7 @@ namespace tbx
         glBindVertexArray(0);
     }
 
-    void gpu_set_scissor(
+    void set_render_scissor(
         const bool is_enabled,
         const int x,
         const int y,
@@ -272,12 +272,12 @@ namespace tbx
         glScissor(x, g_drawable_height - (y + height), width, height);
     }
 
-    int gpu_get_viewport_height()
+    int get_render_viewport_height()
     {
         return g_viewport_height;
     }
 
-    int gpu_get_viewport_width()
+    int get_render_viewport_width()
     {
         return g_viewport_width;
     }
@@ -295,7 +295,7 @@ namespace tbx
         glEnable(GL_CULL_FACE);
     }
 
-    ShaderInfo gpu_reflect(const Shader& shader)
+    ShaderInfo reflect_shader(const Shader& shader)
     {
         auto info = ShaderInfo {};
         GLint count = 0;
@@ -349,14 +349,14 @@ namespace tbx
         return info;
     }
 
-    Color gpu_read_pixel(const int x, const int y)
+    Color read_pixel_from_frame_buffer(const int x, const int y)
     {
         float rgba[4] = {};
         glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, rgba);
         return {.r = rgba[0], .g = rgba[1], .b = rgba[2], .a = rgba[3]};
     }
 
-    Result<void> gpu_screenshot(Texture& result)
+    Result<void> render_screenshot(Texture& result)
     {
         const int width = g_viewport_width;
         const int height = g_viewport_height;
@@ -379,14 +379,14 @@ namespace tbx
         return {};
     }
 
-    void gpu_set_viewport(const int x, const int y, const int width, const int height)
+    void set_render_viewport(const int x, const int y, const int width, const int height)
     {
         // A per-camera sub-rect inside the current pass; the drawable mirror stays put so
         // pass boundaries reset to the full window.
         glViewport(x, y, width, height);
     }
 
-    void gpu_set_viewport(const int width, const int height)
+    void set_render_viewport(const int width, const int height)
     {
         g_viewport_width = width;
         g_viewport_height = height;
@@ -394,7 +394,7 @@ namespace tbx
         glViewport(0, 0, width, height);
     }
 
-    std::unique_ptr<DepthTarget> gpu_make_depth_target(const int resolution)
+    std::unique_ptr<DepthTarget> make_depth_render_target(const int resolution)
     {
         GLuint depth_texture = 0;
         glGenTextures(1, &depth_texture);
@@ -431,7 +431,7 @@ namespace tbx
         return std::make_unique<DepthTarget>(framebuffer, depth_texture, resolution);
     }
 
-    std::unique_ptr<RenderTarget> gpu_make_render_target(const int width, const int height)
+    std::unique_ptr<RenderTarget> make_render_target(const int width, const int height)
     {
         GLuint color_texture = 0;
         glGenTextures(1, &color_texture);
@@ -479,19 +479,19 @@ namespace tbx
             height);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const Mat4& value)
+    void set_shader_uniform(const Shader& shader, const char* name, const Mat4& value)
     {
         glUseProgram(shader.get_id());
         glUniformMatrix4fv(glGetUniformLocation(shader.get_id(), name), 1, GL_FALSE, &value[0][0]);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const Vec2& value)
+    void set_shader_uniform(const Shader& shader, const char* name, const Vec2& value)
     {
         glUseProgram(shader.get_id());
         glUniform2f(glGetUniformLocation(shader.get_id(), name), value.x, value.y);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const Vec4& value)
+    void set_shader_uniform(const Shader& shader, const char* name, const Vec4& value)
     {
         glUseProgram(shader.get_id());
         glUniform4f(
@@ -502,13 +502,13 @@ namespace tbx
             value.w);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const Vec3& value)
+    void set_shader_uniform(const Shader& shader, const char* name, const Vec3& value)
     {
         glUseProgram(shader.get_id());
         glUniform3f(glGetUniformLocation(shader.get_id(), name), value.x, value.y, value.z);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const Color& value)
+    void set_shader_uniform(const Shader& shader, const char* name, const Color& value)
     {
         glUseProgram(shader.get_id());
         glUniform4f(
@@ -519,19 +519,19 @@ namespace tbx
             value.a);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const float value)
+    void set_shader_uniform(const Shader& shader, const char* name, const float value)
     {
         glUseProgram(shader.get_id());
         glUniform1f(glGetUniformLocation(shader.get_id(), name), value);
     }
 
-    void gpu_set_uniform(const Shader& shader, const char* name, const int value)
+    void set_shader_uniform(const Shader& shader, const char* name, const int value)
     {
         glUseProgram(shader.get_id());
         glUniform1i(glGetUniformLocation(shader.get_id(), name), value);
     }
 
-    std::unique_ptr<Texture2d> gpu_upload_texture(
+    std::unique_ptr<Texture2d> upload_texture_to_gpu(
         const int width,
         const int height,
         std::span<const std::byte> rgba_pixels)
@@ -556,7 +556,7 @@ namespace tbx
         return std::make_unique<Texture2d>(id);
     }
 
-    std::unique_ptr<Mesh> gpu_upload_mesh(
+    std::unique_ptr<Mesh> upload_mesh_to_gpu(
         std::span<const float> vertices,
         std::span<const int> attribute_sizes)
     {

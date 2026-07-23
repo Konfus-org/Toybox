@@ -8,7 +8,7 @@
 #include <array>
 
 // The only events that exist, as named signals over one pump-drained queue — the state is
-// runtime.events: emit and subscribe on its members directly (runtime.events.key.emit(...))
+// runtime.events: emit and subscribe on its members directly (runtime.events.input.emit(...))
 // and update_events dispatches everything queued once per frame.
 namespace tbx
 {
@@ -21,8 +21,9 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Key transition for text/UI-style consumers; gameplay polls Input instead.
-    struct TBX_API KeyEvent
+    /// Purpose: An input transition for text/UI-style consumers; gameplay polls Input instead.
+    /// Currently carries keyboard transitions; the generic name leaves room for other sources.
+    struct TBX_API InputEvent
     {
         Key key = Key::UNKNOWN;
         bool is_down = false;
@@ -44,6 +45,15 @@ namespace tbx
     struct TBX_API InputDeviceDisconnected
     {
         int index = 0;
+    };
+
+    /// @brief
+    /// Purpose: Fired on the main thread after an asset is first decoded and made available.
+    struct TBX_API AssetLoaded
+    {
+        Uuid id = {};
+        // The asset file's extension (".luau", ".png", ...) so listeners filter without a lookup.
+        std::array<char, 16> extension = {};
     };
 
     /// @brief
@@ -76,23 +86,18 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Fired after a script source recompiled; instances restart on their next update.
-    struct TBX_API ScriptReloaded
-    {
-        Uuid id = {};
-    };
-
-    /// @brief
     /// Purpose: The events module's state, held by value on the Runtime; adding an event
-    /// means adding a member, deliberately.
+    /// means adding a member, deliberately. Scripts are assets, so script hot-reloads arrive
+    /// as asset_reloaded events (filter on the ".luau"/".lua" extension) — there is no separate
+    /// script-reloaded signal.
     struct TBX_API EventsState
     {
         Queue queue;
-        Signal<KeyEvent> key {queue};
+        Signal<InputEvent> input {queue};
         Signal<WindowResized> window_resized {queue};
+        Signal<AssetLoaded> asset_loaded {queue};
         Signal<AssetReloaded> asset_reloaded {queue};
         Signal<AssetUnloaded> asset_unloaded {queue};
-        Signal<ScriptReloaded> script_reloaded {queue};
         Signal<CollisionEvent> collision {queue};
         Signal<InputDeviceConnected> input_device_connected {queue};
         Signal<InputDeviceDisconnected> input_device_disconnected {queue};

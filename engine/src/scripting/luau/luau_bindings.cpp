@@ -1,6 +1,9 @@
 #include "luau_bindings.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
+#include "tbx/math/math.h"
+#include "tbx/math/transform.h"
+#include "tbx/reflection/type_registry.h"
 #include "tbx/utils/hash.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
@@ -264,9 +267,8 @@ namespace tbx
 
     static std::byte* fetch_block(const BlockUserdata& data)
     {
-        const auto type = describe_type(data.type_hash);
-        if (!type || !type->get().get_block)
-            return nullptr;
+        // get_block_bytes already does the describe_type + get_block-null guard and returns
+        // nullptr for an unregistered/non-block type or an unattached block — no need to repeat it.
         return Toy(*data.sandbox, data.entity).get_block_bytes(data.type_hash);
     }
 
@@ -282,7 +284,7 @@ namespace tbx
         const auto slot = std::string(luaL_checkstring(lua, 2));
         luaL_checktype(lua, 3, LUA_TFUNCTION);
         const int getter_ref = lua_ref(lua, 3); // refs the getter in place (Luau: no pop)
-        UI* ui = Toy(*data.sandbox, data.entity).try_block<UI>();
+        UI* ui = Toy(*data.sandbox, data.entity).try_get_block<UI>();
         if (!ui)
             luaL_error(lua, "bind: the UI component is gone");
         ui->bindings[slot] = [lua, getter_ref]() -> std::string
@@ -361,134 +363,296 @@ namespace tbx
         lua_setmetatable(lua, -2);
     }
 
+    // Defined further down (near the math bindings); the toy metatable needs them up here.
+    static int push_vector3(lua_State* lua, const Vec3& vector);
+    static int push_quat(lua_State* lua, const Quat& rotation);
+    static Vec3 check_vector3(lua_State* lua, int index);
+    static Quat check_quat(lua_State* lua, int index);
+
     /// @brief
-    /// Purpose: toy.<Method> resolves methods, toy.<BlockType> resolves attached blocks by
-    /// their registered name (nil when absent, so `if toy.Health then` is the has-check) — no
-    /// string-based get() anywhere.
+    /// Purpose: A block token (tbx.blocks.<Type>) is a small table carrying the block's registered
+    /// name under "__name". Returns the name hash, or 0 when the value isn't a block token.
+    static uint64 block_token_hash(lua_State* lua, const int index)
+    {
+        if (!lua_istable(lua, index))
+            return 0;
+        lua_getfield(lua, index, "__name");
+        const char* name = lua_tostring(lua, -1);
+        const uint64 result = name ? hash(name) : 0;
+        lua_pop(lua, 1);
+        return result;
+    }
+
+    /// @brief
+    /// Purpose: Attaches (default-builds) the block with this type hash, then writes any fields
+    /// present in the table at fields_index — the shared body of toy:add / toy:with for blocks.
+    static void add_and_populate(
+        lua_State* lua,
+        const ToyUserdata& data,
+        const uint64 type_hash,
+        const int fields_index)
+    {
+        const auto type = describe_type(type_hash);
+        std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(type_hash);
+        if (!block || !type || !lua_istable(lua, fields_index))
+            return;
+        for (const FieldInfo& field : type->get().fields)
+        {
+            lua_getfield(lua, fields_index, field.name.c_str());
+            if (!lua_isnil(lua, -1))
+                write_field_value(lua, lua_gettop(lua), field, block);
+            lua_pop(lua, 1);
+        }
+    }
+
+    /// @brief
+    /// Purpose: toy.<Method> resolves methods; otherwise a fixed set of Roblox-style convenience
+    /// properties (Name/Enabled/Parent/Children/Transform/Position/... /World*). Blocks are NOT
+    /// toy fields — reach them with toy:get(tbx.blocks.<Type>).
     static int toy_index(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
         const char* key = luaL_checkstring(lua, 2);
 
-        // Methods first (the table sits in this closure's upvalue).
+        // Methods first (the method table sits in this closure's upvalue).
         lua_getfield(lua, lua_upvalueindex(1), key);
         if (!lua_isnil(lua, -1))
             return 1;
         lua_pop(lua, 1);
 
-        const auto type = describe_type(hash(key));
-        if (!type || !type->get().has_block
-            || !Toy(*data.sandbox, data.entity).has_block_named(hash(key)))
+        Toy toy(*data.sandbox, data.entity);
+        if (std::strcmp(key, "Alive") == 0)
         {
-            lua_pushnil(lua);
+            lua_pushboolean(lua, toy.is_alive());
             return 1;
         }
-        push_block(lua, data, hash(key));
+        if (std::strcmp(key, "Name") == 0)
+        {
+            lua_pushstring(lua, toy.get_name().c_str());
+            return 1;
+        }
+        if (std::strcmp(key, "Enabled") == 0)
+        {
+            lua_pushboolean(lua, toy.is_enabled());
+            return 1;
+        }
+        if (std::strcmp(key, "Parent") == 0)
+        {
+            const auto parent = toy.get_parent();
+            if (parent)
+                push_toy(lua, *data.sandbox, parent->get_id());
+            else
+                lua_pushnil(lua);
+            return 1;
+        }
+        if (std::strcmp(key, "Children") == 0)
+        {
+            const auto children = toy.get_children();
+            lua_createtable(lua, static_cast<int>(children.size()), 0);
+            int index = 1;
+            for (const Toy& child : children)
+            {
+                push_toy(lua, *data.sandbox, child.get_id());
+                lua_rawseti(lua, -2, index++);
+            }
+            return 1;
+        }
+        if (std::strcmp(key, "Transform") == 0)
+        {
+            if (toy.has_block_named(hash("Transform")))
+                push_block(lua, data, hash("Transform"));
+            else
+                lua_pushnil(lua);
+            return 1;
+        }
+        if (std::strcmp(key, "Position") == 0)
+            return push_vector3(lua, toy.get_transform().position);
+        if (std::strcmp(key, "Rotation") == 0)
+            return push_quat(lua, toy.get_transform().rotation);
+        if (std::strcmp(key, "Scale") == 0)
+            return push_vector3(lua, toy.get_transform().scale);
+        if (std::strcmp(key, "WorldPosition") == 0)
+            return push_vector3(lua, decompose(toy.get_world_transform()).position);
+        if (std::strcmp(key, "WorldRotation") == 0)
+            return push_quat(lua, decompose(toy.get_world_transform()).rotation);
+        if (std::strcmp(key, "WorldScale") == 0)
+            return push_vector3(lua, decompose(toy.get_world_transform()).scale);
+
+        lua_pushnil(lua);
         return 1;
     }
 
     /// @brief
-    /// Purpose: toy.<BlockType> = { field = value, ... } attaches the block (default-built)
-    /// and writes the given fields — the add-and-populate path.
+    /// Purpose: Writes a convenience property (Name/Enabled/Parent/Position/Rotation/Scale).
+    /// Blocks and stickers are added through toy:add, not assignment; read-only properties
+    /// (Alive/Children/World*) reject writes.
     static int toy_newindex(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
         const char* key = luaL_checkstring(lua, 2);
-        const uint64 hashed = hash(key);
-        const auto type = describe_type(hashed);
-        if (!type || !type->get().add_block)
+        Toy toy(*data.sandbox, data.entity);
+
+        if (std::strcmp(key, "Name") == 0)
         {
-            luaL_error(lua, "'%s' is not a registered block type", key);
+            toy.set_name(luaL_checkstring(lua, 3));
             return 0;
         }
-        if (!lua_istable(lua, 3))
+        if (std::strcmp(key, "Enabled") == 0)
         {
-            luaL_error(lua, "assign a table of fields to toy.%s", key);
+            toy.set_enabled(lua_toboolean(lua, 3) != 0);
             return 0;
         }
-        std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hashed);
-        for (const FieldInfo& field : type->get().fields)
+        if (std::strcmp(key, "Parent") == 0)
         {
-            lua_getfield(lua, 3, field.name.c_str());
-            if (!lua_isnil(lua, -1))
-                write_field_value(lua, lua_gettop(lua), field, block);
-            lua_pop(lua, 1);
+            // nil clears the parent; a toy reparents.
+            auto parent = Toy();
+            if (!lua_isnoneornil(lua, 3))
+            {
+                const ToyUserdata& parent_data = check_toy(lua, 3);
+                parent = Toy(*parent_data.sandbox, parent_data.entity);
+            }
+            toy.set_parent(parent);
+            return 0;
         }
+        if (std::strcmp(key, "Position") == 0)
+        {
+            toy.get_transform().position = check_vector3(lua, 3);
+            return 0;
+        }
+        if (std::strcmp(key, "Rotation") == 0)
+        {
+            toy.get_transform().rotation = check_quat(lua, 3);
+            return 0;
+        }
+        if (std::strcmp(key, "Scale") == 0)
+        {
+            toy.get_transform().scale = check_vector3(lua, 3);
+            return 0;
+        }
+        luaL_error(
+            lua,
+            "'%s' is not an assignable toy property (add blocks/stickers with toy:add)",
+            key);
         return 0;
     }
 
-    static int toy_get_name(lua_State* lua)
+    /// @brief
+    /// Purpose: toy:get(tbx.blocks.<Type>) — the generic component getter. The token carries the
+    /// block's name; the .d.luau types it as BlockType<T, P>, so toy:get(tbx.blocks.UI) infers
+    /// UI?. Returns the live block, or nil when it isn't attached.
+    static int toy_get(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushstring(lua, Toy(*data.sandbox, data.entity).get_name().c_str());
+        const uint64 hashed = block_token_hash(lua, 2);
+        if (hashed == 0 || !Toy(*data.sandbox, data.entity).has_block_named(hashed))
+        {
+            lua_pushnil(lua);
+            return 1;
+        }
+        push_block(lua, data, hashed);
         return 1;
     }
 
-    static int toy_set_name(lua_State* lua)
+    /// @brief
+    /// Purpose: toy:add(tbx.blocks.<Type>, fields?) attaches a block and returns it (typed);
+    /// toy:add(name) adds a sticker and returns the toy (fluent).
+    static int toy_add(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
-        lua_pushvalue(lua, 1); // fluent: return the toy
+        if (lua_type(lua, 2) == LUA_TSTRING)
+        {
+            Toy(*data.sandbox, data.entity).sticker(lua_tostring(lua, 2));
+            lua_pushvalue(lua, 1); // fluent: return the toy
+            return 1;
+        }
+        const uint64 hashed = block_token_hash(lua, 2);
+        if (hashed == 0)
+            luaL_error(lua, "toy:add expects a block token (tbx.blocks.X) or a sticker name");
+        add_and_populate(lua, data, hashed, 3);
+        push_block(lua, data, hashed); // return the added block
         return 1;
     }
 
-    static int toy_is_enabled(lua_State* lua)
+    /// @brief
+    /// Purpose: toy:has(tbx.blocks.<Type>) tests for a block; toy:has(name) tests for a sticker.
+    static int toy_has(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(lua, Toy(*data.sandbox, data.entity).is_enabled());
+        Toy toy(*data.sandbox, data.entity);
+        if (lua_type(lua, 2) == LUA_TSTRING)
+        {
+            lua_pushboolean(lua, toy.has_sticker(lua_tostring(lua, 2)));
+            return 1;
+        }
+        const uint64 hashed = block_token_hash(lua, 2);
+        lua_pushboolean(lua, hashed != 0 && toy.has_block_named(hashed));
         return 1;
     }
 
-    static int toy_set_enabled(lua_State* lua)
+    /// @brief
+    /// Purpose: toy:remove(tbx.blocks.<Type>) detaches a block; toy:remove(name) peels a sticker.
+    /// Chainable (returns the toy). To remove the toy itself, call sandbox:remove(toy).
+    static int toy_remove(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).set_enabled(lua_toboolean(lua, 2) != 0);
+        Toy toy(*data.sandbox, data.entity);
+        if (lua_type(lua, 2) == LUA_TSTRING)
+        {
+            toy.remove_sticker(lua_tostring(lua, 2));
+        }
+        else
+        {
+            const uint64 hashed = block_token_hash(lua, 2);
+            if (hashed == 0)
+                luaL_error(
+                    lua,
+                    "toy:remove expects a block token (tbx.blocks.X) or a sticker name");
+            toy.remove_block_named(hashed);
+        }
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
 
     /// @brief
-    /// Purpose: toy:with("BlockType", { field = value, ... }) attaches (default-builds) the block
-    /// and writes the given fields, then returns the toy — the chainable form of
-    /// toy.BlockType = {...}, so a whole toy builds in one expression. The fields table is
-    /// optional (toy:with("RigidBody") attaches a default block).
+    /// Purpose: The fluent builder, always returns the toy — toy:with(sticker) /
+    /// toy:with(parentToy) / toy:with(tbx.blocks.<Type>, fields?).
     static int toy_with(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        const char* key = luaL_checkstring(lua, 2);
-        const auto type = describe_type(hash(key));
-        if (!type || !type->get().add_block)
+        Toy toy(*data.sandbox, data.entity);
+        switch (lua_type(lua, 2))
         {
-            luaL_error(lua, "'%s' is not a registered block type", key);
-            return 0;
-        }
-        std::byte* block = Toy(*data.sandbox, data.entity).add_block_bytes(hash(key));
-        if (lua_istable(lua, 3))
-        {
-            for (const FieldInfo& field : type->get().fields)
+            case LUA_TSTRING: // sticker
+                toy.sticker(lua_tostring(lua, 2));
+                break;
+            case LUA_TUSERDATA: // parent toy
             {
-                lua_getfield(lua, 3, field.name.c_str());
-                if (!lua_isnil(lua, -1))
-                    write_field_value(lua, lua_gettop(lua), field, block);
-                lua_pop(lua, 1);
+                const ToyUserdata& parent_data = check_toy(lua, 2);
+                toy.set_parent(Toy(*parent_data.sandbox, parent_data.entity));
+                break;
             }
+            case LUA_TTABLE: // block token (+ optional fields)
+            {
+                const uint64 hashed = block_token_hash(lua, 2);
+                if (hashed == 0)
+                    luaL_error(
+                        lua,
+                        "toy:with got a table that isn't a block token (tbx.blocks.X)");
+                add_and_populate(lua, data, hashed, 3);
+                break;
+            }
+            default:
+                luaL_error(lua, "toy:with expects a sticker name, a block token, or a parent toy");
         }
         lua_pushvalue(lua, 1); // fluent: return the toy
         return 1;
     }
 
-    static int toy_remove_block(lua_State* lua)
-    {
-        const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).remove_block_named(hash(luaL_checkstring(lua, 2)));
-        lua_pushvalue(lua, 1); // fluent: return the toy
-        return 1;
-    }
+    //// TOY FLUENT VERBS (each returns the toy, for chaining) ////
 
-    static int toy_set_parent(lua_State* lua)
+    static int toy_parent(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        // A nil/absent parent clears the link; otherwise reparent to the given toy.
         auto parent = Toy();
         if (!lua_isnoneornil(lua, 2))
         {
@@ -496,73 +660,39 @@ namespace tbx
             parent = Toy(*parent_data.sandbox, parent_data.entity);
         }
         Toy(*data.sandbox, data.entity).set_parent(parent);
-        lua_pushvalue(lua, 1); // fluent: return the toy
+        lua_pushvalue(lua, 1);
         return 1;
     }
 
-    static int toy_despawn(lua_State* lua)
+    static int toy_move(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        data.sandbox->despawn(Toy(*data.sandbox, data.entity));
-        return 0;
-    }
-
-    static int toy_sticker(lua_State* lua)
-    {
-        const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).sticker(luaL_checkstring(lua, 2));
-        lua_pushvalue(lua, 1); // fluent: return the toy
+        Toy(*data.sandbox, data.entity).get_transform().position = check_vector3(lua, 2);
+        lua_pushvalue(lua, 1);
         return 1;
     }
 
-    static int toy_has_sticker(lua_State* lua)
+    static int toy_rotate(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(
-            lua,
-            Toy(*data.sandbox, data.entity).has_sticker(luaL_checkstring(lua, 2)));
+        Toy(*data.sandbox, data.entity).get_transform().rotation = check_quat(lua, 2);
+        lua_pushvalue(lua, 1);
         return 1;
     }
 
-    static int toy_remove_sticker(lua_State* lua)
+    static int toy_resize(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        Toy(*data.sandbox, data.entity).remove_sticker(luaL_checkstring(lua, 2));
-        lua_pushvalue(lua, 1); // fluent: return the toy
+        Toy(*data.sandbox, data.entity).get_transform().scale = check_vector3(lua, 2);
+        lua_pushvalue(lua, 1);
         return 1;
     }
 
-    static int toy_is_alive(lua_State* lua)
+    static int toy_rename(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 1);
-        lua_pushboolean(lua, Toy(*data.sandbox, data.entity).is_alive());
-        return 1;
-    }
-
-    static int toy_get_parent(lua_State* lua)
-    {
-        const ToyUserdata& data = check_toy(lua, 1);
-        const auto parent = Toy(*data.sandbox, data.entity).get_parent();
-        if (!parent)
-        {
-            lua_pushnil(lua);
-            return 1;
-        }
-        push_toy(lua, *data.sandbox, parent->get_id());
-        return 1;
-    }
-
-    static int toy_get_children(lua_State* lua)
-    {
-        const ToyUserdata& data = check_toy(lua, 1);
-        const auto children = Toy(*data.sandbox, data.entity).get_children();
-        lua_createtable(lua, static_cast<int>(children.size()), 0);
-        int index = 1;
-        for (const Toy& child : children)
-        {
-            push_toy(lua, *data.sandbox, child.get_id());
-            lua_rawseti(lua, -2, index++); // append: children[index] = child
-        }
+        Toy(*data.sandbox, data.entity).set_name(luaL_checkstring(lua, 2));
+        lua_pushvalue(lua, 1);
         return 1;
     }
 
@@ -577,11 +707,38 @@ namespace tbx
 
     // tbx.sandbox is the scene object: its queries are called with `:` (self = the sandbox
     // table at index 1, runtime from the upvalue), so real arguments start at index 2.
-    static int sandbox_spawn(lua_State* lua)
+    // A kit is referenced by an asset path (it has a folder or a file extension); a plain toy
+    // name has neither. That's how sandbox:add tells "add a kit" from "add an empty toy".
+    static bool looks_like_asset_reference(const char* name)
     {
-        Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const Toy toy = sandbox.spawn(luaL_checkstring(lua, 2));
-        push_toy(lua, sandbox, toy.get_id());
+        return std::strchr(name, '/') != nullptr || std::strchr(name, '.') != nullptr;
+    }
+
+    static int sandbox_add(lua_State* lua)
+    {
+        RuntimeState& state = bound_runtime(lua);
+        const char* name = luaL_checkstring(lua, 2);
+        if (looks_like_asset_reference(name))
+        {
+            // Given an asset path → instantiate the kit it references (optional add position).
+            const Vec3 position =
+                lua_istable(lua, 3) ? check_vector3(lua, 3) : Vec3(0.0f, 0.0f, 0.0f);
+            const auto spawned = add(
+                state.sandbox,
+                state.assets,
+                state.events,
+                AssetHandle<Kit>(name),
+                position);
+            if (!spawned)
+            {
+                luaL_error(lua, "kit '%s': %s", name, spawned.error().c_str());
+                return 0;
+            }
+            push_toy(lua, state.sandbox, spawned->get_id()); // the instance's root toy
+            return 1;
+        }
+        const Toy toy = state.sandbox.add(name);
+        push_toy(lua, state.sandbox, toy.get_id());
         return 1;
     }
 
@@ -598,40 +755,33 @@ namespace tbx
         return 1;
     }
 
-    static int sandbox_find_with_sticker(lua_State* lua)
+    // findWith(sticker) returns every toy wearing the sticker; findWith(tbx.blocks.X) returns
+    // every toy carrying that block. Both return a list.
+    static int sandbox_find_with(lua_State* lua)
     {
         Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const auto sticker = std::string(luaL_checkstring(lua, 2));
-        auto found = std::optional<ToyId>();
-        sandbox.for_each_sticker(
-            sticker,
-            [&](Toy toy)
-            {
-                if (!found)
-                    found = toy.get_id();
-            });
-        if (!found)
-        {
-            lua_pushnil(lua);
-            return 1;
-        }
-        push_toy(lua, sandbox, *found);
-        return 1;
-    }
-
-    static int sandbox_find_all_with_sticker(lua_State* lua)
-    {
-        Sandbox& sandbox = bound_runtime(lua).sandbox;
-        const auto sticker = std::string(luaL_checkstring(lua, 2));
         lua_newtable(lua);
         int index = 1;
-        sandbox.for_each_sticker(
-            sticker,
-            [&](Toy toy)
+        if (lua_type(lua, 2) == LUA_TSTRING)
+        {
+            sandbox.for_each_with(
+                std::string(lua_tostring(lua, 2)),
+                [&](Toy toy)
+                {
+                    push_toy(lua, sandbox, toy.get_id());
+                    lua_rawseti(lua, -2, index++); // append into the result array
+                });
+            return 1;
+        }
+        const uint64 hashed = block_token_hash(lua, 2);
+        if (hashed == 0)
+            luaL_error(lua, "sandbox:findWith expects a sticker name or a block token (tbx.blocks.X)");
+        for (const Toy& toy : sandbox.get_toys())
+            if (toy.has_block_named(hashed))
             {
                 push_toy(lua, sandbox, toy.get_id());
-                lua_rawseti(lua, -2, index++); // append into the result array
-            });
+                lua_rawseti(lua, -2, index++);
+            }
         return 1;
     }
 
@@ -651,8 +801,9 @@ namespace tbx
 
     static int sandbox_despawn(lua_State* lua)
     {
+        // sandbox:remove(toy) removes the toy and its whole subtree.
         const ToyUserdata& data = check_toy(lua, 2);
-        data.sandbox->despawn(Toy(*data.sandbox, data.entity));
+        data.sandbox->remove_subtree(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -664,30 +815,10 @@ namespace tbx
         return vector;
     }
 
-    static int sandbox_spawn_kit(lua_State* lua)
-    {
-        RuntimeState& state = bound_runtime(lua);
-        const char* reference = luaL_checkstring(lua, 2);
-        const Vec3 position = lua_istable(lua, 3) ? check_vector3(lua, 3) : Vec3(0.0f, 0.0f, 0.0f);
-        const auto spawned = spawn(
-            state.sandbox,
-            state.assets,
-            state.events,
-            AssetHandle<Kit>(reference),
-            position);
-        if (!spawned)
-        {
-            luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());
-            return 0;
-        }
-        push_toy(lua, state.sandbox, spawned->get_id()); // the instance's root toy
-        return 1;
-    }
-
     static int sandbox_despawn_kit(lua_State* lua)
     {
         const ToyUserdata& data = check_toy(lua, 2);
-        data.sandbox->despawn_subtree(Toy(*data.sandbox, data.entity));
+        data.sandbox->remove_subtree(Toy(*data.sandbox, data.entity));
         return 0;
     }
 
@@ -1038,38 +1169,98 @@ namespace tbx
         return static_cast<MouseButton>(value);
     }
 
+    // The Luau enum tables (tbx.Key/MouseButton/GamepadButton/GamepadAxis/MouseAxis) occupy
+    // distinct value ranges so one overloaded isDown/getAxis can tell them apart from the bare
+    // integer Lua passes. These bases offset each kind; keys stay 0-based (< the first base).
+    static constexpr int MOUSE_BUTTON_INPUT_BASE = 1000;
+    static constexpr int GAMEPAD_BUTTON_INPUT_BASE = 2000;
+    static constexpr int GAMEPAD_AXIS_INPUT_BASE = 3000;
+    static constexpr int MOUSE_AXIS_INPUT_BASE = 4000;
+
+    // Gamepad queries take an optional controller slot as the second arg (default 0).
+    static int input_gamepad_slot(lua_State* lua)
+    {
+        return static_cast<int>(luaL_optinteger(lua, 2, 0));
+    }
+
     static int input_is_down(lua_State* lua)
     {
-        lua_pushboolean(lua, is_down(bound_runtime(lua).input, check_key(lua, 1)));
+        const InputState& input = bound_runtime(lua).input;
+        const int code = static_cast<int>(luaL_checkinteger(lua, 1));
+        bool held;
+        if (code >= GAMEPAD_BUTTON_INPUT_BASE && code < GAMEPAD_AXIS_INPUT_BASE)
+            held = is_down(
+                input,
+                static_cast<GamepadButton>(code - GAMEPAD_BUTTON_INPUT_BASE),
+                input_gamepad_slot(lua));
+        else if (code >= MOUSE_BUTTON_INPUT_BASE && code < GAMEPAD_BUTTON_INPUT_BASE)
+            held = is_down(input, static_cast<MouseButton>(code - MOUSE_BUTTON_INPUT_BASE));
+        else
+            held = is_down(input, static_cast<Key>(code));
+        lua_pushboolean(lua, held);
         return 1;
     }
 
     static int input_is_pressed(lua_State* lua)
     {
-        lua_pushboolean(lua, is_pressed(bound_runtime(lua).input, check_key(lua, 1)));
+        const InputState& input = bound_runtime(lua).input;
+        const int code = static_cast<int>(luaL_checkinteger(lua, 1));
+        bool pressed;
+        if (code >= GAMEPAD_BUTTON_INPUT_BASE && code < GAMEPAD_AXIS_INPUT_BASE)
+            pressed = is_pressed(
+                input,
+                static_cast<GamepadButton>(code - GAMEPAD_BUTTON_INPUT_BASE),
+                input_gamepad_slot(lua));
+        else if (code >= MOUSE_BUTTON_INPUT_BASE && code < GAMEPAD_BUTTON_INPUT_BASE)
+            pressed = is_pressed(input, static_cast<MouseButton>(code - MOUSE_BUTTON_INPUT_BASE));
+        else
+            pressed = is_pressed(input, static_cast<Key>(code));
+        lua_pushboolean(lua, pressed);
         return 1;
     }
 
-    static int input_is_mouse_down(lua_State* lua)
+    static int input_is_released(lua_State* lua)
     {
-        lua_pushboolean(
+        const InputState& input = bound_runtime(lua).input;
+        const int code = static_cast<int>(luaL_checkinteger(lua, 1));
+        bool released;
+        if (code >= GAMEPAD_BUTTON_INPUT_BASE && code < GAMEPAD_AXIS_INPUT_BASE)
+            released = is_released(
+                input,
+                static_cast<GamepadButton>(code - GAMEPAD_BUTTON_INPUT_BASE),
+                input_gamepad_slot(lua));
+        else if (code >= MOUSE_BUTTON_INPUT_BASE && code < GAMEPAD_BUTTON_INPUT_BASE)
+            released = is_released(input, static_cast<MouseButton>(code - MOUSE_BUTTON_INPUT_BASE));
+        else
+            released = is_released(input, static_cast<Key>(code));
+        lua_pushboolean(lua, released);
+        return 1;
+    }
+
+    static int input_get_axis(lua_State* lua)
+    {
+        const InputState& input = bound_runtime(lua).input;
+        const int code = static_cast<int>(luaL_checkinteger(lua, 1));
+        float value;
+        if (code >= MOUSE_AXIS_INPUT_BASE)
+            value = get_axis(input, static_cast<MouseAxis>(code - MOUSE_AXIS_INPUT_BASE));
+        else
+            value = get_axis(
+                input,
+                static_cast<GamepadAxis>(code - GAMEPAD_AXIS_INPUT_BASE),
+                input_gamepad_slot(lua));
+        lua_pushnumber(lua, value);
+        return 1;
+    }
+
+    static int input_get_axis_delta(lua_State* lua)
+    {
+        const int code = static_cast<int>(luaL_checkinteger(lua, 1));
+        lua_pushnumber(
             lua,
-            is_mouse_down(bound_runtime(lua).input, check_mouse_button(lua, 1)));
-        return 1;
-    }
-
-    static int input_is_mouse_pressed(lua_State* lua)
-    {
-        lua_pushboolean(
-            lua,
-            is_mouse_pressed(bound_runtime(lua).input, check_mouse_button(lua, 1)));
-        return 1;
-    }
-
-    static int input_get_mouse_delta(lua_State* lua)
-    {
-        const Vec2 delta = get_mouse_delta(bound_runtime(lua).input);
-        push_vector_table(lua, &delta.x, XYZW_KEYS, 2);
+            get_axis_delta(
+                bound_runtime(lua).input,
+                static_cast<MouseAxis>(code - MOUSE_AXIS_INPUT_BASE)));
         return 1;
     }
 
@@ -1093,23 +1284,7 @@ namespace tbx
         return 0;
     }
 
-    static GamepadButton check_gamepad_button(lua_State* lua, const int index)
-    {
-        const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(GamepadButton::COUNT))
-            luaL_error(lua, "expected a tbx.GamepadButton value");
-        return static_cast<GamepadButton>(value);
-    }
-
-    static GamepadAxis check_gamepad_axis(lua_State* lua, const int index)
-    {
-        const auto value = luaL_checkinteger(lua, index);
-        if (value < 0 || value >= static_cast<int>(GamepadAxis::COUNT))
-            luaL_error(lua, "expected a tbx.GamepadAxis value");
-        return static_cast<GamepadAxis>(value);
-    }
-
-    // Gamepad queries take the controller slot (0-based) first, then the button/axis enum.
+    // isGamepadConnected(slot) is the one input query that takes a bare slot, not an enum value.
     static int input_is_gamepad_connected(lua_State* lua)
     {
         lua_pushboolean(
@@ -1120,55 +1295,11 @@ namespace tbx
         return 1;
     }
 
-    static int input_is_gamepad_down(lua_State* lua)
-    {
-        lua_pushboolean(
-            lua,
-            is_gamepad_down(
-                bound_runtime(lua).input,
-                static_cast<int>(luaL_checkinteger(lua, 1)),
-                check_gamepad_button(lua, 2)));
-        return 1;
-    }
-
-    static int input_is_gamepad_pressed(lua_State* lua)
-    {
-        lua_pushboolean(
-            lua,
-            is_gamepad_pressed(
-                bound_runtime(lua).input,
-                static_cast<int>(luaL_checkinteger(lua, 1)),
-                check_gamepad_button(lua, 2)));
-        return 1;
-    }
-
-    static int input_is_gamepad_released(lua_State* lua)
-    {
-        lua_pushboolean(
-            lua,
-            is_gamepad_released(
-                bound_runtime(lua).input,
-                static_cast<int>(luaL_checkinteger(lua, 1)),
-                check_gamepad_button(lua, 2)));
-        return 1;
-    }
-
-    static int input_get_gamepad_axis(lua_State* lua)
-    {
-        lua_pushnumber(
-            lua,
-            get_gamepad_axis(
-                bound_runtime(lua).input,
-                static_cast<int>(luaL_checkinteger(lua, 1)),
-                check_gamepad_axis(lua, 2)));
-        return 1;
-    }
-
     //// EVENTS ////
 
     // Each event kind gets a pusher turning its POD payload into the Lua table the handler
     // receives — the mirror of the push_field_value work, but for the fixed event structs.
-    static void push_key_event(lua_State* lua, RuntimeState&, const KeyEvent& event)
+    static void push_input_event(lua_State* lua, RuntimeState&, const InputEvent& event)
     {
         lua_createtable(lua, 0, 3);
         lua_pushinteger(lua, static_cast<int>(event.key));
@@ -1188,6 +1319,15 @@ namespace tbx
         lua_setfield(lua, -2, "height");
     }
 
+    static void push_asset_loaded(lua_State* lua, RuntimeState&, const AssetLoaded& event)
+    {
+        lua_createtable(lua, 0, 2);
+        lua_pushstring(lua, event.id.to_string().c_str());
+        lua_setfield(lua, -2, "id");
+        lua_pushstring(lua, event.extension.data());
+        lua_setfield(lua, -2, "extension");
+    }
+
     static void push_asset_reloaded(lua_State* lua, RuntimeState&, const AssetReloaded& event)
     {
         lua_createtable(lua, 0, 2);
@@ -1204,13 +1344,6 @@ namespace tbx
         lua_setfield(lua, -2, "id");
         lua_pushstring(lua, event.extension.data());
         lua_setfield(lua, -2, "extension");
-    }
-
-    static void push_script_reloaded(lua_State* lua, RuntimeState&, const ScriptReloaded& event)
-    {
-        lua_createtable(lua, 0, 1);
-        lua_pushstring(lua, event.id.to_string().c_str());
-        lua_setfield(lua, -2, "id");
     }
 
     static void push_collision_event(lua_State* lua, RuntimeState& runtime, const CollisionEvent& event)
@@ -1275,9 +1408,12 @@ namespace tbx
         return 0;
     }
 
-    static int events_on_key(lua_State* lua)
+    static int events_on_input(lua_State* lua)
     {
-        return subscribe_lua_event<KeyEvent>(lua, bound_runtime(lua).events.key, push_key_event);
+        return subscribe_lua_event<InputEvent>(
+            lua,
+            bound_runtime(lua).events.input,
+            push_input_event);
     }
 
     static int events_on_window_resized(lua_State* lua)
@@ -1286,6 +1422,14 @@ namespace tbx
             lua,
             bound_runtime(lua).events.window_resized,
             push_window_resized);
+    }
+
+    static int events_on_asset_loaded(lua_State* lua)
+    {
+        return subscribe_lua_event<AssetLoaded>(
+            lua,
+            bound_runtime(lua).events.asset_loaded,
+            push_asset_loaded);
     }
 
     static int events_on_asset_reloaded(lua_State* lua)
@@ -1302,14 +1446,6 @@ namespace tbx
             lua,
             bound_runtime(lua).events.asset_unloaded,
             push_asset_unloaded);
-    }
-
-    static int events_on_script_reloaded(lua_State* lua)
-    {
-        return subscribe_lua_event<ScriptReloaded>(
-            lua,
-            bound_runtime(lua).events.script_reloaded,
-            push_script_reloaded);
     }
 
     static int events_on_collision(lua_State* lua)
@@ -1391,22 +1527,18 @@ namespace tbx
         // Toy metatable: __index is a closure over the method table so unknown keys fall
         // through to typed block lookup; __newindex is add-and-populate.
         luaL_newmetatable(lua, TOY_METATABLE);
-        lua_createtable(lua, 0, 13);
+        lua_createtable(lua, 0, 10);
         const luaL_Reg toy_methods[] = {
-            {"getName", toy_get_name},
-            {"setName", toy_set_name},
-            {"isEnabled", toy_is_enabled},
-            {"setEnabled", toy_set_enabled},
+            {"get", toy_get},
+            {"add", toy_add},
+            {"has", toy_has},
+            {"remove", toy_remove},
             {"with", toy_with},
-            {"removeBlock", toy_remove_block},
-            {"sticker", toy_sticker},
-            {"hasSticker", toy_has_sticker},
-            {"removeSticker", toy_remove_sticker},
-            {"setParent", toy_set_parent},
-            {"getParent", toy_get_parent},
-            {"getChildren", toy_get_children},
-            {"despawn", toy_despawn},
-            {"isAlive", toy_is_alive},
+            {"parent", toy_parent},
+            {"move", toy_move},
+            {"rotate", toy_rotate},
+            {"resize", toy_resize},
+            {"rename", toy_rename},
             {nullptr, nullptr}};
         luaL_register(lua, nullptr, toy_methods);
         lua_pushcclosure(lua, toy_index, "toy_index", 1);
@@ -1428,58 +1560,46 @@ namespace tbx
         lua_setglobal(lua, "print");
 
         // Global tbx table.
-        lua_createtable(lua, 0, 5);
+        lua_createtable(lua, 0, 6);
 
         // tbx.sandbox is the scene object — its queries are called with `:` (methods).
         lua_createtable(lua, 0, 8);
-        register_runtime_closure(lua, runtime, sandbox_spawn, "sandbox_spawn", "spawn");
+        register_runtime_closure(lua, runtime, sandbox_add, "sandbox_add", "add");
         register_runtime_closure(lua, runtime, sandbox_find, "sandbox_find", "find");
         register_runtime_closure(
             lua,
             runtime,
-            sandbox_find_with_sticker,
-            "sandbox_find_with_sticker",
-            "findWithSticker");
-        register_runtime_closure(
-            lua,
-            runtime,
-            sandbox_find_all_with_sticker,
-            "sandbox_find_all_with_sticker",
-            "findAllWithSticker");
+            sandbox_find_with,
+            "sandbox_find_with",
+            "findWith");
         register_runtime_closure(lua, runtime, sandbox_get_toys, "sandbox_get_toys", "getToys");
         lua_pushcfunction(lua, sandbox_despawn, "sandbox_despawn");
-        lua_setfield(lua, -2, "despawn");
-        register_runtime_closure(lua, runtime, sandbox_spawn_kit, "sandbox_spawn_kit", "spawnKit");
-        register_runtime_closure(
-            lua,
-            runtime,
-            sandbox_despawn_kit,
-            "sandbox_despawn_kit",
-            "despawnKit");
+        lua_setfield(lua, -2, "remove");
         // Streaming is engine-pulled from the scene's cameras — scripts never push a focus.
         lua_setfield(lua, -2, "sandbox");
 
-        lua_createtable(lua, 0, 12);
+        lua_createtable(lua, 0, 8);
         register_runtime_closure(lua, runtime, input_is_down, "input_is_down", "isDown");
         register_runtime_closure(lua, runtime, input_is_pressed, "input_is_pressed", "isPressed");
         register_runtime_closure(
             lua,
             runtime,
-            input_is_mouse_down,
-            "input_is_mouse_down",
-            "isMouseDown");
+            input_is_released,
+            "input_is_released",
+            "isReleased");
+        register_runtime_closure(lua, runtime, input_get_axis, "input_get_axis", "getAxis");
         register_runtime_closure(
             lua,
             runtime,
-            input_is_mouse_pressed,
-            "input_is_mouse_pressed",
-            "isMousePressed");
+            input_get_axis_delta,
+            "input_get_axis_delta",
+            "getAxisDelta");
         register_runtime_closure(
             lua,
             runtime,
-            input_get_mouse_delta,
-            "input_get_mouse_delta",
-            "getMouseDelta");
+            input_is_gamepad_connected,
+            "input_is_gamepad_connected",
+            "isGamepadConnected");
         register_runtime_closure(
             lua,
             runtime,
@@ -1492,36 +1612,6 @@ namespace tbx
             input_set_cursor_mode,
             "input_set_cursor_mode",
             "setCursorMode");
-        register_runtime_closure(
-            lua,
-            runtime,
-            input_is_gamepad_connected,
-            "input_is_gamepad_connected",
-            "isGamepadConnected");
-        register_runtime_closure(
-            lua,
-            runtime,
-            input_is_gamepad_down,
-            "input_is_gamepad_down",
-            "isGamepadDown");
-        register_runtime_closure(
-            lua,
-            runtime,
-            input_is_gamepad_pressed,
-            "input_is_gamepad_pressed",
-            "isGamepadPressed");
-        register_runtime_closure(
-            lua,
-            runtime,
-            input_is_gamepad_released,
-            "input_is_gamepad_released",
-            "isGamepadReleased");
-        register_runtime_closure(
-            lua,
-            runtime,
-            input_get_gamepad_axis,
-            "input_get_gamepad_axis",
-            "getGamepadAxis");
         lua_setfield(lua, -2, "input");
 
         lua_createtable(lua, 0, 1);
@@ -1536,13 +1626,19 @@ namespace tbx
         // tbx.events.on<Name>(fn): subscribe a script handler to an engine event. Naming mirrors
         // the EventsState signals (asset_reloaded -> onAssetReloaded).
         lua_createtable(lua, 0, 8);
-        register_runtime_closure(lua, runtime, events_on_key, "events_on_key", "onKey");
+        register_runtime_closure(lua, runtime, events_on_input, "events_on_input", "onInput");
         register_runtime_closure(
             lua,
             runtime,
             events_on_window_resized,
             "events_on_window_resized",
             "onWindowResized");
+        register_runtime_closure(
+            lua,
+            runtime,
+            events_on_asset_loaded,
+            "events_on_asset_loaded",
+            "onAssetLoaded");
         register_runtime_closure(
             lua,
             runtime,
@@ -1555,12 +1651,6 @@ namespace tbx
             events_on_asset_unloaded,
             "events_on_asset_unloaded",
             "onAssetUnloaded");
-        register_runtime_closure(
-            lua,
-            runtime,
-            events_on_script_reloaded,
-            "events_on_script_reloaded",
-            "onScriptReloaded");
         register_runtime_closure(
             lua,
             runtime,
@@ -1581,7 +1671,24 @@ namespace tbx
             "onInputDeviceDisconnected");
         lua_setfield(lua, -2, "events");
 
-        // Strongly typed input enums: tbx.Key.W, tbx.MouseButton.LEFT.
+        // tbx.blocks: opaque tokens for the generic block methods (get/add/has/remove/with). Each
+        // token is a small table { __name = "<Type>" } — a table (not a bare string) so the
+        // block methods can tell a token from a sticker name. The .d.luau types them as
+        // BlockType<T, P>. Every registered block facet (has_block) gets an entry.
+        lua_newtable(lua);
+        for (const TypeInfo& type : get_type_registry().get_all())
+        {
+            if (!type.has_block)
+                continue;
+            lua_createtable(lua, 0, 1);
+            lua_pushstring(lua, type.name.c_str());
+            lua_setfield(lua, -2, "__name");
+            lua_setfield(lua, -2, type.name.c_str());
+        }
+        lua_setfield(lua, -2, "blocks");
+
+        // Strongly typed input enums. Each kind is offset into its own value range (keys stay
+        // 0-based) so the overloaded isDown/getAxis can dispatch on the bare number Lua passes.
         lua_createtable(lua, 0, static_cast<int>(std::size(KEY_TABLE)));
         for (const KeyEntry& entry : KEY_TABLE)
         {
@@ -1591,13 +1698,22 @@ namespace tbx
         lua_setfield(lua, -2, "Key");
 
         lua_createtable(lua, 0, 3);
-        lua_pushinteger(lua, static_cast<int>(MouseButton::LEFT));
+        lua_pushinteger(lua, MOUSE_BUTTON_INPUT_BASE + static_cast<int>(MouseButton::LEFT));
         lua_setfield(lua, -2, "LEFT");
-        lua_pushinteger(lua, static_cast<int>(MouseButton::RIGHT));
+        lua_pushinteger(lua, MOUSE_BUTTON_INPUT_BASE + static_cast<int>(MouseButton::RIGHT));
         lua_setfield(lua, -2, "RIGHT");
-        lua_pushinteger(lua, static_cast<int>(MouseButton::MIDDLE));
+        lua_pushinteger(lua, MOUSE_BUTTON_INPUT_BASE + static_cast<int>(MouseButton::MIDDLE));
         lua_setfield(lua, -2, "MIDDLE");
         lua_setfield(lua, -2, "MouseButton");
+
+        lua_createtable(lua, 0, 3);
+        lua_pushinteger(lua, MOUSE_AXIS_INPUT_BASE + static_cast<int>(MouseAxis::X));
+        lua_setfield(lua, -2, "X");
+        lua_pushinteger(lua, MOUSE_AXIS_INPUT_BASE + static_cast<int>(MouseAxis::Y));
+        lua_setfield(lua, -2, "Y");
+        lua_pushinteger(lua, MOUSE_AXIS_INPUT_BASE + static_cast<int>(MouseAxis::SCROLL));
+        lua_setfield(lua, -2, "SCROLL");
+        lua_setfield(lua, -2, "MouseAxis");
 
         lua_createtable(lua, 0, 3);
         lua_pushinteger(lua, static_cast<int>(CursorMode::NORMAL));
@@ -1612,7 +1728,7 @@ namespace tbx
         lua_createtable(lua, 0, static_cast<int>(std::size(GAMEPAD_BUTTON_TABLE)));
         for (const GamepadButtonEntry& entry : GAMEPAD_BUTTON_TABLE)
         {
-            lua_pushinteger(lua, static_cast<int>(entry.button));
+            lua_pushinteger(lua, GAMEPAD_BUTTON_INPUT_BASE + static_cast<int>(entry.button));
             lua_setfield(lua, -2, entry.name);
         }
         lua_setfield(lua, -2, "GamepadButton");
@@ -1620,7 +1736,7 @@ namespace tbx
         lua_createtable(lua, 0, static_cast<int>(std::size(GAMEPAD_AXIS_TABLE)));
         for (const GamepadAxisEntry& entry : GAMEPAD_AXIS_TABLE)
         {
-            lua_pushinteger(lua, static_cast<int>(entry.axis));
+            lua_pushinteger(lua, GAMEPAD_AXIS_INPUT_BASE + static_cast<int>(entry.axis));
             lua_setfield(lua, -2, entry.name);
         }
         lua_setfield(lua, -2, "GamepadAxis");

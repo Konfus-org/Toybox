@@ -72,7 +72,7 @@ namespace tbx
                 floats.push_back(vertex.tex_coord.y);
             }
             const auto handle = static_cast<Rml::CompiledGeometryHandle>(_next_handle++);
-            _meshes[handle] = gpu_upload_mesh(floats, std::array {2, 4, 2});
+            _meshes[handle] = upload_mesh_to_gpu(floats, std::array {2, 4, 2});
             return handle;
         }
 
@@ -84,12 +84,12 @@ namespace tbx
             const auto mesh = _meshes.find(handle);
             if (mesh == _meshes.end() || !shader)
                 return;
-            gpu_set_uniform(*shader, "u_translation", Vec2(translation.x, translation.y));
+            set_shader_uniform(*shader, "u_translation", Vec2(translation.x, translation.y));
             const auto found = _textures.find(texture);
             const Texture2d& bound = found != _textures.end() ? *found->second : *white_texture;
             const auto bindings =
                 std::array {TextureBinding {.slot = 0, .texture = std::cref(bound)}};
-            gpu_draw(*mesh->second, bindings);
+            draw(*mesh->second, bindings);
         }
 
         void ReleaseGeometry(Rml::CompiledGeometryHandle handle) override
@@ -107,7 +107,7 @@ namespace tbx
             Rml::Span<const Rml::byte> source,
             Rml::Vector2i dimensions) override
         {
-            auto uploaded = gpu_upload_texture(
+            auto uploaded = upload_texture_to_gpu(
                 dimensions.x,
                 dimensions.y,
                 std::span<const std::byte>(
@@ -127,13 +127,13 @@ namespace tbx
         {
             _scissor_enabled = enable;
             if (!enable)
-                gpu_set_scissor(false, 0, 0, 0, 0);
+                set_render_scissor(false, 0, 0, 0, 0);
         }
 
         void SetScissorRegion(Rml::Rectanglei region) override
         {
             if (_scissor_enabled)
-                gpu_set_scissor(true, region.Left(), region.Top(), region.Width(), region.Height());
+                set_render_scissor(true, region.Left(), region.Top(), region.Width(), region.Height());
         }
 
       public:
@@ -383,7 +383,7 @@ namespace tbx
             std::byte {255},
             std::byte {255},
         };
-        state.white = gpu_upload_texture(1, 1, white);
+        state.white = upload_texture_to_gpu(1, 1, white);
         // The render interface renders through these for the rest of the state's life.
         state.renderer.shader = state.shader.get();
         state.renderer.white_texture = state.white.get();
@@ -417,9 +417,9 @@ namespace tbx
             {.color_target = target,
              .load = LoadOperation::CLEAR,
              .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
-        gpu_set_pipeline(*state->pipeline);
-        gpu_set_uniform(*state->shader, "u_texture", 0);
-        gpu_set_uniform(
+        set_render_pipeline(*state->pipeline);
+        set_shader_uniform(*state->shader, "u_texture", 0);
+        set_shader_uniform(
             *state->shader,
             "u_screen",
             Vec2(static_cast<float>(target.get_width()), static_cast<float>(target.get_height())));
@@ -432,7 +432,7 @@ namespace tbx
             cached->context->Update();
             cached->context->Render();
         }
-        gpu_set_scissor(false, 0, 0, 0, 0);
+        set_render_scissor(false, 0, 0, 0, 0);
         end_render_pass();
     }
 

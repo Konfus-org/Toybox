@@ -18,6 +18,7 @@
 #include "tbx/math/transform.h"
 #include "tbx/platform/window.h"
 #include "tbx/reflection/reflection.h"
+#include "tbx/serialization/serializers.h"
 #include "tbx/ui/ui.h"
 #include "tbx/ui/ui_block.h"
 #include "tbx/utils/hash.h"
@@ -51,7 +52,9 @@ namespace tbx
     {
         if (renderer.lit_shader)
             return renderer;
-        initialize_reflection();
+        TBX_ASSERT(
+            is_reflection_ready() && is_serialization_ready(),
+            "reflection not initialized — initialize_assets() must run before the renderer");
         const auto lit_vertex = read_builtin_shader("pbr.vert");
         const auto lit_fragment = read_builtin_shader("pbr.frag");
         const auto depth_vertex = read_builtin_shader("depth.vert");
@@ -149,7 +152,7 @@ namespace tbx
         frame.light_color = Color {};
         frame.light_intensity = 1.0f;
         bool has_light = false;
-        sandbox.each<DirectionalLight>(
+        sandbox.for_each_with<DirectionalLight>(
             [&](Toy toy, DirectionalLight& light)
             {
                 if (has_light)
@@ -189,7 +192,7 @@ namespace tbx
             *state.depth_shader,
             "u_light_view_projection",
             state.frame.light_view_projection);
-        sandbox.each<Renderer>(
+        sandbox.for_each_with<Renderer>(
             [&](Toy toy, Renderer& renderer)
             {
                 if (!toy.is_enabled())
@@ -210,7 +213,7 @@ namespace tbx
 
         // Sky: the first Sky block paints the background along the view ray.
         bool has_sky = false;
-        sandbox.each<Sky>(
+        sandbox.for_each_with<Sky>(
             [&](Toy, Sky& sky)
             {
                 if (has_sky)
@@ -234,7 +237,7 @@ namespace tbx
 
         // Lit + shadowed + textured, material-driven per draw; a broken reference draws its
         // failure mode's loud unlit fallback instead (docs/RenderFailures.md).
-        sandbox.each<Renderer>(
+        sandbox.for_each_with<Renderer>(
             [&](Toy toy, Renderer& renderer)
             {
                 if (!toy.is_enabled())
@@ -331,7 +334,7 @@ namespace tbx
             return camera.window.empty() ? context.is_main : camera.window == context.window.name;
         };
         bool has_any_camera = false;
-        sandbox.each<Camera>(
+        sandbox.for_each_with<Camera>(
             [&](Toy toy, Camera& camera)
             {
                 has_any_camera =
@@ -347,7 +350,7 @@ namespace tbx
         if (context.is_main)
         {
             bool has_post = false;
-            sandbox.each<PostProcessing>(
+            sandbox.for_each_with<PostProcessing>(
                 [&](Toy, PostProcessing& post)
                 {
                     if (has_post)
@@ -375,7 +378,7 @@ namespace tbx
         }
 
         // Every matching camera renders the scene into its normalized viewport rect.
-        sandbox.each<Camera>(
+        sandbox.for_each_with<Camera>(
             [&](Toy toy, Camera& camera)
             {
                 if (!toy.is_enabled() || !camera_matches_window(camera))
@@ -527,7 +530,7 @@ namespace tbx
                 composite_ui_texture(state, *target, composite->get());
         };
 
-        sandbox.each<UI>(
+        sandbox.for_each_with<UI>(
             [&](Toy toy, UI& ui_block)
             {
                 if (!ui_block.document.is_set() || !toy.is_enabled())

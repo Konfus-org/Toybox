@@ -58,7 +58,7 @@ namespace tbx
         }
         // Settings are plain runtime state now: write the fields, the modules read them.
         // Vsync is the gpu module's request; the window backend applies it per surface.
-        gpu_set_vsync(app.settings.graphics.is_vsync_enabled);
+        set_vsync(app.settings.graphics.is_vsync_enabled);
         state.renderer.shadow_resolution = app.settings.graphics.shadow_resolution;
         state.physics.gravity = app.settings.physics.gravity;
         state.audio.master_volume = app.settings.audio.master_volume;
@@ -154,33 +154,47 @@ namespace tbx
                 gpu_purge(state.renderer, unloaded.id);
             });
 
-        // Changed .luau assets hot-reload their scripts; instances restart next update.
+        // Script sources are assets: compile on first load, recompile on change. Both paths run
+        // the same (re)registration — reload_script also serves as the initial load — so a script
+        // just listens for its own asset type and ignores everything else.
+        const auto register_script_asset =
+            [&state](const Uuid& id, const std::string_view extension)
+        {
+            for (const auto& backend : state.scripts.backends)
+                if (backend->owns_extension(extension))
+                    return; // not a script source — nothing to (re)register
+
+            const auto script =
+                load_asset_now(state.assets, state.events, AssetHandle<ScriptSource>(id));
+            if (!script)
+                return;
+
+            // The script is plain text: `text` is the source; its file name (from the asset's
+            // path) is the diagnostics name for traces.
+            const std::string name = std::filesystem::path(script->get().path).filename().string();
+            if (const auto result = compile_script(state.scripts, id, name, script->get().text);
+                !result)
+                TBX_ERROR("{}", result.error());
+        };
+        state.events.asset_loaded.subscribe(
+            &state,
+            [register_script_asset](const AssetLoaded& loaded)
+            {
+                register_script_asset(loaded.id, loaded.extension.data());
+            });
+
+        // Changed assets re-upload their GPU copies; changed .luau assets recompile and restart.
         state.events.asset_reloaded.subscribe(
             &state,
-            [&state](const AssetReloaded& reloaded)
+            [&state, register_script_asset](const AssetReloaded& reloaded)
             {
                 gpu_purge(state.renderer,
                           reloaded.id); // re-upload GPU copies of the fresh data
-                if (!owns_script_extension(state.scripts, reloaded.extension.data()))
-                    return; // not a script source — nothing to (re)register
-                const auto script = load_asset_now(
-                    state.assets,
-                    state.events,
-                    AssetHandle<ScriptSource>(reloaded.id));
-                if (script)
-                {
-                    if (const auto result = reload_source(
-                            state.scripts,
-                            reloaded.id,
-                            script->get().name,
-                            script->get().source);
-                        !result)
-                        TBX_ERROR("{}", result.error());
-                }
+                register_script_asset(reloaded.id, reloaded.extension.data());
             });
 
         // Configured content is an ordinary asset: the level kit opens (its child kits
-        // resolve through the sandbox's assets and spawn on the first stream() tick). Failure
+        // resolve through the sandbox's assets and add on the first stream() tick). Failure
         // requests a clean exit. Hosts without a configured level (selftest rigs, tools) drive
         // the sandbox by hand instead.
         if (app.config.sandbox.is_set())
@@ -218,7 +232,7 @@ namespace tbx
         auto frustums = std::vector<Frustum>();
         if (state.windows.open_windows.empty())
             return frustums; // headless: no views, no streaming decisions
-        state.sandbox.each<Camera>(
+        state.sandbox.for_each_with<Camera>(
             [&](Toy toy, Camera& camera)
             {
                 if (!toy.is_enabled())
@@ -239,7 +253,7 @@ namespace tbx
                 const int height = static_cast<int>(camera.viewport.w * window->height);
                 if (width <= 0 || height <= 0)
                     return;
-                frustums.push_back(gpu_make_frustum(
+                frustums.push_back(make_frustum(
                     camera,
                     toy.get_world_transform(),
                     static_cast<float>(width) / height));
@@ -266,17 +280,18 @@ namespace tbx
         // stops the app; other windows just close.
         update_windows(state.windows, state.input, state.events);
         update_input(state.input, state.events);
-        const bool window_alive =
-            state.windows.open_windows.empty()
-            || state.windows.open_windows.front().status == WindowStatus::OPEN;
-
         update_jobs(state.jobs);
         update_events(state.events);
 
+        const bool window_alive =
+            state.windows.open_windows.empty()
+            || state.windows.open_windows.front().status == WindowStatus::OPEN;
         if (!window_alive || app.status == AppStatus::QUIT_REQUESTED)
         {
-            // The loop is over; teardown is the Runtime destructor's business (reverse
-            // declaration order: the module states first, then world, window, and app).
+            // The loop is over. Fire each script's cleanup and free it while the sandbox and VMs
+            // are both still alive — the rest of teardown is the Runtime destructor's business
+            // (reverse declaration order: the module states first, then world, window, and app).
+            purge_scripts(state.scripts, state.sandbox);
             app.status = AppStatus::STOPPED;
             return false;
         }
@@ -312,7 +327,7 @@ namespace tbx
         while (state.frame.accumulator >= fixed_step)
         {
             state.frame.accumulator -= fixed_step;
-            fixed_update_scripts(state.scripts, fixed_step);
+            fixed_update_scripts(state.scripts, state.sandbox, fixed_step);
             update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 

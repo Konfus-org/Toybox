@@ -18,7 +18,7 @@ local pitch = 0.0
 local kills = 0
 local health = 100
 local frame = 0
-local shotInstance = nil
+local shotInstance: Toy? = nil
 
 local function deadzone(value: number): number
     if math.abs(value) < STICK_DEADZONE then
@@ -27,40 +27,40 @@ local function deadzone(value: number): number
     return value
 end
 
-local function fire(toy, position, forward)
+local function fire(toy: Toy, position: Vec3, forward: Vec3)
     local hit = tbx.physics.raycast(position, forward, 200.0)
     if hit == nil then
         return
     end
-    if hit.toy and hit.toy:isAlive() and hit.toy:hasSticker("enemy") then
-        hit.toy:despawn()
+    if hit.toy.Alive and hit.toy:has("enemy") then
+        tbx.sandbox:remove(hit.toy)
         kills = kills + 1
-        toy:sticker("scored")
+        toy:add("scored")
     end
     -- The gunshot is a kit: a speaker toy with the blip clip, placed at the hit.
     if shotInstance then
-        tbx.sandbox:despawnKit(shotInstance)
+        tbx.sandbox:remove(shotInstance)
     end
-    shotInstance = tbx.sandbox:spawnKit("kits/shot.kit", hit.position)
+    shotInstance = tbx.sandbox:add("kits/shot.kit", hit.position)
 end
 
-function start(toy)
+function start(toy: Toy)
     -- Bind HUD slots to live getters, each on its own UI component (reached through the toy
     -- hierarchy / a sticker query) so the two documents never collide on a slot name: kills on
     -- this toy's own UI (hud.html), health on the health-bar toy's UI (health.html).
-    toy.UI:bind("kills", function() return kills end)
-    local healthBar = tbx.sandbox:findWithSticker("health_bar")
+    assert(toy:get(tbx.blocks.UI)):bind("kills", function() return kills end)
+    local healthBar = tbx.sandbox:findWith("health_bar")[1]
     if healthBar then
-        healthBar.UI:bind("health", function() return health end)
+        assert(healthBar:get(tbx.blocks.UI)):bind("health", function() return health end)
     end
 
     -- Fluent build chain: attach a block and tag the toy in one expression. The player is the
     -- ears, so it carries an AudioListener.
-    toy:with("AudioListener", { volume = 1.0 }):sticker("player")
+    toy:with(tbx.blocks.AudioListener, { volume = 1.0 }):with("player")
 
     -- Mouse-look wants the cursor grabbed: invisible, pinned to the window, pure deltas. The
     -- selftest ignores the mouse entirely, so it leaves the real cursor alone.
-    if toy:hasSticker("selftest") then
+    if toy:has("selftest") then
         tbx.input.setCursorMode(tbx.CursorMode.NORMAL)
     else
         tbx.input.setCursorMode(tbx.CursorMode.LOCKED)
@@ -75,21 +75,20 @@ function start(toy)
     end)
 end
 
-function update(toy, deltaTime: number)
+function update(toy: Toy, deltaTime: number)
     frame = frame + 1
-    local isSelftest = toy:hasSticker("selftest")
+    local isSelftest = toy:has("selftest")
 
     -- The selftest ignores the mouse: the choreography must aim dead ahead regardless of what
     -- the desktop pointer does during the run.
     if not isSelftest then
-        local delta = tbx.input.getMouseDelta()
-        yaw = yaw - delta.x * 0.003
-        pitch = math.clamp(pitch - delta.y * 0.003, -1.4, 1.4)
+        yaw = yaw - tbx.input.getAxisDelta(tbx.MouseAxis.X) * 0.003
+        pitch = math.clamp(pitch - tbx.input.getAxisDelta(tbx.MouseAxis.Y) * 0.003, -1.4, 1.4)
 
         -- Right stick looks; framerate-scaled so it turns at a steady rate, unlike the mouse's
         -- per-frame pixel deltas.
-        local lookX = deadzone(tbx.input.getGamepadAxis(GAMEPAD, tbx.GamepadAxis.RIGHT_X))
-        local lookY = deadzone(tbx.input.getGamepadAxis(GAMEPAD, tbx.GamepadAxis.RIGHT_Y))
+        local lookX = deadzone(tbx.input.getAxis(tbx.GamepadAxis.RIGHT_X, GAMEPAD))
+        local lookY = deadzone(tbx.input.getAxis(tbx.GamepadAxis.RIGHT_Y, GAMEPAD))
         yaw = yaw - lookX * LOOK_SPEED * deltaTime
         pitch = math.clamp(pitch - lookY * LOOK_SPEED * deltaTime, -1.4, 1.4)
     end
@@ -97,13 +96,13 @@ function update(toy, deltaTime: number)
     local rotation = tbx.math.multiply(
         tbx.math.angleAxis(yaw, UP),
         tbx.math.angleAxis(pitch, RIGHT))
-    toy.Transform.rotation = rotation
+    toy.Rotation = rotation
 
     local forward = tbx.math.rotate(rotation, AHEAD)
     local flat = tbx.math.normalize({ x = forward.x, y = 0.0, z = forward.z })
     local right = tbx.math.rotate(rotation, RIGHT)
 
-    local position = toy.Transform.position
+    local position = toy.Position
     local speed = 6.0 * deltaTime
     if tbx.input.isDown(tbx.Key.W) then
         position = tbx.math.add(position, tbx.math.scale(flat, speed))
@@ -119,8 +118,8 @@ function update(toy, deltaTime: number)
     end
 
     -- Left stick moves: push-up is forward (Y reads negative up), push-right strafes.
-    local moveX = deadzone(tbx.input.getGamepadAxis(GAMEPAD, tbx.GamepadAxis.LEFT_X))
-    local moveY = deadzone(tbx.input.getGamepadAxis(GAMEPAD, tbx.GamepadAxis.LEFT_Y))
+    local moveX = deadzone(tbx.input.getAxis(tbx.GamepadAxis.LEFT_X, GAMEPAD))
+    local moveY = deadzone(tbx.input.getAxis(tbx.GamepadAxis.LEFT_Y, GAMEPAD))
     position = tbx.math.add(position, tbx.math.scale(flat, -moveY * speed))
     position = tbx.math.add(position, tbx.math.scale(right, moveX * speed))
 
@@ -129,14 +128,14 @@ function update(toy, deltaTime: number)
     if isSelftest and frame > 128 then
         position = tbx.math.add(position, { x = 0.0, y = 0.0, z = -0.5 })
     end
-    toy.Transform.position = position
+    toy.Position = position
 
     if tbx.input.isPressed(tbx.Key.ESCAPE)
-        or tbx.input.isGamepadPressed(GAMEPAD, tbx.GamepadButton.START) then
+        or tbx.input.isPressed(tbx.GamepadButton.START, GAMEPAD) then
         tbx.quit()
     end
-    if tbx.input.isMousePressed(tbx.MouseButton.LEFT)
-        or tbx.input.isGamepadPressed(GAMEPAD, tbx.GamepadButton.SOUTH)
+    if tbx.input.isPressed(tbx.MouseButton.LEFT)
+        or tbx.input.isPressed(tbx.GamepadButton.SOUTH, GAMEPAD)
         or (isSelftest and frame == 118) then
         fire(toy, position, forward)
     end

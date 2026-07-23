@@ -151,6 +151,19 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Mouse analog axes, so get_axis/get_axis_delta read the pointer like a stick:
+    /// X/Y are the pointer position (get_axis) or this frame's movement (get_axis_delta); SCROLL
+    /// is the wheel (delta only).
+    enum class MouseAxis : uint8
+    {
+        X = 0,
+        Y,
+        SCROLL,
+
+        COUNT
+    };
+
+    /// @brief
     /// Purpose: What the OS cursor does over the window: NORMAL is a visible free pointer,
     /// HIDDEN is a free pointer without the arrow, LOCKED grabs the cursor for mouse-look —
     /// invisible, pinned to the window, with movement still flowing as deltas.

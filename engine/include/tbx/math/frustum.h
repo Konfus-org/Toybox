@@ -6,7 +6,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: A view volume as six inward-facing planes (xyz = unit normal, w = distance).
-    /// Build one from the view-projection matrix a camera draws with (gpu_make_frustum) —
+    /// Build one from the view-projection matrix a camera draws with (make_frustum) —
     /// streaming asks it which bounds spheres are in sight.
     struct TBX_API Frustum
     {

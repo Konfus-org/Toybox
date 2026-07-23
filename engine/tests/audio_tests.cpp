@@ -72,7 +72,7 @@ namespace tbx
     {
         // Arrange
         auto runtime = Runtime();
-        runtime.state->sandbox.spawn("Speaker").with(AudioSource {});
+        runtime.state->sandbox.add("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
         update_audio(

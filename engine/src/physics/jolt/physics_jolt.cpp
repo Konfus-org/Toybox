@@ -3,6 +3,7 @@
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
 #include "tbx/reflection/reflection.h"
+#include "tbx/serialization/serializers.h"
 #include "tbx/physics/physics.h"
 #include "tbx/events/events.h"
 #include "tbx/ecs/sandbox.h"
@@ -205,7 +206,7 @@ namespace tbx
         Toy toy,
         const Vec3& scale)
     {
-        const auto* renderer = toy.try_block<Renderer>();
+        const auto* renderer = toy.try_get_block<Renderer>();
         if (!renderer)
         {
             TBX_WARN("Shape::MESH collider without a Renderer block; falling back to a box");
@@ -309,20 +310,22 @@ namespace tbx
         EventsState& events,
         const float fixed_delta_time)
     {
-        initialize_reflection();
+        TBX_ASSERT(
+            is_reflection_ready() && is_serialization_ready(),
+            "reflection not initialized — initialize_assets() must run before physics");
         PhysicsState::Simulation& physics = ensure_simulation(state);
         // Gravity is a plain field on the state; whatever it says now is what this step uses.
         physics.system.SetGravity(to_jolt(state.gravity));
         JPH::BodyInterface& bodies = physics.system.GetBodyInterface();
 
         // Mirror collider toys into the simulation (created on first sight).
-        sandbox.each<Collider>(
+        sandbox.for_each_with<Collider>(
             [&](Toy toy, Collider& collider)
             {
             if (!toy.is_enabled())
                 return;
             const auto key = static_cast<uint32>(toy.get_id());
-            const auto* rigid_body = toy.try_block<RigidBody>();
+            const auto* rigid_body = toy.try_get_block<RigidBody>();
             // Jolt simulates in world space; place bodies at the toy's world transform.
             const Transform transform = world_pose(toy);
             const auto existing = physics.bodies_by_toy.find(key);

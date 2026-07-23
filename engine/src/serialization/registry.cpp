@@ -15,6 +15,11 @@ namespace tbx
         return *_serializers.back();
     }
 
+    void SerializerRegistry::clear()
+    {
+        _serializers.clear();
+    }
+
     std::vector<std::reference_wrapper<const SerializerInfo>> SerializerRegistry::get_all() const
     {
         auto all = std::vector<std::reference_wrapper<const SerializerInfo>>();

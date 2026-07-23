@@ -17,7 +17,7 @@ namespace tbx
     }
 
     template <typename TBlock>
-    TBlock* Toy::try_block() const
+    TBlock* Toy::try_get_block() const
     {
         return _registry ? _registry->get().try_get<TBlock>(_id) : nullptr;
     }
