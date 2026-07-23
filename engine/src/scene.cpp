@@ -1,6 +1,7 @@
 #include "tbx/scene.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
+#include "tbx/platform/window.h"
 #include "tbx/runtime.h"
 #include <utility>
 
@@ -67,5 +68,10 @@ namespace tbx
     std::optional<RaycastHit> raycast(const Vec3& origin, const Vec3& direction, float max_distance)
     {
         return internal::raycast(current().physics, origin, direction, max_distance);
+    }
+
+    const std::vector<Window>& get_open_windows()
+    {
+        return current().windows.open_windows;
     }
 }

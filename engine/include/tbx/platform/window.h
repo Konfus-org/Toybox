@@ -58,6 +58,12 @@ namespace tbx
         std::vector<Window> open_windows = {};
     };
 
+    /// @brief
+    /// Purpose: The windows the running runtime owns, as plain data — the public query escape hatch
+    /// over the (internal) windows state. Empty when headless. Read-only; write window data through
+    /// the dedicated APIs. Main-thread only (reads tbx::internal::current()).
+    TBX_DLL_EXPORT const std::vector<Window>& get_open_windows();
+
     // ---- Internal (engine machinery; not the user-facing API) ----
     // The per-frame window pass and the low-level GL-context bind — driven by run()/the render loop.
     namespace internal
