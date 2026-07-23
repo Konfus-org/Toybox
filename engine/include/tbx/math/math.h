@@ -8,15 +8,7 @@
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: The position, rotation, and scale pulled out of an affine transform matrix
-    /// (skew and perspective are discarded). The inverse of composing T * R * S.
-    struct DecomposedTransform
-    {
-        Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
-        Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
-        Vec3 scale = Vec3(1.0f, 1.0f, 1.0f);
-    };
+    struct Transform;
 
     /// @brief
     /// Purpose: A rotation of the given angle (radians) around an axis.
@@ -25,7 +17,7 @@ namespace tbx
     /// @brief
     /// Purpose: Splits an affine transform matrix into position/rotation/scale (e.g. a world
     /// transform composed up the parent chain).
-    TBX_DLL_EXPORT DecomposedTransform decompose(const Mat4& matrix);
+    TBX_DLL_EXPORT Transform decompose(const Mat4& matrix);
 
     /// @brief
     /// Purpose: Vector cross product.
@@ -77,7 +69,8 @@ namespace tbx
 
     /// @brief
     /// Purpose: A point moved toward a target by at most max_delta (never overshoots).
-    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3 move_toward(const Vec3& current, const Vec3& target, float max_delta);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Vec3
+        move_toward(const Vec3& current, const Vec3& target, float max_delta);
 
     /// @brief
     /// Purpose: Combined rotation: first b, then a.
@@ -99,11 +92,13 @@ namespace tbx
 
     /// @brief
     /// Purpose: A perspective projection (field of view in radians).
-    TBX_DLL_EXPORT Mat4 perspective(float fov_radians, float aspect, float near_plane, float far_plane);
+    TBX_DLL_EXPORT Mat4
+        perspective(float fov_radians, float aspect, float near_plane, float far_plane);
 
     /// @brief
     /// Purpose: An orientation whose -Z faces the given direction.
-    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat quat_look_at(const Vec3& direction, const Vec3& up);
+    TBX_EXPOSED_TO_SCRIPTING TBX_DLL_EXPORT Quat
+        quat_look_at(const Vec3& direction, const Vec3& up);
 
     /// @brief
     /// Purpose: Degrees to radians.

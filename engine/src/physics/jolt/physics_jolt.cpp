@@ -412,7 +412,17 @@ namespace tbx
         }
 
         for (const auto& [toy_a, toy_b] : physics.contacts.drain())
+        {
             events.signal<CollisionEvent>().emit({.toy_a = toy_a, .toy_b = toy_b});
+            // Component signals: each body's `collided` fires with the OTHER toy, inline on this (the
+            // main) thread. This is the owned-event form scripts connect to (toy.RigidBody.collided).
+            auto a = Toy(sandbox, static_cast<ToyId>(toy_a));
+            auto b = Toy(sandbox, static_cast<ToyId>(toy_b));
+            if (RigidBody* body_a = a.get<RigidBody>())
+                body_a->collided.emit(b);
+            if (RigidBody* body_b = b.get<RigidBody>())
+                body_b->collided.emit(a);
+        }
     }
 
     std::optional<RaycastHit> raycast(

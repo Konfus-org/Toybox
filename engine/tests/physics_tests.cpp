@@ -83,6 +83,52 @@ namespace tbx
             collisions[0].first == cube_id || collisions[0].second == cube_id);
     }
 
+    TEST(Physics, RigidBodyCollidedComponentSignalFiresWithTheOtherToy)
+    {
+        // Arrange: the cube's RigidBody owns a `collided` signal that scripts connect to directly.
+        auto toybox = Runtime();
+        RuntimeState& runtime = *toybox.state;
+        Sandbox& sandbox = runtime.sandbox;
+        sandbox.add("Floor")
+            .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
+            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+        Toy cube = sandbox.add("Cube")
+                       .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
+                       .with(Collider {})
+                       .with(RigidBody {});
+        auto struck = std::vector<std::string>();
+        cube.get<RigidBody>()->collided.connect(
+            [&struck](const Toy& other) { struck.push_back(other.get_name()); });
+
+        // Act: fall to impact — component signals dispatch inline during the step (no pump needed).
+        for (int i = 0; i < 120; ++i)
+            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+
+        // Assert: the cube's own event fired, carrying the floor toy.
+        ASSERT_FALSE(struck.empty());
+        EXPECT_EQ(struck[0], "Floor");
+    }
+
+    TEST(Physics, RigidBodyCollidedIsSilentWithoutAnySubscriber)
+    {
+        // Arrange
+        auto toybox = Runtime();
+        RuntimeState& runtime = *toybox.state;
+        Sandbox& sandbox = runtime.sandbox;
+        sandbox.add("Floor")
+            .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
+            .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
+        sandbox.add("Cube")
+            .with(Transform {.position = Vec3(0.0f, 2.0f, 0.0f)})
+            .with(Collider {})
+            .with(RigidBody {});
+
+        // Act + Assert: a collision with nothing connected to collided must not crash.
+        for (int i = 0; i < 120; ++i)
+            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+        SUCCEED();
+    }
+
     TEST(Physics, RaycastHitsAndMisses)
     {
         // Arrange

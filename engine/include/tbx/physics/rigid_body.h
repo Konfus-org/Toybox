@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/api.h"
 #include "tbx/ecs/block.h"
+#include "tbx/ecs/toy.h"
+#include "tbx/events/signal.h"
 #include "tbx/reflection/attributes.h"
 
 namespace tbx
@@ -12,6 +14,11 @@ namespace tbx
     {
         float mass = 1.0f;
         bool is_kinematic = false;
+
+        // The event this body raises when it starts touching another — the physics system emits it on
+        // the main thread with the other toy. Reflected automatically (Signal member), so scripts
+        // connect with `toy.RigidBody.collided:connect(fn)`.
+        Signal<Toy> collided;
 
         // Fluent setters — each returns *this for one-chain construction.
         RigidBody& set_mass(float value) { mass = value; return *this; }

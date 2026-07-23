@@ -20,8 +20,8 @@
 
 namespace tbx
 {
-    // The one published runtime (see runtime.h current()). Set by run() for the running frame, cleared on
-    // stop. Main-thread only; the script-facing free-function API reads it.
+    // The one published runtime (see runtime.h current()). Set by run() for the running frame,
+    // cleared on stop. Main-thread only; the script-facing free-function API reads it.
     static RuntimeState* g_current = nullptr;
 
     /// @brief
@@ -228,8 +228,10 @@ namespace tbx
         App& app = state.app;
         if (app.status == AppStatus::STOPPED)
             return false;
-        // Publish the runtime for this frame so the free-function API (tbx::current) resolves during
-        // scripts/systems. Stable heap address, so it survives Runtime handle moves between frames.
+
+        // Publish the runtime for this frame so the free-function API (tbx::current) resolves
+        // during scripts/systems. Stable heap address, so it survives Runtime handle moves between
+        // frames.
         g_current = &state;
         if (app.status == AppStatus::RUNNING)
             update_cmdline(state);
