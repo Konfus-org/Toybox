@@ -626,7 +626,7 @@ namespace tbx
         // refresh the frame's view-independent lighting once, then run the render state's graph
         // pass by pass. Lighting is hoisted here (not into a pass) so every graph — even a custom
         // one that drops the shadow or geometry pass — still has correct light data.
-        make_current(context.window);
+        internal::make_current(context.window);
         set_render_viewport(context.window.width, context.window.height);
         begin_render_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         refresh_lighting(context.renderer, context.sandbox);

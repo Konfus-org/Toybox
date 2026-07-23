@@ -17,8 +17,12 @@ namespace tbx
     /// Runtime constructor calls it before the window is created.
     TBX_DLL_EXPORT void apply_cmdline(App& app);
 
-    /// @brief
-    /// Purpose: Per-frame command handling (--screenshot captures) — run() calls it at
-    /// frame start, while the backbuffer still holds the previous frame's image.
-    TBX_DLL_EXPORT void update_cmdline(RuntimeState& state);
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Per-frame command handling (--screenshot captures) — run() calls it at
+        /// frame start, while the backbuffer still holds the previous frame's image.
+        TBX_DLL_EXPORT void update_cmdline(RuntimeState& state);
+    }
 }

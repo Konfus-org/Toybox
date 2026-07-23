@@ -37,7 +37,7 @@ namespace tbx
         return !get_serializer_registry().get_all().empty();
     }
 
-    void purge_serialization_registry()
+    void internal::purge_serialization_registry()
     {
         get_serializer_registry().clear();
     }

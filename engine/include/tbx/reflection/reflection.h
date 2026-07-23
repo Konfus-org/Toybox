@@ -20,8 +20,12 @@ namespace tbx
     /// engine subsystems assert before they touch reflected types.
     TBX_DLL_EXPORT bool is_reflection_ready();
 
-    /// @brief
-    /// Purpose: Drops every registered type so the next initialize_reflection() rebuilds from
-    /// scratch — for tests that need a clean registry between cases. Not for runtime use.
-    TBX_DLL_EXPORT void purge_reflection_registry();
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Drops every registered type so the next initialize_reflection() rebuilds from
+        /// scratch — for tests that need a clean registry between cases. Not for runtime use.
+        TBX_DLL_EXPORT void purge_reflection_registry();
+    }
 }

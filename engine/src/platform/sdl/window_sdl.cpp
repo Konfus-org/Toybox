@@ -174,7 +174,7 @@ namespace tbx
 
     //// WINDOWS ////
 
-    void update_windows(WindowsState& state, InputState& input, EventsState& events)
+    void internal::update_windows(WindowsState& state, InputState& input, EventsState& events)
     {
         for (Window& window : state.open_windows)
         {
@@ -263,7 +263,7 @@ namespace tbx
         }
     }
 
-    void make_current(const Window& window)
+    void internal::make_current(const Window& window)
     {
         if (window.backend)
             SDL_GL_MakeCurrent(window.backend->window, g_gl_context);

@@ -224,7 +224,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void update_audio(
+    void internal::update_audio(
         AudioState& audio,
         Sandbox& sandbox,
         AssetsState& assets,

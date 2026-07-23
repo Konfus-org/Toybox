@@ -149,7 +149,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void update_jobs(JobsState& state)
+    void internal::update_jobs(JobsState& state)
     {
         std::vector<std::function<void()>> jobs;
         {

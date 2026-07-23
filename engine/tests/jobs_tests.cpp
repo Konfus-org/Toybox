@@ -103,7 +103,7 @@ namespace tbx
         for (int i = 0; i < 200 && !hopped; ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            update_jobs(pool);
+            internal::update_jobs(pool);
         }
 
         // Assert
@@ -128,7 +128,7 @@ namespace tbx
 
         // Assert
         EXPECT_FALSE(ran);
-        update_jobs(pool); // let it finish before teardown
+        internal::update_jobs(pool); // let it finish before teardown
     }
 
     TEST(Jobs, ParallelForCoversEveryIndexExactlyOnce)

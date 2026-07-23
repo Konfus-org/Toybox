@@ -4,7 +4,7 @@
 
 namespace tbx
 {
-    void update_debugging(RuntimeState& state)
+    void internal::update_debugging(RuntimeState& state)
     {
         update_debug_view(
             state.debug,

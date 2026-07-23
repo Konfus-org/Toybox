@@ -388,7 +388,7 @@ namespace tbx
         sandbox.clear(); // every toy (ToyContainer)
     }
 
-    void update_sandbox(
+    void internal::update_sandbox(
         Sandbox& sandbox,
         AssetsState& assets,
         EventsState& events,

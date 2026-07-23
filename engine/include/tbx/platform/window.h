@@ -58,16 +58,21 @@ namespace tbx
         std::vector<Window> open_windows = {};
     };
 
-    /// @brief
-    /// Purpose: Runs the windows for one frame: presents what was drawn since the last call
-    /// (each window's first frame skips cleanly), materializes OS windows for new entries
-    /// (the first one brings up the shared GL context), applies changed data (title, icon,
-    /// cursor mode, and the gpu module's vsync request), and pumps OS events into the input
-    /// state and event signals. Called by tbx::run() every frame.
-    TBX_DLL_EXPORT void update_windows(WindowsState& state, InputState& input, EventsState& events);
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    // The per-frame window pass and the low-level GL-context bind — driven by run()/the render loop.
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Runs the windows for one frame: presents what was drawn since the last call
+        /// (each window's first frame skips cleanly), materializes OS windows for new entries
+        /// (the first one brings up the shared GL context), applies changed data (title, icon,
+        /// cursor mode, and the gpu module's vsync request), and pumps OS events into the input
+        /// state and event signals. Called by tbx::run() every frame.
+        TBX_DLL_EXPORT void update_windows(WindowsState& state, InputState& input, EventsState& events);
 
-    /// @brief
-    /// Purpose: Binds the shared GL context to this window's surface — subsequent gpu calls
-    /// draw into it. Called per window by the render loop; no-op before the first update_windows().
-    TBX_DLL_EXPORT void make_current(const Window& window);
+        /// @brief
+        /// Purpose: Binds the shared GL context to this window's surface — subsequent gpu calls
+        /// draw into it. Called per window by the render loop; no-op before the first update_windows().
+        TBX_DLL_EXPORT void make_current(const Window& window);
+    }
 }

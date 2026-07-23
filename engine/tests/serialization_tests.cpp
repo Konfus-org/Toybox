@@ -204,7 +204,7 @@ namespace tbx
         ASSERT_TRUE(is_serialization_ready());
 
         // Act + Assert: purge empties it, re-init refills it.
-        purge_serialization_registry();
+        internal::purge_serialization_registry();
         EXPECT_FALSE(is_serialization_ready());
         register_builtin_serializers();
         EXPECT_TRUE(is_serialization_ready());

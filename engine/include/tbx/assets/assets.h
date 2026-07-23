@@ -80,18 +80,6 @@ namespace tbx
         std::filesystem::path root);
 
     /// @brief
-    /// Purpose: Unloads assets that have not been referenced (loaded) for longer than
-    /// state.idle_lifetime_seconds, announcing each via the asset_unloaded signal. tbx::run()
-    /// calls this every frame; it self-throttles.
-    TBX_DLL_EXPORT void update_assets(AssetsState& state, EventsState& events);
-
-    /// @brief
-    /// Purpose: Unloads every resident asset right now (unconditional update_assets), announcing
-    /// each via asset_unloaded — for tests that need a clean memory slate. Leaves the identity
-    /// map, root, and watcher intact, so the subsystem stays initialized (is_assets_ready holds).
-    TBX_DLL_EXPORT void purge_assets(AssetsState& state, EventsState& events);
-
-    /// @brief
     /// Purpose: True once initialize_assets has stood the subsystem up (root set, watcher
     /// engaged) — the readiness check that makes initialize_assets a no-op on a second call.
     TBX_DLL_EXPORT bool is_assets_ready(const AssetsState& state);
@@ -146,6 +134,23 @@ namespace tbx
         const Uuid& id,
         const std::string& relative_path,
         std::any asset);
+
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    // The per-frame idle-asset GC and the test-only wipe — driven by tbx::run()/tests.
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Unloads assets that have not been referenced (loaded) for longer than
+        /// state.idle_lifetime_seconds, announcing each via AssetUnloaded. tbx::run() calls this
+        /// every frame; it self-throttles.
+        TBX_DLL_EXPORT void update_assets(AssetsState& state, EventsState& events);
+
+        /// @brief
+        /// Purpose: Unloads every resident asset right now (unconditional update_assets), announcing
+        /// each via AssetUnloaded — for tests that need a clean memory slate. Leaves the identity
+        /// map, root, and watcher intact, so the subsystem stays initialized (is_assets_ready holds).
+        TBX_DLL_EXPORT void purge_assets(AssetsState& state, EventsState& events);
+    }
 }
 
 #include "tbx/assets/assets.inl"

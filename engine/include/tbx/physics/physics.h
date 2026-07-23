@@ -1,10 +1,8 @@
 #pragma once
 #include "tbx/api.h"
 #include "tbx/assets/assets.h"
-#include "tbx/ecs/registry.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/math/math.h"
 #include <memory>
 #include <optional>
 
@@ -35,6 +33,7 @@ namespace tbx
         PhysicsState& operator=(const PhysicsState&) = delete;
 
         Vec3 gravity = Vec3(0.0f, -9.81f, 0.0f);
+
         struct Simulation; // defined by the physics backend's .cpp
         std::unique_ptr<Simulation> simulation;
     };
@@ -42,8 +41,10 @@ namespace tbx
     /// @brief
     /// Purpose: Casts a ray against the running world (tbx::current().physics) — the script-facing
     /// raycast. Main-thread only.
-    TBX_DLL_EXPORT std::optional<RaycastHit>
-        raycast(const Vec3& origin, const Vec3& direction, float max_distance);
+    TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
+        const Vec3& origin,
+        const Vec3& direction,
+        float max_distance);
 
     // ---- Internal (engine machinery; not the user-facing API) ----
     // The state-taking implementations behind the public raycast, plus the per-frame step verb.

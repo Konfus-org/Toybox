@@ -23,9 +23,13 @@ namespace tbx
         float refresh_timer = 0.0f;
     };
 
-    /// @brief
-    /// Purpose: Runs the debug overlay for one frame from the whole runtime — F3 toggles it,
-    /// the first open loads its document, and its stats land in the ui bindings. Called by
-    /// tbx::run() every frame.
-    TBX_DLL_EXPORT void update_debugging(RuntimeState& state);
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Runs the debug overlay for one frame from the whole runtime — F3 toggles it,
+        /// the first open loads its document, and its stats land in the ui bindings. Called by
+        /// tbx::run() every frame.
+        TBX_DLL_EXPORT void update_debugging(RuntimeState& state);
+    }
 }

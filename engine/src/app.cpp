@@ -234,7 +234,7 @@ namespace tbx
         // frames.
         g_current = &state;
         if (app.status == AppStatus::RUNNING)
-            update_cmdline(state);
+            internal::update_cmdline(state);
         if (app.status == AppStatus::CREATED)
             boot(state);
 
@@ -243,9 +243,9 @@ namespace tbx
         // first so SDL is initialized before update_input pumps — it rolls the input frame and
         // then drains the remaining keyboard/mouse/controller events. The main window closing
         // stops the app; other windows just close.
-        update_windows(state.windows, state.input, state.events);
-        update_input(state.input, state.events);
-        update_jobs(state.jobs);
+        internal::update_windows(state.windows, state.input, state.events);
+        internal::update_input(state.input, state.events);
+        internal::update_jobs(state.jobs);
         internal::update_events(state.events);
 
         const bool window_alive =
@@ -256,7 +256,7 @@ namespace tbx
             // The loop is over. Fire each script's cleanup and free it while the sandbox and VMs
             // are both still alive — the rest of teardown is the Runtime destructor's business
             // (reverse declaration order: the module states first, then world, window, and app).
-            purge_scripts(state.scripts, state.sandbox);
+            internal::purge_scripts(state.scripts, state.sandbox);
             app.status = AppStatus::STOPPED;
             g_current = nullptr; // the state is about to be torn down by the Runtime destructor
             return false;
@@ -268,23 +268,23 @@ namespace tbx
         ++state.frame.index;
 
 #ifdef TBX_DEBUGGING
-        update_debugging(state);
+        internal::update_debugging(state);
 #endif
 
-        update_assets(state.assets, state.events);
-        update_scripts(
+        internal::update_assets(state.assets, state.events);
+        internal::update_scripts(
             state.scripts,
             state.sandbox,
             state.assets,
             state.events,
             state.frame.delta_time);
-        update_audio(
+        internal::update_audio(
             state.audio,
             state.sandbox,
             state.assets,
             state.events,
             state.frame.delta_time);
-        update_ui(state.ui, state.frame.delta_time);
+        internal::update_ui(state.ui, state.frame.delta_time);
 
         const float fixed_step = app.settings.physics.fixed_timestep > 0.0f
                                      ? app.settings.physics.fixed_timestep
@@ -293,7 +293,7 @@ namespace tbx
         while (state.frame.accumulator >= fixed_step)
         {
             state.frame.accumulator -= fixed_step;
-            fixed_update_scripts(state.scripts, state.sandbox, fixed_step);
+            internal::fixed_update_scripts(state.scripts, state.sandbox, fixed_step);
             internal::update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 
@@ -301,7 +301,7 @@ namespace tbx
         // streaming loads what any enabled camera can see (also flushes a pending open()). Every
         // enabled camera contributes a frustum, gathered here after scripts/physics settled the
         // transforms and before rendering.
-        update_sandbox(state.sandbox, state.assets, state.events, state.jobs, state.windows);
+        internal::update_sandbox(state.sandbox, state.assets, state.events, state.jobs, state.windows);
 
         // The engine renders by default; hosts with their own pipeline opt out and draw
         // between run() calls instead. Every open window gets a graph run; the first is

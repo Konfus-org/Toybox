@@ -30,14 +30,18 @@ namespace tbx
         std::unique_ptr<Backend> backend;
     };
 
-    /// @brief
-    /// Purpose: Advances audio one frame: mirrors the sandbox's listener/source toys into
-    /// the spatializer (clips resolve through the asset states) and keeps the output device
-    /// fed. Called by tbx::run() every frame.
-    TBX_DLL_EXPORT void update_audio(
-        AudioState& audio,
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        float delta_time);
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Advances audio one frame: mirrors the sandbox's listener/source toys into
+        /// the spatializer (clips resolve through the asset states) and keeps the output device
+        /// fed. Called by tbx::run() every frame.
+        TBX_DLL_EXPORT void update_audio(
+            AudioState& audio,
+            Sandbox& sandbox,
+            AssetsState& assets,
+            EventsState& events,
+            float delta_time);
+    }
 }

@@ -466,7 +466,7 @@ namespace tbx
         state.live_bindings[binding.name] = std::move(binding);
     }
 
-    void update_ui(UiState& ui_state, const float delta_time)
+    void internal::update_ui(UiState& ui_state, const float delta_time)
     {
         // Live bindings feed their slots once per frame; apply_bindings diffs per element.
         for (const auto& [name, binding] : ui_state.live_bindings)

@@ -301,7 +301,7 @@ namespace tbx
 
     //// INPUT ////
 
-    void update_input(InputState& input, EventsState& events)
+    void internal::update_input(InputState& input, EventsState& events)
     {
         // The frame roll is backend-agnostic and must run even headless: gameplay's edge queries
         // (is_pressed/is_released) depend on previous-state rolling regardless of any window.

@@ -18,7 +18,7 @@ namespace tbx
         app.config.height = app.commands.get<int>("h", app.config.height);
     }
 
-    void update_cmdline(RuntimeState& state)
+    void internal::update_cmdline(RuntimeState& state)
     {
         // --screenshot[=path] -number N -delay F: pre-present captures of real rendered
         // frames (at run() entry the backbuffer still holds the frame the previous call
@@ -42,7 +42,7 @@ namespace tbx
             path.replace_filename(
                 path.stem().string() + "_" + std::to_string(shot) + path.extension().string());
 
-        make_current(window);
+        internal::make_current(window);
         set_render_viewport(window.width, window.height);
         auto capture = Texture();
         if (const auto read = render_screenshot(capture); !read)

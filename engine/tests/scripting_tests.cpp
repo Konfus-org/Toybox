@@ -81,8 +81,8 @@ end
         Toy toy = sandbox.add("Grunt").with(Script {.source = *mover});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: start renamed once; update advanced position twice.
         EXPECT_EQ(toy.get_name(), "started");
@@ -113,7 +113,7 @@ end
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
         Toy toy = sandbox.add("Grunt").with(Script {.source = *mover});
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         toy.set_name("renamed-by-test");
 
         // Act: v2 renames differently on start; the instance must restart on the new code.
@@ -123,7 +123,7 @@ function start(toy)
 end
 )");
         ASSERT_TRUE(reloaded.has_value()) << reloaded.error();
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert
         EXPECT_EQ(toy.get_name(), "restarted");
@@ -139,11 +139,11 @@ end
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
         Toy toy = sandbox.add("Grunt").with(Script {.source = *mover});
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Act
         const auto reloaded = reload_test_script(runtime, "mover", "broken ((");
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: reload failed (old bytecode kept), so the original script keeps moving the toy.
         EXPECT_FALSE(reloaded.has_value());
@@ -167,7 +167,7 @@ end
         sandbox.add("Summoner").with(Script {.source = *spawner});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert
         const auto summoned = sandbox.find("Friend");
@@ -192,12 +192,12 @@ end
         Toy toy = sandbox.add("Stepper").with(Script {.source = *stepper});
 
         // Act: variable updates do not run the fixed hook; fixed steps do.
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         const float after_updates = toy.add<Transform>().position.x;
-        fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
-        fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
-        fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
+        internal::fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
+        internal::fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
+        internal::fixed_update_scripts(runtime.scripts, sandbox, 1.0f / 60.0f);
 
         // Assert
         EXPECT_EQ(after_updates, 0.0f);
@@ -223,7 +223,7 @@ end
         Toy toy = sandbox.add("Buildable").with(Script {.source = *builder});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: the nil read proved absence, the assignment attached and populated.
         EXPECT_EQ(toy.get_name(), "bare");
@@ -258,7 +258,7 @@ end
         Toy toy = sandbox.add("Gunner").with(Script {.source = *gunner});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: every step ran as expected.
         EXPECT_TRUE(toy.has("absent_before"));
@@ -288,7 +288,7 @@ end
         Toy toy = sandbox.add("Mathy").with(Script {.source = *mathy});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: (1+1) + rotate(-Z by 90° yaw).x = 2 + (-1) = 1.
         const Vec3 position = toy.add<Transform>().position;
@@ -318,7 +318,7 @@ end
         Toy toy = sandbox.add("Typist").with(Script {.source = *typed});
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert. Keys are exposed 1:1; mouse/gamepad enums are offset into their own value
         // range (the luau input dispatch), so tbx.MouseButton.LEFT reads 1000 + LEFT.
@@ -341,12 +341,12 @@ end
         toy.set_enabled(false);
 
         // Act
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
 
         // Assert: neither start nor update ran; re-enabling wakes it up.
         EXPECT_EQ(toy.get_name(), "Grunt");
         toy.set_enabled(true);
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         EXPECT_EQ(toy.get_name(), "started");
     }
 
@@ -362,8 +362,8 @@ end
         sandbox.add("Quiet").with(Script {.source = *silent});
 
         // Act / Assert: surviving both frames IS the behavior.
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
-        update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
+        internal::update_scripts(runtime.scripts, sandbox, runtime.assets, runtime.events, 0.016f);
         SUCCEED();
     }
 }

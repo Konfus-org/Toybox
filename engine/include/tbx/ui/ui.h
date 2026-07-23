@@ -81,11 +81,6 @@ namespace tbx
     TBX_DLL_EXPORT void set_font(UiState& state, const Font& font, const std::string& family);
 
     /// @brief
-    /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
-    /// documents. Called by tbx::run() every frame.
-    TBX_DLL_EXPORT void update_ui(UiState& state, float delta_time);
-
-    /// @brief
     /// Purpose: Registers a binding (replacing any with the same name); its source runs
     /// every update_ui().
     TBX_DLL_EXPORT void bind(UiState& state, Binding binding);
@@ -177,4 +172,12 @@ namespace tbx
         bind(state, {.name = std::move(name), .source = std::move(source)});
     }
 
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
+        /// documents. Called by tbx::run() every frame.
+        TBX_DLL_EXPORT void update_ui(UiState& state, float delta_time);
+    }
 }

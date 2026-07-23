@@ -230,7 +230,7 @@ namespace tbx
         return state.loaded_assets.size();
     }
 
-    void update_assets(AssetsState& state, EventsState& events)
+    void internal::update_assets(AssetsState& state, EventsState& events)
     {
         const auto now = std::chrono::steady_clock::now();
         auto unloaded = std::vector<AssetReloaded>(); // reuse the id+extension shape
@@ -261,7 +261,7 @@ namespace tbx
         }
     }
 
-    void purge_assets(AssetsState& state, EventsState& events)
+    void internal::purge_assets(AssetsState& state, EventsState& events)
     {
         // update_assets, but unconditional: every resident asset goes, no idle-skip, no throttle.
         // The identity map, root, and watcher stay put — this frees memory, it doesn't de-init.

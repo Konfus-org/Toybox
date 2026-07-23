@@ -19,7 +19,7 @@ namespace tbx
         return !get_type_registry().get_all().empty();
     }
 
-    void purge_reflection_registry()
+    void internal::purge_reflection_registry()
     {
         get_type_registry().clear();
     }

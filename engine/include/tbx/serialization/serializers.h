@@ -15,10 +15,14 @@ namespace tbx
     /// engine subsystems assert before they read/write assets.
     TBX_DLL_EXPORT bool is_serialization_ready();
 
-    /// @brief
-    /// Purpose: Drops every registered serializer so the next register_builtin_serializers()
-    /// rebuilds from scratch — for tests that need a clean registry between cases. Not for
-    /// runtime use: describe_serializer<T>()/read<T>/write<T> must not run between a purge and
-    /// the re-registration that re-points SerializerSlot<T>::info.
-    TBX_DLL_EXPORT void purge_serialization_registry();
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Drops every registered serializer so the next register_builtin_serializers()
+        /// rebuilds from scratch — for tests that need a clean registry between cases. Not for
+        /// runtime use: describe_serializer<T>()/read<T>/write<T> must not run between a purge and
+        /// the re-registration that re-points SerializerSlot<T>::info.
+        TBX_DLL_EXPORT void purge_serialization_registry();
+    }
 }

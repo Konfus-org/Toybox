@@ -367,7 +367,7 @@ namespace tbx
             for (int i = 0; i < 500 && sandbox.find("RoomToy").has_value() != present; ++i)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                update_jobs(world.runtime.jobs);
+                internal::update_jobs(world.runtime.jobs);
             }
         };
 
@@ -381,13 +381,13 @@ namespace tbx
         // load volume but inside the +15 unload volume, so hysteresis keeps it loaded.
         const auto glancing = std::array {look(Vec3(0.0f, 0.0f, 10.0f), Vec3(0.0f, 0.0f, 20.0f))};
         stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, glancing);
-        update_jobs(world.runtime.jobs);
+        internal::update_jobs(world.runtime.jobs);
         const bool kept = sandbox.find("RoomToy").has_value();
 
         // Far away and looking away — out of every volume: unloads.
         const auto blind = std::array {look(Vec3(0.0f, 0.0f, 100.0f), Vec3(0.0f, 0.0f, 200.0f))};
         stream(sandbox, world.runtime.assets, world.runtime.events, world.runtime.jobs, blind);
-        update_jobs(world.runtime.jobs);
+        internal::update_jobs(world.runtime.jobs);
         const bool unloaded = sandbox.find("RoomToy").has_value();
 
         // ANY-frustum semantics: one blind camera plus one seeing camera loads it again.

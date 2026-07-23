@@ -64,7 +64,7 @@ namespace tbx
             backend->call_script_start(toy, source_id);
     }
 
-    void fixed_update_scripts(ScriptsState& state, Sandbox& sandbox, const float fixed_delta_time)
+    void internal::fixed_update_scripts(ScriptsState& state, Sandbox& sandbox, const float fixed_delta_time)
     {
         sandbox.for_each_with<Script>(
             [&](Toy toy, Script& script)
@@ -114,7 +114,7 @@ namespace tbx
         }
     }
 
-    void update_scripts(
+    void internal::update_scripts(
         ScriptsState& state,
         Sandbox& sandbox,
         AssetsState& assets,
@@ -187,7 +187,7 @@ namespace tbx
         }
     }
 
-    void purge_scripts(ScriptsState& state, Sandbox& sandbox)
+    void internal::purge_scripts(ScriptsState& state, Sandbox& sandbox)
     {
         for (const auto& [id, source_id] : state.live_scripts)
             cleanup_and_purge(state, sandbox, id, source_id);

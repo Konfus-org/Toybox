@@ -76,18 +76,6 @@ namespace tbx
     TBX_DLL_EXPORT void close(Sandbox& sandbox);
 
     /// @brief
-    /// Purpose: The per-frame sandbox tick: settles builtin components (billboards face the active
-    /// camera), flushes a pending open(), then streams kits by camera sight — loading what any
-    /// frustum can see and collapsing what none can. tbx::run() calls this once, after
-    /// scripts/physics settle transforms and before rendering.
-    TBX_DLL_EXPORT void update_sandbox(
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        JobsState& jobs,
-        WindowsState& windows);
-
-    /// @brief
     /// Purpose: The streaming primitive update_sandbox drives — loads streamed kits in sight of
     /// any frustum and collapses those out of sight of all, flushing a pending open() first.
     /// Public so tests can drive streaming with explicit frustum sets.
@@ -110,4 +98,20 @@ namespace tbx
     TBX_DLL_EXPORT Result<void> serialize_sandbox(
         const Sandbox& sandbox,
         const std::filesystem::path& path);
+
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: The per-frame sandbox tick: settles builtin components (billboards face the
+        /// active camera), flushes a pending open(), then streams kits by camera sight — loading
+        /// what any frustum can see and collapsing what none can. tbx::run() calls this once, after
+        /// scripts/physics settle transforms and before rendering.
+        TBX_DLL_EXPORT void update_sandbox(
+            Sandbox& sandbox,
+            AssetsState& assets,
+            EventsState& events,
+            JobsState& jobs,
+            WindowsState& windows);
+    }
 }

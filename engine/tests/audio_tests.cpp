@@ -75,13 +75,13 @@ namespace tbx
         runtime.state->sandbox.add("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
-        update_audio(
+        internal::update_audio(
             runtime.state->audio,
             runtime.state->sandbox,
             runtime.state->assets,
             runtime.state->events,
             0.016f);
-        update_audio(
+        internal::update_audio(
             runtime.state->audio,
             runtime.state->sandbox,
             runtime.state->assets,
