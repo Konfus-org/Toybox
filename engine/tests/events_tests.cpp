@@ -15,7 +15,7 @@ namespace tbx
 
         // Act
         events.signal<WindowResized>().emit({.width = 800, .height = 600});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         ASSERT_EQ(received.size(), 1u);
@@ -55,9 +55,9 @@ namespace tbx
 
         // Act
         events.signal<WindowResized>().emit({.width = 1, .height = 0});
-        update_events(events);
+        internal::update_events(events);
         const int after_first_drain = deliveries;
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         EXPECT_EQ(after_first_drain, 1);
@@ -79,7 +79,7 @@ namespace tbx
         // Act
         events.signal<InputEvent>().unsubscribe_owner(&owner_tag);
         events.signal<InputEvent>().emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         EXPECT_EQ(owner_calls, 0);
@@ -99,7 +99,7 @@ namespace tbx
         // Act
         events.signal<InputEvent>().unsubscribe(first);
         events.signal<InputEvent>().emit({.key = Key::A, .is_down = true, .is_repeat = false});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         EXPECT_EQ(first_calls, 0);
@@ -118,7 +118,7 @@ namespace tbx
         events.signal<WindowResized>().emit({.width = 1, .height = 1});
         events.signal<InputEvent>().emit({.key = Key::A, .is_down = true, .is_repeat = false});
         events.signal<WindowResized>().emit({.width = 2, .height = 2});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         ASSERT_EQ(order.size(), 3u);
@@ -139,7 +139,7 @@ namespace tbx
 
         // Act
         internal::raise_event(events, WindowResized {.width = 42, .height = 0});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         EXPECT_EQ(received, 42);
@@ -154,9 +154,9 @@ namespace tbx
         internal::on_event<WindowResized>(events, &owner, [&calls](const WindowResized&) { ++calls; });
 
         // Act: bulk-purge the owner, then raise — the handler must not run.
-        unsubscribe_all(events, &owner);
+        internal::unsubscribe_all(events, &owner);
         internal::raise_event(events, WindowResized {.width = 1, .height = 1});
-        update_events(events);
+        internal::update_events(events);
 
         // Assert
         EXPECT_EQ(calls, 0);

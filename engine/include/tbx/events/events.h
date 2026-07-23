@@ -110,20 +110,9 @@ namespace tbx
         }
     };
 
-    /// @brief
-    /// Purpose: Drops every subscription registered under the given owner tag from every signal at
-    /// once — the bulk teardown a language backend runs before it tears down (so no handler capturing a
-    /// dying VM survives to be dispatched). Generic over the whole bus; no per-event list to maintain.
-    TBX_DLL_EXPORT void unsubscribe_all(EventsState& state, const void* owner);
-
-    /// @brief
-    /// Purpose: Dispatches everything queued since the last update, in emission order — the events
-    /// module's per-frame verb; tbx::run() calls it during the pump. Events emitted during an update
-    /// land in the next one.
-    TBX_DLL_EXPORT void update_events(EventsState& state);
-
-    // The testable implementations (take the state they need, no global). The public tbx::on_event /
-    // tbx::raise_event (events_api.h) forward here with tbx::current().events.
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    // The public app-wide event API is tbx::on_event / tbx::raise_event (events_api.h); these take the
+    // state explicitly so they stay testable, and the per-frame pump/teardown verbs live here too.
     namespace internal
     {
         /// @brief
@@ -142,5 +131,16 @@ namespace tbx
         {
             events.signal<TEvent>().emit(event);
         }
+
+        /// @brief
+        /// Purpose: Drops every subscription registered under the given owner tag from every signal at
+        /// once — the bulk teardown a language backend runs before it tears down. Generic over the bus.
+        TBX_DLL_EXPORT void unsubscribe_all(EventsState& state, const void* owner);
+
+        /// @brief
+        /// Purpose: Dispatches everything queued since the last update, in emission order — the events
+        /// module's per-frame verb; tbx::run() calls it during the pump. Events emitted during an update
+        /// land in the next one.
+        TBX_DLL_EXPORT void update_events(EventsState& state);
     }
 }

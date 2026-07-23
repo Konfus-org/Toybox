@@ -1,6 +1,6 @@
 #include "tbx/events/events.h"
 
-namespace tbx
+namespace tbx::internal
 {
     void update_events(EventsState& state)
     {

@@ -56,7 +56,7 @@ namespace tbx
         // Act: with a zero lifetime an unreferenced asset collects immediately.
         runtime.assets.idle_lifetime_seconds = 0.0f;
         update_assets(runtime.assets, runtime.events);
-        update_events(runtime.events);
+        internal::update_events(runtime.events);
 
         // Assert
         EXPECT_EQ(get_loaded_asset_count(runtime.assets), 0u);
@@ -99,7 +99,7 @@ namespace tbx
 
         // Act: purge drops every resident asset, announcing each.
         purge_assets(runtime.assets, runtime.events);
-        update_events(runtime.events);
+        internal::update_events(runtime.events);
 
         // Assert: memory freed, one announcement, but the subsystem stays initialized.
         EXPECT_EQ(get_loaded_asset_count(runtime.assets), 0u);

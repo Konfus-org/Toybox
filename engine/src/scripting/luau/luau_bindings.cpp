@@ -921,7 +921,7 @@ namespace tbx
         const Vec3 origin = check_vector3(lua, 1);
         const Vec3 direction = check_vector3(lua, 2);
         const auto max_distance = static_cast<float>(luaL_optnumber(lua, 3, 1000.0));
-        const auto hit = raycast(state.physics, origin, direction, max_distance);
+        const auto hit = internal::raycast(state.physics, origin, direction, max_distance);
         if (!hit)
         {
             lua_pushnil(lua);

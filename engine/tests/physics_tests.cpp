@@ -25,7 +25,7 @@ namespace tbx
 
         // Act: ~3 simulated seconds — plenty to fall from 5 units and settle.
         for (int i = 0; i < 180; ++i)
-            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
         const float resting_y = cube.add<Transform>().position.y;
@@ -44,7 +44,7 @@ namespace tbx
 
         // Act
         for (int i = 0; i < 60; ++i)
-            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: no RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.add<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
@@ -71,9 +71,9 @@ namespace tbx
 
         // Act: fall to impact, then drain — collision delivery happens at the pump.
         for (int i = 0; i < 120; ++i)
-            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
         const auto before_drain = collisions.size();
-        update_events(runtime.events);
+        internal::update_events(runtime.events);
 
         // Assert
         EXPECT_EQ(before_drain, 0u);
@@ -102,7 +102,7 @@ namespace tbx
 
         // Act: fall to impact — component signals dispatch inline during the step (no pump needed).
         for (int i = 0; i < 120; ++i)
-            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
 
         // Assert: the cube's own event fired, carrying the floor toy.
         ASSERT_FALSE(struck.empty());
@@ -125,7 +125,7 @@ namespace tbx
 
         // Act + Assert: a collision with nothing connected to collided must not crash.
         for (int i = 0; i < 120; ++i)
-            update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
+            internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP);
         SUCCEED();
     }
 
@@ -138,13 +138,13 @@ namespace tbx
         Toy target = sandbox.add("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(Collider {});
-        update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in
+        internal::update_physics(runtime.physics, sandbox, runtime.assets, runtime.events, STEP); // mirror the body in
 
         // Act
         const auto hit =
-            raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), 50.0f);
+            internal::raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, -1.0f), 50.0f);
         const auto miss =
-            raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), 50.0f);
+            internal::raycast(runtime.physics, Vec3(0.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 1.0f), 50.0f);
 
         // Assert: the front face sits at z = -4.5, 4.5 units down the ray.
         ASSERT_TRUE(hit.has_value());

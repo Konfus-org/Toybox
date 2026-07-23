@@ -303,7 +303,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void update_physics(
+    void internal::update_physics(
         PhysicsState& state,
         Sandbox& sandbox,
         AssetsState& assets,
@@ -425,7 +425,7 @@ namespace tbx
         }
     }
 
-    std::optional<RaycastHit> raycast(
+    std::optional<RaycastHit> internal::raycast(
         PhysicsState& state,
         const Vec3& origin,
         const Vec3& direction,

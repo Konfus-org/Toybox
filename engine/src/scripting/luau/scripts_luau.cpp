@@ -50,7 +50,7 @@ namespace tbx
             // here instances are just memory. Drop every script-registered event handler before the
             // VM dies: they capture this lua_State, so any that survived to a later dispatch would
             // call into freed memory.
-            unsubscribe_all(_runtime.get().events, _lua);
+            internal::unsubscribe_all(_runtime.get().events, _lua);
             lua_close(_lua); // releases any instance ref still pinned with it
         }
 

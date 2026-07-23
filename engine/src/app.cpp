@@ -246,7 +246,7 @@ namespace tbx
         update_windows(state.windows, state.input, state.events);
         update_input(state.input, state.events);
         update_jobs(state.jobs);
-        update_events(state.events);
+        internal::update_events(state.events);
 
         const bool window_alive =
             state.windows.open_windows.empty()
@@ -294,7 +294,7 @@ namespace tbx
         {
             state.frame.accumulator -= fixed_step;
             fixed_update_scripts(state.scripts, state.sandbox, fixed_step);
-            update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
+            internal::update_physics(state.physics, state.sandbox, state.assets, state.events, fixed_step);
         }
 
         // The per-frame ECS tick: builtin components (billboards) face the active camera, then

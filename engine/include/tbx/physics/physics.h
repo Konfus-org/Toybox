@@ -40,28 +40,34 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Casts a ray against the simulated world; empty when nothing is hit.
-    TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
-        PhysicsState& physics,
-        const Vec3& origin,
-        const Vec3& direction,
-        float max_distance);
-
-    /// @brief
     /// Purpose: Casts a ray against the running world (tbx::current().physics) — the script-facing
     /// raycast. Main-thread only.
     TBX_DLL_EXPORT std::optional<RaycastHit>
         raycast(const Vec3& origin, const Vec3& direction, float max_distance);
 
-    /// @brief
-    /// Purpose: Advances the simulation one fixed step: mirrors the runtime sandbox's collider
-    /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
-    /// Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
-    /// to Transforms, and emits collision events (delivered at the next pump drain).
-    TBX_DLL_EXPORT void update_physics(
-        PhysicsState& physics,
-        Sandbox& sandbox,
-        AssetsState& assets,
-        EventsState& events,
-        float fixed_delta_time);
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    // The state-taking implementations behind the public raycast, plus the per-frame step verb.
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Casts a ray against the given simulated world; empty when nothing is hit. The
+        /// public tbx::raycast forwards here with tbx::current().physics.
+        TBX_DLL_EXPORT std::optional<RaycastHit> raycast(
+            PhysicsState& physics,
+            const Vec3& origin,
+            const Vec3& direction,
+            float max_distance);
+
+        /// @brief
+        /// Purpose: Advances the simulation one fixed step: mirrors the runtime sandbox's collider
+        /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
+        /// Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
+        /// to Transforms, emits each RigidBody's collided signal, and queues collision events.
+        TBX_DLL_EXPORT void update_physics(
+            PhysicsState& physics,
+            Sandbox& sandbox,
+            AssetsState& assets,
+            EventsState& events,
+            float fixed_delta_time);
+    }
 }
