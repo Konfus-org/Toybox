@@ -38,7 +38,7 @@ namespace tbx
         register_type<ThingAsset>("ThingAsset").field("answer", &ThingAsset::answer);
         register_serializer<ThingAsset>().format(SerializerFormat::DEFAULT);
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         set_asset_root(runtime.assets, runtime.events, runtime.jobs, asset_root);
         auto unload_count = 0;
         runtime.events.signal<AssetUnloaded>().subscribe(
@@ -81,7 +81,7 @@ namespace tbx
         register_type<PurgeThing>("PurgeThing").field("answer", &PurgeThing::answer);
         register_serializer<PurgeThing>().format(SerializerFormat::DEFAULT);
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
 
         // is_assets_ready flips only once the subsystem is stood up.
         EXPECT_FALSE(is_assets_ready(runtime.assets));

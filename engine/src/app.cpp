@@ -341,20 +341,20 @@ namespace tbx
             state.app.status = AppStatus::QUIT_REQUESTED;
     }
 
-    RuntimeState& current()
+    internal::RuntimeState& internal::current()
     {
-        TBX_ASSERT(internal::g_current != nullptr, "tbx::current() called with no running runtime");
+        TBX_ASSERT(internal::g_current != nullptr, "tbx::internal::current() called with no running runtime");
         return *internal::g_current;
     }
 
-    bool has_current()
+    bool internal::has_current()
     {
         return internal::g_current != nullptr;
     }
 
     void quit()
     {
-        if (has_current() && current().app.status != AppStatus::STOPPED)
-            current().app.status = AppStatus::QUIT_REQUESTED;
+        if (internal::has_current() && internal::current().app.status != AppStatus::STOPPED)
+            internal::current().app.status = AppStatus::QUIT_REQUESTED;
     }
 }

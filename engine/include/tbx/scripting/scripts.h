@@ -14,7 +14,7 @@
 // runtime.scripts. Main thread only.
 namespace tbx
 {
-    struct RuntimeState; // forward-declared to avoid a cycle (runtime.h includes this header)
+    namespace internal { struct RuntimeState; } // forward-declared to avoid a cycle (runtime.h includes this header)
 
     /// @brief
     /// Purpose: One scripting language. Backends coexist — C++, Lua, and C# can all run at
@@ -105,10 +105,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Builds the compiled-in scripting backends against this runtime. Idempotent.
-    TBX_DLL_EXPORT void initialize_scripting(RuntimeState& runtime);
-
-    /// @brief
     /// Purpose: (Re)compiles a script source under its asset id and flags it so any running
     /// instances restart on the new code next update. This is the one registration path — call it
     /// in response to the script asset's load/reload message. A syntax error comes back here and
@@ -123,6 +119,10 @@ namespace tbx
     // The per-frame script passes and the shutdown reap — driven by tbx::run(), not by scripts.
     namespace internal
     {
+        /// @brief
+        /// Purpose: Builds the compiled-in scripting backends against this runtime. Idempotent.
+        TBX_DLL_EXPORT void initialize_scripting(RuntimeState& runtime);
+
         /// @brief
         /// Purpose: Runs every scripted toy's fixed-cadence hook; called from the fixed step alongside
         /// physics so scripts can do physics-rate work. Iterates the sandbox's scripted toys (the

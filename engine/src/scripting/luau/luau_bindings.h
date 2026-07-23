@@ -11,7 +11,7 @@ namespace tbx
     /// @brief
     /// Purpose: Installs the global `tbx` table (sandbox/input) and the Toy/Block metatables;
     /// service closures capture the runtime as their upvalue.
-    void open_tbx_bindings(lua_State* lua, RuntimeState& runtime);
+    void open_tbx_bindings(lua_State* lua, internal::RuntimeState& runtime);
 
     /// @brief
     /// Purpose: Pushes a Toy userdata for the given entity onto the Lua stack.

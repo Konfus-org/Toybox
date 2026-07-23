@@ -18,66 +18,18 @@
 namespace tbx
 {
     /// @brief
-    /// Purpose: Loop pacing — the frame clock and the fixed-step accumulator, queried as
-    /// frame.previous / frame.accumulator.
-    struct TBX_DLL_EXPORT FrameState
-    {
-        uint64 index = 0;
-        std::chrono::steady_clock::time_point previous = {};
-        float delta_time = 0.0f;
-        float accumulator = 0.0f;
-    };
-
-    /// @brief
-    /// Purpose: Everything the engine owns, as plain public state — read and write it
-    /// directly (runtime.events.input.emit(...), runtime.physics.gravity). Declaration order
-    /// IS the dependency graph and reverse-order destruction IS shutdown: the module states
-    /// (declared last) die first — ui (Lua-closure bindings) before scripts, scripts (the
-    /// VMs) before the sandbox, renderer (GPU caches) before the windows and their shared GL
-    /// context, the assets watcher before the jobs pool it posts through, and jobs last of
-    /// the modules. Do not reorder members without re-deriving that sequence. Lives at a
-    /// stable heap address behind Runtime so async work (watcher, workers, coroutines, Lua)
-    /// survives Runtime moves.
-    struct TBX_DLL_EXPORT RuntimeState
-    {
-        App app = {};
-        Sandbox sandbox = {};
-        FrameState frame = {};
-        InputState input = {};
-        WindowsState windows = {};
-        JobsState jobs = {};
-        EventsState events = {};
-        AssetsState assets = {};
-        RenderState renderer = {};
-        ScriptsState scripts = {};
-        PhysicsState physics = {};
-        AudioState audio = {};
-        UiState ui = {};
-        DebuggingState debug = {};
-    };
-
-    /// @brief
     /// Purpose: Move-only value handle over stable state — moves are pointer swaps, so the
     /// functional dialect (state-advancing verbs consume and return the runtime) costs
-    /// nothing and never invalidates async captures of the state. Module functions take
-    /// RuntimeState& and the handle converts implicitly, so call sites pass the runtime
-    /// either way; async work (watcher, workers, coroutines, Lua) must capture RuntimeState&,
-    /// never this handle — the handle's pointer is in motion between frames. One Runtime with
-    /// a window or UI at a time: the platform and UI libraries underneath are process-global.
+    /// nothing and never invalidates async captures of the state. The state itself is an
+    /// internal pImpl (internal::RuntimeState); external code never names it — it uses the
+    /// free-function API (tbx::spawn, tbx::is_key_down, tbx::run, …). One Runtime with a
+    /// window or UI at a time: the platform and UI libraries underneath are process-global.
     struct TBX_DLL_EXPORT Runtime
     {
         Runtime();
         explicit Runtime(App app);
 
-        /// @brief
-        /// Purpose: The handle IS its state to every module function; const on the handle is
-        /// the caller-facing dialect (queries and cache fills take the runtime as const).
-        operator RuntimeState&() const
-        {
-            return *state;
-        }
-
-        std::unique_ptr<RuntimeState> state;
+        std::unique_ptr<internal::RuntimeState> state;
     };
 
     /// @brief
@@ -93,19 +45,60 @@ namespace tbx
     TBX_DLL_EXPORT void quit(Runtime& runtime);
 
     /// @brief
-    /// Purpose: The one running runtime, published by run() for the frame. This is the deliberate single
-    /// global: it lets the script-facing engine API be plain free functions (tbx::spawn, tbx::is_down,
-    /// tbx::raycast, …) instead of threading RuntimeState& everywhere. MAIN THREAD ONLY — async work
-    /// (workers, the watcher) must still capture the state it was handed, never call current().
-    TBX_DLL_EXPORT RuntimeState& current();
-
-    /// @brief
-    /// Purpose: True while a runtime is published (between the first run() and shutdown) — guard for
-    /// convenience helpers that may run before boot or after teardown.
-    TBX_DLL_EXPORT bool has_current();
-
-    /// @brief
     /// Purpose: Requests the current running runtime to close and purge — the next run() stops it.
     /// The parameterless exit scripts and game code call (tbx.quit()); no handle needed.
     TBX_DLL_EXPORT void quit();
+
+    // ---- Internal (engine machinery; not the user-facing API) ----
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Loop pacing — the frame clock and the fixed-step accumulator.
+        struct TBX_DLL_EXPORT FrameState
+        {
+            uint64 index = 0;
+            std::chrono::steady_clock::time_point previous = {};
+            float delta_time = 0.0f;
+            float accumulator = 0.0f;
+        };
+
+        /// @brief
+        /// Purpose: Everything the engine owns, as plain state behind the Runtime pImpl — the
+        /// engine and tests read/write it directly (runtime.physics.gravity); external code goes
+        /// through the free-function API instead. Declaration order IS the dependency graph and
+        /// reverse-order destruction IS shutdown: the module states (declared last) die first — ui
+        /// (Lua-closure bindings) before scripts, scripts (the VMs) before the sandbox, renderer
+        /// (GPU caches) before the windows and their shared GL context, the assets watcher before
+        /// the jobs pool it posts through, and jobs last of the modules. Do not reorder members
+        /// without re-deriving that sequence. Lives at a stable heap address behind Runtime so
+        /// async work (watcher, workers, coroutines, Lua) survives Runtime moves.
+        struct TBX_DLL_EXPORT RuntimeState
+        {
+            App app = {};
+            Sandbox sandbox = {};
+            FrameState frame = {};
+            InputState input = {};
+            WindowsState windows = {};
+            JobsState jobs = {};
+            EventsState events = {};
+            AssetsState assets = {};
+            RenderState renderer = {};
+            ScriptsState scripts = {};
+            PhysicsState physics = {};
+            AudioState audio = {};
+            UiState ui = {};
+            DebuggingState debug = {};
+        };
+
+        /// @brief
+        /// Purpose: The one running runtime, published by run() for the frame. The deliberate single
+        /// global that lets the script-facing engine API be plain free functions instead of threading
+        /// state. MAIN THREAD ONLY — async work must capture the state it was handed, never call this.
+        TBX_DLL_EXPORT RuntimeState& current();
+
+        /// @brief
+        /// Purpose: True while a runtime is published (between the first run() and shutdown) — guard
+        /// for convenience helpers that may run before boot or after teardown.
+        TBX_DLL_EXPORT bool has_current();
+    }
 }

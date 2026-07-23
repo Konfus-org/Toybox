@@ -9,7 +9,7 @@
 // detailed worker (update_debug_view) is an internal impl detail in src/debug/view.h.
 namespace tbx
 {
-    struct RuntimeState;
+    namespace internal { struct RuntimeState; }
 
     /// @brief
     /// Purpose: The debug overlay's state, held by value on the Runtime: its document text,

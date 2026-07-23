@@ -4,7 +4,7 @@
 #include <functional>
 
 // The public app-wide event API: on_event<E>/raise_event<E> over the running runtime. Thin wrappers —
-// they resolve the bus through tbx::current() and forward to the testable tbx::internal versions
+// they resolve the bus through tbx::internal::current() and forward to the testable tbx::internal versions
 // (events.h), which take the EventsState explicitly. Main-thread only. Scripts reach the same bus through
 // the generated tbx.events.<E>:connect / :raise bindings.
 namespace tbx
@@ -14,7 +14,7 @@ namespace tbx
     template <typename TEvent>
     Token on_event(std::function<void(const TEvent&)> handler)
     {
-        return internal::on_event<TEvent>(current().events, nullptr, std::move(handler));
+        return internal::on_event<TEvent>(internal::current().events, nullptr, std::move(handler));
     }
 
     /// @brief
@@ -22,6 +22,6 @@ namespace tbx
     template <typename TEvent>
     void raise_event(const TEvent& event)
     {
-        internal::raise_event<TEvent>(current().events, event);
+        internal::raise_event<TEvent>(internal::current().events, event);
     }
 }

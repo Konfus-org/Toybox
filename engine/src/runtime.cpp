@@ -4,12 +4,12 @@
 namespace tbx
 {
     Runtime::Runtime()
-        : state(std::make_unique<RuntimeState>())
+        : state(std::make_unique<internal::RuntimeState>())
     {
     }
 
     Runtime::Runtime(App app)
-        : state(std::make_unique<RuntimeState>())
+        : state(std::make_unique<internal::RuntimeState>())
     {
         // Parse-time command handling (-w/-h size overrides) before the window exists.
         apply_cmdline(app);

@@ -796,11 +796,11 @@ namespace tbx
 
     //// TBX TABLE ////
 
-    // The closure upvalue is the heap-stable RuntimeState (raw pointer only at this Lua C
+    // The closure upvalue is the heap-stable internal::RuntimeState (raw pointer only at this Lua C
     // boundary); the scripts module owning the VM dies before the runtime it points at.
-    static RuntimeState& bound_runtime(lua_State* lua)
+    static internal::RuntimeState& bound_runtime(lua_State* lua)
     {
-        return *static_cast<RuntimeState*>(lua_tolightuserdata(lua, lua_upvalueindex(1)));
+        return *static_cast<internal::RuntimeState*>(lua_tolightuserdata(lua, lua_upvalueindex(1)));
     }
 
     // tbx.sandbox is the scene object: its queries are called with `:` (self = the sandbox
@@ -814,7 +814,7 @@ namespace tbx
 
     static int sandbox_add(lua_State* lua)
     {
-        RuntimeState& state = bound_runtime(lua);
+        internal::RuntimeState& state = bound_runtime(lua);
         const char* name = luaL_checkstring(lua, 2);
         if (looks_like_asset_reference(name))
         {
@@ -917,7 +917,7 @@ namespace tbx
 
     static int physics_raycast(lua_State* lua)
     {
-        RuntimeState& state = bound_runtime(lua);
+        internal::RuntimeState& state = bound_runtime(lua);
         const Vec3 origin = check_vector3(lua, 1);
         const Vec3 direction = check_vector3(lua, 2);
         const auto max_distance = static_cast<float>(luaL_optnumber(lua, 3, 1000.0));
@@ -1320,7 +1320,7 @@ namespace tbx
 
     // Each event kind gets a pusher turning its POD payload into the Lua table the handler
     // receives — the mirror of the push_field_value work, but for the fixed event structs.
-    static void push_input_event(lua_State* lua, RuntimeState&, const InputEvent& event)
+    static void push_input_event(lua_State* lua, internal::RuntimeState&, const InputEvent& event)
     {
         lua_createtable(lua, 0, 3);
         lua_pushinteger(lua, static_cast<int>(event.key));
@@ -1331,7 +1331,7 @@ namespace tbx
         lua_setfield(lua, -2, "is_repeat");
     }
 
-    static void push_window_resized(lua_State* lua, RuntimeState&, const WindowResized& event)
+    static void push_window_resized(lua_State* lua, internal::RuntimeState&, const WindowResized& event)
     {
         lua_createtable(lua, 0, 2);
         lua_pushinteger(lua, event.width);
@@ -1340,7 +1340,7 @@ namespace tbx
         lua_setfield(lua, -2, "height");
     }
 
-    static void push_asset_loaded(lua_State* lua, RuntimeState&, const AssetLoaded& event)
+    static void push_asset_loaded(lua_State* lua, internal::RuntimeState&, const AssetLoaded& event)
     {
         lua_createtable(lua, 0, 2);
         lua_pushstring(lua, event.id.to_string().c_str());
@@ -1349,7 +1349,7 @@ namespace tbx
         lua_setfield(lua, -2, "extension");
     }
 
-    static void push_asset_reloaded(lua_State* lua, RuntimeState&, const AssetReloaded& event)
+    static void push_asset_reloaded(lua_State* lua, internal::RuntimeState&, const AssetReloaded& event)
     {
         lua_createtable(lua, 0, 2);
         lua_pushstring(lua, event.id.to_string().c_str());
@@ -1358,7 +1358,7 @@ namespace tbx
         lua_setfield(lua, -2, "extension");
     }
 
-    static void push_asset_unloaded(lua_State* lua, RuntimeState&, const AssetUnloaded& event)
+    static void push_asset_unloaded(lua_State* lua, internal::RuntimeState&, const AssetUnloaded& event)
     {
         lua_createtable(lua, 0, 2);
         lua_pushstring(lua, event.id.to_string().c_str());
@@ -1367,7 +1367,7 @@ namespace tbx
         lua_setfield(lua, -2, "extension");
     }
 
-    static void push_collision_event(lua_State* lua, RuntimeState& runtime, const CollisionEvent& event)
+    static void push_collision_event(lua_State* lua, internal::RuntimeState& runtime, const CollisionEvent& event)
     {
         lua_createtable(lua, 0, 2);
         push_toy(lua, runtime.sandbox, static_cast<ToyId>(event.toy_a));
@@ -1378,7 +1378,7 @@ namespace tbx
 
     static void push_input_device_connected(
         lua_State* lua,
-        RuntimeState&,
+        internal::RuntimeState&,
         const InputDeviceConnected& event)
     {
         lua_createtable(lua, 0, 1);
@@ -1388,7 +1388,7 @@ namespace tbx
 
     static void push_input_device_disconnected(
         lua_State* lua,
-        RuntimeState&,
+        internal::RuntimeState&,
         const InputDeviceDisconnected& event)
     {
         lua_createtable(lua, 0, 1);
@@ -1404,11 +1404,11 @@ namespace tbx
     static int subscribe_lua_event(
         lua_State* lua,
         Signal<TEvent>& signal,
-        void (*push_event)(lua_State*, RuntimeState&, const TEvent&))
+        void (*push_event)(lua_State*, internal::RuntimeState&, const TEvent&))
     {
         luaL_checktype(lua, 1, LUA_TFUNCTION);
         const int callback_ref = lua_ref(lua, 1); // refs the function in place (Luau: no pop)
-        RuntimeState* runtime = &bound_runtime(lua);
+        internal::RuntimeState* runtime = &bound_runtime(lua);
         signal.subscribe(
             lua,
             [lua, callback_ref, push_event, runtime](const TEvent& event)
@@ -1533,7 +1533,7 @@ namespace tbx
 
     static void register_runtime_closure(
         lua_State* lua,
-        RuntimeState& runtime,
+        internal::RuntimeState& runtime,
         const lua_CFunction function,
         const char* debug_name,
         const char* field)
@@ -1543,7 +1543,7 @@ namespace tbx
         lua_setfield(lua, -2, field);
     }
 
-    void open_tbx_bindings(lua_State* lua, RuntimeState& runtime)
+    void open_tbx_bindings(lua_State* lua, internal::RuntimeState& runtime)
     {
         // Toy metatable: __index is a closure over the method table so unknown keys fall
         // through to typed block lookup; __newindex is add-and-populate.

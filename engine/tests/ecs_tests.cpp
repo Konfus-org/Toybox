@@ -52,7 +52,7 @@ namespace tbx
     struct TestWorld
     {
         Runtime toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         std::filesystem::path root = {};
 
         TestWorld()

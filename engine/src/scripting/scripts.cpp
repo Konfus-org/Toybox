@@ -16,7 +16,7 @@ namespace tbx
     // language = a folder implementing ScriptBackend + its factory declared here.
 
 #ifdef TBX_SCRIPTING_HAS_LUAU
-    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime);
+    std::unique_ptr<ScriptBackend> make_luau_backend(internal::RuntimeState& runtime);
 #endif
 
     static std::optional<std::reference_wrapper<ScriptBackend>> route(
@@ -36,7 +36,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void initialize_scripting(RuntimeState& runtime)
+    void internal::initialize_scripting(internal::RuntimeState& runtime)
     {
         ScriptsState& state = runtime.scripts;
         if (!state.backends.empty())

@@ -25,7 +25,7 @@ namespace tbx
     // asset (so update_scripts can acquire it) and compiles it under the same id. Returns the
     // handle a Script block references, or the compile error.
     static Result<AssetHandle<ScriptSource>> given_script(
-        RuntimeState& runtime,
+        internal::RuntimeState& runtime,
         const std::string& name,
         const std::string_view source)
     {
@@ -43,20 +43,20 @@ namespace tbx
 
     // Recompiles a named script (the hot-reload path) — same id as given_script.
     static Result<void> reload_test_script(
-        RuntimeState& runtime,
+        internal::RuntimeState& runtime,
         const std::string& name,
         const std::string_view source)
     {
         return compile_script(runtime.scripts, script_id(name), name, source);
     }
 
-    // Reflection + serialization must be ready before scripting (initialize_scripting() asserts
+    // Reflection + serialization must be ready before scripting (internal::initialize_scripting() asserts
     // it); the registries are process-global and self-guarding, so this is safe to call per test.
-    static void boot(RuntimeState& runtime)
+    static void boot(internal::RuntimeState& runtime)
     {
         initialize_reflection();
         register_builtin_serializers();
-        initialize_scripting(runtime); // wires the VM backends
+        internal::initialize_scripting(runtime); // wires the VM backends
     }
 
     static constexpr const char* MOVER_SOURCE = R"(
@@ -73,7 +73,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
@@ -93,7 +93,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         boot(runtime);
 
         // Act: compilation happens at registration, so bad syntax is rejected up front.
@@ -107,7 +107,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
@@ -133,7 +133,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
@@ -154,7 +154,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto spawner = given_script(runtime, "spawner", R"(
@@ -179,7 +179,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto stepper = given_script(runtime, "stepper", R"(
@@ -208,7 +208,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto builder = given_script(runtime, "builder", R"(
@@ -238,7 +238,7 @@ end
         // first access — no register call. It is a dynamic field bag, runtime-only. The script
         // signals each step's outcome back to C++ with stickers.
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto gunner = given_script(runtime, "gunner", R"(
@@ -272,7 +272,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto mathy = given_script(runtime, "mathy", R"(
@@ -301,7 +301,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto typed = given_script(runtime, "typed", R"(
@@ -332,7 +332,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto mover = given_script(runtime, "mover", MOVER_SOURCE);
@@ -354,7 +354,7 @@ end
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         boot(runtime);
         const auto silent = given_script(runtime, "silent", "local nothing_defined = true");

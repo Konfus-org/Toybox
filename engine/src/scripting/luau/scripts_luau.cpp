@@ -36,7 +36,7 @@ namespace tbx
     class LuauBackend final : public ScriptBackend
     {
       public:
-        explicit LuauBackend(RuntimeState& runtime)
+        explicit LuauBackend(internal::RuntimeState& runtime)
             : _runtime(runtime)
         {
             _lua = luaL_newstate();
@@ -246,13 +246,13 @@ namespace tbx
         }
 
       private:
-        std::reference_wrapper<RuntimeState> _runtime;
+        std::reference_wrapper<internal::RuntimeState> _runtime;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
         std::unordered_map<Uuid, CompiledScript> _scripts_by_id;
         std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
 
-    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime)
+    std::unique_ptr<ScriptBackend> make_luau_backend(internal::RuntimeState& runtime)
     {
         return std::make_unique<LuauBackend>(runtime);
     }

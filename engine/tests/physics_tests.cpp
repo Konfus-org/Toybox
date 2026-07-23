@@ -13,7 +13,7 @@ namespace tbx
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         sandbox.add("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
@@ -36,7 +36,7 @@ namespace tbx
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         Toy wall = sandbox.add("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
@@ -54,7 +54,7 @@ namespace tbx
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         auto collisions = std::vector<std::pair<uint32, uint32>>();
         runtime.events.signal<CollisionEvent>().subscribe(
@@ -87,7 +87,7 @@ namespace tbx
     {
         // Arrange: the cube's RigidBody owns a `collided` signal that scripts connect to directly.
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         sandbox.add("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
@@ -113,7 +113,7 @@ namespace tbx
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         sandbox.add("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
@@ -133,7 +133,7 @@ namespace tbx
     {
         // Arrange
         auto toybox = Runtime();
-        RuntimeState& runtime = *toybox.state;
+        internal::RuntimeState& runtime = *toybox.state;
         Sandbox& sandbox = runtime.sandbox;
         Toy target = sandbox.add("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
