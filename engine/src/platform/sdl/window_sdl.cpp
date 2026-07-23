@@ -1,3 +1,4 @@
+#include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/platform/input.h"
@@ -45,9 +46,8 @@ namespace tbx
         SDL_WindowID id = 0;
         std::string applied_title = {};
         bool applied_vsync = false;
-        // Identity of the applied icon pixels: a re-set icon arrives as a freshly allocated
-        // vector, so the data pointer changing is a cheap change check.
-        const void* applied_icon = nullptr;
+        // The icon asset last applied — re-apply only when the handle points at a different asset.
+        Uuid applied_icon_id = {};
         CursorMode applied_cursor_mode = CursorMode::NORMAL;
         bool is_first_frame = true;
     };
@@ -74,8 +74,8 @@ namespace tbx
         ++g_backend_count; // paired with the decrement in ~Backend
         backend->window = SDL_CreateWindow(
             window.title.c_str(),
-            window.width,
-            window.height,
+            static_cast<int>(window.width),
+            static_cast<int>(window.height),
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
         if (!backend->window)
         {
@@ -100,14 +100,18 @@ namespace tbx
         SDL_GL_SetSwapInterval(is_vsync_enabled() ? 1 : 0);
         backend->applied_vsync = is_vsync_enabled();
 
-        SDL_GetWindowSizeInPixels(backend->window, &window.width, &window.height);
+        int pixel_width = 0;
+        int pixel_height = 0;
+        SDL_GetWindowSizeInPixels(backend->window, &pixel_width, &pixel_height);
+        window.width = static_cast<uint32>(pixel_width);
+        window.height = static_cast<uint32>(pixel_height);
         // Custom-pipeline hosts call begin_render_frame between run() calls without touching
         // the viewport; keep the gpu drawable mirror sized to the current window for them.
-        set_render_viewport(window.width, window.height);
+        set_render_viewport(pixel_width, pixel_height);
         window.backend = std::move(backend);
     }
 
-    static void apply_window_data(Window& window)
+    static void apply_window_data(Window& window, AssetsState& assets, EventsState& events)
     {
         Window::Backend& backend = *window.backend;
         if (window.title != backend.applied_title)
@@ -121,27 +125,35 @@ namespace tbx
             SDL_GL_SetSwapInterval(is_vsync_enabled() ? 1 : 0);
             backend.applied_vsync = is_vsync_enabled();
         }
-        if (!window.icon_pixels.empty() && window.icon_pixels.data() != backend.applied_icon
-            && window.icon_width > 0 && window.icon_height > 0
-            && window.icon_pixels.size()
-                   >= static_cast<size>(window.icon_width) * window.icon_height * 4)
+        // The icon is a Texture asset: load it (once, when the handle changes) and read its pixels
+        // here, rather than the runtime carrying a decoded pixel buffer on the window.
+        if (window.icon.is_set() && window.icon.id != backend.applied_icon_id)
         {
-            SDL_Surface* surface = SDL_CreateSurfaceFrom(
-                window.icon_width,
-                window.icon_height,
-                SDL_PIXELFORMAT_RGBA32,
-                // SDL takes a non-const pointer; the surface only reads and is destroyed
-                // below.
-                const_cast<std::byte*>(window.icon_pixels.data()),
-                window.icon_width * 4);
-            if (surface)
+            if (const auto loaded = load_asset_now(assets, events, window.icon))
             {
-                SDL_SetWindowIcon(backend.window, surface);
-                SDL_DestroySurface(surface);
+                const Texture& icon = loaded->get();
+                if (icon.width > 0 && icon.height > 0
+                    && icon.pixels.size() >= static_cast<size>(icon.width) * icon.height * 4)
+                {
+                    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+                        icon.width,
+                        icon.height,
+                        SDL_PIXELFORMAT_RGBA32,
+                        // SDL takes a non-const pointer; the surface only reads and is destroyed below.
+                        const_cast<std::byte*>(icon.pixels.data()),
+                        icon.width * 4);
+                    if (surface)
+                    {
+                        SDL_SetWindowIcon(backend.window, surface);
+                        SDL_DestroySurface(surface);
+                    }
+                    else
+                        TBX_WARN("window icon surface failed: {}", SDL_GetError());
+                }
+                backend.applied_icon_id = window.icon.id;
             }
             else
-                TBX_WARN("window icon surface failed: {}", SDL_GetError());
-            backend.applied_icon = window.icon_pixels.data();
+                TBX_WARN("window icon: {}", loaded.error());
         }
     }
 
@@ -174,7 +186,11 @@ namespace tbx
 
     //// WINDOWS ////
 
-    void internal::update_windows(WindowsState& state, InputState& input, EventsState& events)
+    void internal::update_windows(
+        WindowsState& state,
+        InputState& input,
+        EventsState& events,
+        AssetsState& assets)
     {
         for (Window& window : state.open_windows)
         {
@@ -187,7 +203,7 @@ namespace tbx
             if (!backend.is_first_frame)
                 SDL_GL_SwapWindow(backend.window);
             backend.is_first_frame = false;
-            apply_window_data(window);
+            apply_window_data(window, assets, events);
         }
         if (g_backend_count == 0)
             return; // headless — no OS windows, nothing to pump
@@ -244,8 +260,8 @@ namespace tbx
                     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                         if (const auto window = find_window(state, event.window.windowID))
                         {
-                            window->get().width = event.window.data1;
-                            window->get().height = event.window.data2;
+                            window->get().width = static_cast<uint32>(event.window.data1);
+                            window->get().height = static_cast<uint32>(event.window.data2);
                             // The engine's render loop re-sizes the gpu drawable per window;
                             // the mirror tracks the main window for custom-pipeline hosts.
                             if (&window->get() == &state.open_windows.front())

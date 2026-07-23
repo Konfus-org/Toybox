@@ -36,21 +36,9 @@ namespace tbx
             {
                 Window& window = state.windows.open_windows.front();
                 window.title = app.config.title;
-                if (app.config.icon.is_set())
-                {
-                    if (const auto icon = load_asset_now(state.assets, state.events, app.config.icon))
-                    {
-                        window.icon_width = icon->get().width;
-                        window.icon_height = icon->get().height;
-                        // A fresh vector on purpose: the backend detects a re-set icon by its
-                        // data pointer changing (assign() could reuse the old buffer).
-                        window.icon_pixels = std::vector<std::byte>(
-                            icon->get().pixels.begin(),
-                            icon->get().pixels.end());
-                    }
-                    else
-                        TBX_WARN("window icon: {}", icon.error());
-                }
+                // The icon is just the asset handle — the window backend loads it (reads its pixels)
+                // when it applies the change, so the runtime never carries a decoded icon buffer.
+                window.icon = app.config.icon;
             }
             // Settings are plain runtime state now: write the fields, the modules read them.
             // Vsync is the gpu module's request; the window backend applies it per surface.
@@ -247,7 +235,7 @@ namespace tbx
         // first so SDL is initialized before update_input pumps — it rolls the input frame and
         // then drains the remaining keyboard/mouse/controller events. The main window closing
         // stops the app; other windows just close.
-        internal::update_windows(state.windows, state.input, state.events);
+        internal::update_windows(state.windows, state.input, state.events, state.assets);
         internal::update_input(state.input, state.events);
         internal::update_jobs(state.jobs);
         internal::update_events(state.events);

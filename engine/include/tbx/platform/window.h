@@ -1,9 +1,10 @@
 #pragma once
 #include "tbx/api.h"
+#include "tbx/assets/assets.h"
 #include "tbx/events/events.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/platform/input.h"
 #include "tbx/utils/typedefs.h"
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,8 +23,9 @@ namespace tbx
     /// @brief
     /// Purpose: One window as plain data: write the fields, the next update_windows() applies them to
     /// the OS window (created lazily by the first update_windows()). width/height are the creation
-    /// size until then and the actual pixel size after — the backend writes resizes back.
-    /// Cameras aim at a window by its name. The OS handles live behind the Backend seam
+    /// size until then and the actual pixel size after — the backend writes resizes back. The icon is
+    /// an ordinary Texture asset, resolved (loaded, pixels read) by the backend when it changes.
+    /// Cameras aim at a window by its title. The OS handles live behind the Backend seam
     /// (platform/sdl/); its library types never escape that folder.
     struct TBX_DLL_EXPORT Window
     {
@@ -37,14 +39,11 @@ namespace tbx
         Window(Window&&) noexcept;
         Window& operator=(Window&&) noexcept;
 
-        std::string name = "main";
         std::string title = "Toybox";
-        int width = 1600;
-        int height = 900;
+        uint32 width = 1600;
+        uint32 height = 900;
+        AssetHandle<Texture> icon = {};
         WindowStatus status = WindowStatus::OPEN;
-        int icon_width = 0;
-        int icon_height = 0;
-        std::vector<std::byte> icon_pixels = {};
         std::unique_ptr<Backend> backend = {};
     };
 
@@ -71,10 +70,14 @@ namespace tbx
         /// @brief
         /// Purpose: Runs the windows for one frame: presents what was drawn since the last call
         /// (each window's first frame skips cleanly), materializes OS windows for new entries
-        /// (the first one brings up the shared GL context), applies changed data (title, icon,
-        /// cursor mode, and the gpu module's vsync request), and pumps OS events into the input
-        /// state and event signals. Called by tbx::run() every frame.
-        TBX_DLL_EXPORT void update_windows(WindowsState& state, InputState& input, EventsState& events);
+        /// (the first one brings up the shared GL context), applies changed data (title, icon —
+        /// loaded from its Texture asset — cursor mode, and the gpu module's vsync request), and
+        /// pumps OS events into the input state and event signals. Called by tbx::run() every frame.
+        TBX_DLL_EXPORT void update_windows(
+            WindowsState& state,
+            InputState& input,
+            EventsState& events,
+            AssetsState& assets);
 
         /// @brief
         /// Purpose: Binds the shared GL context to this window's surface — subsequent gpu calls

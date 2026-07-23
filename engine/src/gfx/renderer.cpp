@@ -331,7 +331,7 @@ namespace tbx
         // A camera aims at a window by name; an empty name means the main window.
         const auto camera_matches_window = [&context](const Camera& camera)
         {
-            return camera.window.empty() ? context.is_main : camera.window == context.window.name;
+            return camera.window.empty() ? context.is_main : camera.window == context.window.title;
         };
         bool has_any_camera = false;
         sandbox.for_each_with<Camera>(
@@ -363,8 +363,8 @@ namespace tbx
         }
         if (!frame.post_chain.empty())
         {
-            const int width = context.window.width;
-            const int height = context.window.height;
+            const int width = static_cast<int>(context.window.width);
+            const int height = static_cast<int>(context.window.height);
             if (!state.post_source || state.post_source->get_width() != width
                 || state.post_source->get_height() != height)
             {
@@ -399,7 +399,7 @@ namespace tbx
                 draw_scene(context, state);
             });
         // Sub-rect viewports are per camera; the passes after draw the full window.
-        set_render_viewport(0, 0, context.window.width, context.window.height);
+        set_render_viewport(0, 0, static_cast<int>(context.window.width), static_cast<int>(context.window.height));
     }
 
     static void render_post_pass(RenderContext& context)
@@ -504,8 +504,8 @@ namespace tbx
             return;
         RenderState& state = ready->get();
         Sandbox& sandbox = context.sandbox;
-        const int width = context.window.width;
-        const int height = context.window.height;
+        const int width = static_cast<int>(context.window.width);
+        const int height = static_cast<int>(context.window.height);
         if (!state.ui_layer_targets.empty())
         {
             const auto& first = state.ui_layer_targets.begin()->second;
@@ -627,7 +627,7 @@ namespace tbx
         // pass by pass. Lighting is hoisted here (not into a pass) so every graph — even a custom
         // one that drops the shadow or geometry pass — still has correct light data.
         internal::make_current(context.window);
-        set_render_viewport(context.window.width, context.window.height);
+        set_render_viewport(static_cast<int>(context.window.width), static_cast<int>(context.window.height));
         begin_render_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         refresh_lighting(context.renderer, context.sandbox);
         for (const RenderPass& pass : context.renderer.render_graph.passes)

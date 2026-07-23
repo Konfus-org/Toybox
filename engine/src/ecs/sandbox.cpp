@@ -77,7 +77,7 @@ namespace tbx
                 for (const Window& candidate : windows.open_windows)
                 {
                     const bool is_main = &candidate == &windows.open_windows.front();
-                    if (camera.window.empty() ? is_main : camera.window == candidate.name)
+                    if (camera.window.empty() ? is_main : camera.window == candidate.title)
                     {
                         window = &candidate;
                         break;

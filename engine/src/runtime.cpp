@@ -23,8 +23,8 @@ namespace tbx
         {
             auto window = Window();
             window.title = app.config.title;
-            window.width = app.config.width;
-            window.height = app.config.height;
+            window.width = static_cast<uint32>(app.config.width);
+            window.height = static_cast<uint32>(app.config.height);
             state->windows.open_windows.push_back(std::move(window));
         }
         state->app = std::move(app);

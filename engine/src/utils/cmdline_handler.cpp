@@ -44,7 +44,7 @@ namespace tbx
                 path.stem().string() + "_" + std::to_string(shot) + path.extension().string());
 
         internal::make_current(window);
-        set_render_viewport(window.width, window.height);
+        set_render_viewport(static_cast<int>(window.width), static_cast<int>(window.height));
         auto capture = Texture();
         if (const auto read = render_screenshot(capture); !read)
             TBX_ERROR("screenshot: {}", read.error());
