@@ -1,8 +1,8 @@
+#include "runtime_state.h"
 #include "tbx/scene.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/platform/window.h"
-#include "tbx/runtime.h"
 #include <utility>
 
 // The script-facing engine API over the running runtime. One thin layer so the SAME verbs serve C++
@@ -73,5 +73,10 @@ namespace tbx
     const std::vector<Window>& get_open_windows()
     {
         return internal::current().windows.open_windows;
+    }
+
+    EventsState& internal::event_bus()
+    {
+        return internal::current().events;
     }
 }

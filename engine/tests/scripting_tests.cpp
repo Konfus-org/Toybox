@@ -3,7 +3,7 @@
 #include "tbx/physics/rigid_body.h"
 #include "tbx/platform/keys.h"
 #include "tbx/reflection/reflection.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/scripting/source.h"
 #include "tbx/serialization/serializers.h"

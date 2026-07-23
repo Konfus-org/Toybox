@@ -1,7 +1,7 @@
 #include "tbx/audio/audio.h"
 #include "tbx/audio/clip.h"
 #include "tbx/audio/source.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include <gtest/gtest.h>
 #include <cstring>
 

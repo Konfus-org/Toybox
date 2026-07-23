@@ -1,7 +1,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/reflection/type_registration.h"
 #include "tbx/serialization/registration.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/events/events.h"
 #include "tbx/serialization/json.h"
 #include <filesystem>

@@ -5,7 +5,7 @@
 #include "tbx/debug/debugging.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/ui/ui.h"
 #include <array>

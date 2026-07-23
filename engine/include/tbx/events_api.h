@@ -14,7 +14,7 @@ namespace tbx
     template <typename TEvent>
     Token on_event(std::function<void(const TEvent&)> handler)
     {
-        return internal::on_event<TEvent>(internal::current().events, nullptr, std::move(handler));
+        return internal::on_event<TEvent>(internal::event_bus(), nullptr, std::move(handler));
     }
 
     /// @brief
@@ -22,6 +22,6 @@ namespace tbx
     template <typename TEvent>
     void raise_event(const TEvent& event)
     {
-        internal::raise_event<TEvent>(internal::current().events, event);
+        internal::raise_event<TEvent>(internal::event_bus(), event);
     }
 }

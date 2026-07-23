@@ -4,7 +4,7 @@
 #include "tbx/math/frustum.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/reflection/type_registration.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/serialization/json.h"
 #include "tbx/serialization/read_write.h"
 #include "tbx/serialization/serializers.h"

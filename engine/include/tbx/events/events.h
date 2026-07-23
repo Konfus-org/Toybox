@@ -133,6 +133,12 @@ namespace tbx
         }
 
         /// @brief
+        /// Purpose: The running runtime's event bus (tbx::internal::current().events) — the accessor the
+        /// public on_event/raise_event forward through, so events_api.h never needs the runtime pImpl's
+        /// full definition. Defined where runtime_state.h is visible. Main-thread only.
+        TBX_DLL_EXPORT EventsState& event_bus();
+
+        /// @brief
         /// Purpose: Drops every subscription registered under the given owner tag from every signal at
         /// once — the bulk teardown a language backend runs before it tears down. Generic over the bus.
         TBX_DLL_EXPORT void unsubscribe_all(EventsState& state, const void* owner);

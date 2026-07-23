@@ -6,7 +6,7 @@
 #include "tbx/gfx/texture.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/scripting/source.h"
 #include "tbx/ui/font.h"
 #include "tbx/ui/ui.h"

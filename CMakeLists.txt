@@ -64,6 +64,9 @@ endif()
 target_include_directories(tbx PUBLIC engine/include)
 # Generated registration headers (tbx/reflection.generated.h) live in the build tree.
 target_include_directories(tbx PRIVATE "${TBX_GENERATED_DIR}")
+# src/ on the include path so internal headers (runtime_state.h, *_internal.h) resolve from any TU —
+# these define the engine state kept out of the public include/ tree (see CodeStandards.md).
+target_include_directories(tbx PRIVATE engine/src)
 # Generation must finish before any tbx TU compiles (reflection.cpp/serializers.cpp include it).
 add_dependencies(tbx tbx_codegen)
 # Header-only backends contribute an include dir instead of sources.

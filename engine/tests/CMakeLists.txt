@@ -10,6 +10,8 @@ endif()
 file(GLOB TBX_TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
 add_executable(tbx_tests ${TBX_TEST_SOURCES})
 target_link_libraries(tbx_tests PRIVATE tbx GTest::gtest_main)
+# Tests drive the engine state directly, so they see the internal src/ headers (runtime_state.h).
+target_include_directories(tbx_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../src")
 target_precompile_headers(tbx_tests PRIVATE
     <string> <vector> <memory> <optional>
     <tbx_math_backend.h> <tbx_serialization_backend.h> <gtest/gtest.h>)
@@ -22,4 +24,6 @@ gtest_discover_tests(tbx_tests DISCOVERY_MODE PRE_TEST)
 # The windowed selftest runner (triangle + lit-scene pixel proofs) lives with the tests.
 add_executable(tbx_run runner/tbx_run.cpp)
 target_link_libraries(tbx_run PRIVATE tbx)
+# The windowed harness drives the engine state directly, like the tests — give it src/ internals.
+target_include_directories(tbx_run PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../src")
 tbx_copy_runtime_dlls(tbx_run)

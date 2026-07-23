@@ -1,5 +1,5 @@
 #include "tbx/debug/debugging.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "view.h"
 
 namespace tbx

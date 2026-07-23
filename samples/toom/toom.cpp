@@ -4,6 +4,7 @@
 #include "tbx/gfx/gpu.h"
 #include "tbx/reflection/reflection.h"
 #include "tbx/runtime.h"
+#include "tbx/scene.h"
 #include "tbx/serialization/read_write.h"
 #include "tbx/serialization/serializers.h"
 #include <filesystem>
@@ -37,18 +38,18 @@ int main(int argc, char** argv)
     bool streamed_room_seen = false;
 
     auto runtime = tbx::Runtime(std::move(*loaded));
+    // The game reaches the world through the free-function API (tbx::find), never the runtime state.
+    uint64 frame = 0;
     while (tbx::run(runtime))
     {
-        const uint64 frame = runtime.state->frame.index;
-        auto& sandbox = runtime.state->sandbox;
-
+        ++frame;
         if (selftest)
         {
             // The "selftest" sticker tells player.luau to run the choreography: shoot the
             // hub enemy, then sprint north until the far room streams in.
             if (frame == 1)
             {
-                auto player = sandbox.find("Player");
+                auto player = tbx::find("Player");
                 if (!player)
                 {
                     TBX_ERROR("levels/arena.box did not spawn a Player");
@@ -57,9 +58,9 @@ int main(int argc, char** argv)
                 // Fluent handle: mutators return the toy, so tagging and enabling chain.
                 player->add("selftest").set_enabled(true);
             }
-            if (auto player = sandbox.find("Player"); player && player->has("scored"))
+            if (auto player = tbx::find("Player"); player && player->has("scored"))
                 scored = true;
-            if (sandbox.find("FarFloor"))
+            if (tbx::find("FarFloor"))
                 streamed_room_seen = true;
             if (frame >= 300)
                 tbx::quit(runtime);

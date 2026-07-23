@@ -10,7 +10,7 @@
 #include <string>
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/ui/ui.h"
 #include <cstring>
 #include <lualib.h>

@@ -2,7 +2,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/reflection/reflection.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/scripting/script.h"
 #include "tbx/serialization/serializers.h"
 #include <filesystem>

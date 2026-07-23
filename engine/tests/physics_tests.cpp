@@ -1,6 +1,6 @@
 #include "tbx/app.h"
 #include "tbx/physics/physics.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/assets/assets.h"
 #include <gtest/gtest.h>
 

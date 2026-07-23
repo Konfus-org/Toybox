@@ -1,6 +1,6 @@
 #include "luau_bindings.h"
 #include "tbx/debug/log.h"
-#include "tbx/runtime.h"
+#include "runtime_state.h"
 #include "tbx/scripting/scripts.h"
 #include <cstdlib>
 #include <lua.h>

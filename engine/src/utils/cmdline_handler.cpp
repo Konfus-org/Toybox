@@ -1,3 +1,4 @@
+#include "runtime_state.h"
 #include "tbx/utils/cmdline_handler.h"
 #include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
