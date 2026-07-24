@@ -5,20 +5,25 @@
 
 namespace tbx
 {
+
+    namespace internal
+    {
+        static bool read_floats(const Json& value, const std::span<float> out)
+        {
+            if (!value.is_array() || value.size() < out.size())
+                return false;
+            for (size i = 0; i < out.size(); ++i)
+            {
+                if (!value.at(i).is_number())
+                    return false;
+                out[i] = value.at(i).get<float>();
+            }
+            return true;
+        }
+
+    }
     //// HELPERS ////
 
-    static bool read_floats(const Json& value, const std::span<float> out)
-    {
-        if (!value.is_array() || value.size() < out.size())
-            return false;
-        for (size i = 0; i < out.size(); ++i)
-        {
-            if (!value.at(i).is_number())
-                return false;
-            out[i] = value.at(i).get<float>();
-        }
-        return true;
-    }
 
     //// APPLY (backend-agnostic: reflection types the values, set_uniform does the work) ////
 
@@ -56,24 +61,24 @@ namespace tbx
                         set_shader_uniform(shader, name, value.get<bool>() ? 1 : 0);
                     break;
                 case UniformKind::VEC2:
-                    applied = read_floats(value, std::span(floats).first(2));
+                    applied = internal::read_floats(value, std::span(floats).first(2));
                     if (applied)
                         set_shader_uniform(shader, name, Vec2(floats[0], floats[1]));
                     break;
                 case UniformKind::VEC3:
-                    applied = read_floats(value, std::span(floats).first(3));
+                    applied = internal::read_floats(value, std::span(floats).first(3));
                     if (applied)
                         set_shader_uniform(shader, name, Vec3(floats[0], floats[1], floats[2]));
                     break;
                 case UniformKind::VEC4:
-                    applied = read_floats(value, std::span(floats).first(4));
+                    applied = internal::read_floats(value, std::span(floats).first(4));
                     if (applied)
                         set_shader_uniform(
                             shader, name, Vec4(floats[0], floats[1], floats[2], floats[3]));
                     break;
                 case UniformKind::MAT4:
                 {
-                    applied = read_floats(value, std::span(floats));
+                    applied = internal::read_floats(value, std::span(floats));
                     if (applied)
                     {
                         auto matrix = Mat4(1.0f);

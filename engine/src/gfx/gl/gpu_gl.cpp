@@ -13,48 +13,66 @@
 
 namespace tbx
 {
-    // Mirrors of current-context state owned by the process-global GL context —
-    // deliberately not Runtime state (main thread only, no teardown).
-    static int g_viewport_width = 0;
-    static int g_viewport_height = 0;
-    // The current pass's attachment height (UI scissor y-flip); mirrors of context
-    // state owned by the process-global GL context, deliberately not Runtime state.
-    static int g_drawable_height = 0;
-    static Color g_clear_color = {};
-    // The desired present mode; the platform backend reads it and applies the swap
-    // interval per window surface.
-    static bool g_vsync_enabled = false;
+
+    namespace internal
+    {
+        // Mirrors of current-context state owned by the process-global GL context —
+        // deliberately not Runtime state (main thread only, no teardown).
+        static int g_viewport_width = 0;
+
+        static int g_viewport_height = 0;
+
+        // The current pass's attachment height (UI scissor y-flip); mirrors of context
+        // state owned by the process-global GL context, deliberately not Runtime state.
+        static int g_drawable_height = 0;
+
+        static Color g_clear_color = {};
+
+        // The desired present mode; the platform backend reads it and applies the swap
+        // interval per window surface.
+        static bool g_vsync_enabled = false;
+
+        static Result<GLuint> compile_stage(const GLenum stage, const std::string_view source)
+        {
+            const GLuint shader = glCreateShader(stage);
+            const GLchar* text = source.data();
+            const auto length = static_cast<GLint>(source.size());
+            glShaderSource(shader, 1, &text, &length);
+            glCompileShader(shader);
+            GLint ok = GL_FALSE;
+            glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+            if (!ok)
+            {
+                char info[1024] = {};
+                glGetShaderInfoLog(shader, sizeof(info), nullptr, info);
+                glDeleteShader(shader);
+                return fail("shader compile failed: {}", info);
+            }
+            return shader;
+        }
+
+        static void clear_attachments(const Color& color)
+        {
+            g_clear_color = color;
+            glClearColor(color.r, color.g, color.b, color.a);
+            glDepthMask(GL_TRUE); // glClear respects the depth mask; a pass clear never should
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
+
+    }
 
     bool is_vsync_enabled()
     {
-        return g_vsync_enabled;
+        return internal::g_vsync_enabled;
     }
 
     void set_vsync(const bool is_enabled)
     {
-        g_vsync_enabled = is_enabled;
+        internal::g_vsync_enabled = is_enabled;
     }
 
     //// HELPERS ////
 
-    static Result<GLuint> compile_stage(const GLenum stage, const std::string_view source)
-    {
-        const GLuint shader = glCreateShader(stage);
-        const GLchar* text = source.data();
-        const auto length = static_cast<GLint>(source.size());
-        glShaderSource(shader, 1, &text, &length);
-        glCompileShader(shader);
-        GLint ok = GL_FALSE;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-        if (!ok)
-        {
-            char info[1024] = {};
-            glGetShaderInfoLog(shader, sizeof(info), nullptr, info);
-            glDeleteShader(shader);
-            return fail("shader compile failed: {}", info);
-        }
-        return shader;
-    }
 
     //// RAII RELEASES ////
 
@@ -91,25 +109,18 @@ namespace tbx
 
     //// GPU ////
 
-    static void clear_attachments(const Color& color)
-    {
-        g_clear_color = color;
-        glClearColor(color.r, color.g, color.b, color.a);
-        glDepthMask(GL_TRUE); // glClear respects the depth mask; a pass clear never should
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
 
     void begin_render_frame(const FrameDescription& description)
     {
         if (description.width > 0 && description.height > 0)
         {
-            g_viewport_width = description.width;
-            g_viewport_height = description.height;
+            internal::g_viewport_width = description.width;
+            internal::g_viewport_height = description.height;
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, g_viewport_width, g_viewport_height);
-        g_drawable_height = g_viewport_height;
-        clear_attachments(description.clear);
+        glViewport(0, 0, internal::g_viewport_width, internal::g_viewport_height);
+        internal::g_drawable_height = internal::g_viewport_height;
+        internal::clear_attachments(description.clear);
     }
 
     void begin_render_pass(const RenderPassDescription& description)
@@ -120,7 +131,7 @@ namespace tbx
             const DepthTarget& target = *description.depth_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_resolution(), target.get_resolution());
-            g_drawable_height = target.get_resolution();
+            internal::g_drawable_height = target.get_resolution();
             glDepthMask(GL_TRUE);
             glClear(GL_DEPTH_BUFFER_BIT);
             return;
@@ -130,38 +141,38 @@ namespace tbx
             const RenderTarget& target = *description.color_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_width(), target.get_height());
-            g_drawable_height = target.get_height();
+            internal::g_drawable_height = target.get_height();
         }
         else
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glViewport(0, 0, g_viewport_width, g_viewport_height);
-            g_drawable_height = g_viewport_height;
+            glViewport(0, 0, internal::g_viewport_width, internal::g_viewport_height);
+            internal::g_drawable_height = internal::g_viewport_height;
         }
         if (description.load == LoadOperation::CLEAR)
-            clear_attachments(description.clear_color);
+            internal::clear_attachments(description.clear_color);
     }
 
     void end_render_pass()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, g_viewport_width, g_viewport_height);
-        g_drawable_height = g_viewport_height;
+        glViewport(0, 0, internal::g_viewport_width, internal::g_viewport_height);
+        internal::g_drawable_height = internal::g_viewport_height;
     }
 
     Color get_render_clear_color()
     {
-        return g_clear_color;
+        return internal::g_clear_color;
     }
 
     Result<std::unique_ptr<Shader>> compile_shader(
         const std::string_view vertex_source,
         const std::string_view fragment_source)
     {
-        const auto vertex = compile_stage(GL_VERTEX_SHADER, vertex_source);
+        const auto vertex = internal::compile_stage(GL_VERTEX_SHADER, vertex_source);
         if (!vertex)
             return std::unexpected(vertex.error());
-        const auto fragment = compile_stage(GL_FRAGMENT_SHADER, fragment_source);
+        const auto fragment = internal::compile_stage(GL_FRAGMENT_SHADER, fragment_source);
         if (!fragment)
         {
             glDeleteShader(*vertex);
@@ -270,17 +281,17 @@ namespace tbx
         }
         glEnable(GL_SCISSOR_TEST);
         // UI speaks y-down; GL scissor is y-up from the bottom of the current drawable.
-        glScissor(x, g_drawable_height - (y + height), width, height);
+        glScissor(x, internal::g_drawable_height - (y + height), width, height);
     }
 
     int get_render_viewport_height()
     {
-        return g_viewport_height;
+        return internal::g_viewport_height;
     }
 
     int get_render_viewport_width()
     {
-        return g_viewport_width;
+        return internal::g_viewport_width;
     }
 
     void internal::initialize_rendering()
@@ -359,8 +370,8 @@ namespace tbx
 
     Result<void> render_screenshot(Texture& result)
     {
-        const int width = g_viewport_width;
-        const int height = g_viewport_height;
+        const int width = internal::g_viewport_width;
+        const int height = internal::g_viewport_height;
         if (width <= 0 || height <= 0)
             return fail("screenshot: no drawable is current");
         const size row_bytes = static_cast<size>(width) * 4;
@@ -389,9 +400,9 @@ namespace tbx
 
     void set_render_viewport(const int width, const int height)
     {
-        g_viewport_width = width;
-        g_viewport_height = height;
-        g_drawable_height = height;
+        internal::g_viewport_width = width;
+        internal::g_viewport_height = height;
+        internal::g_drawable_height = height;
         glViewport(0, 0, width, height);
     }
 

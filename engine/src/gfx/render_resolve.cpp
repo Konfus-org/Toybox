@@ -9,6 +9,89 @@
 
 namespace tbx
 {
+
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: The pipeline for a material's shader stages: either stage may be a custom
+        /// ShaderSource, the other falls back to the builtin pbr stage; pairs cache together.
+        static void resolve_material_shaders(
+            RenderContext& context,
+            RenderState& state,
+            const Material& material,
+            ResolvedSurface& surface)
+        {
+            if (!material.vertex.is_set() && !material.fragment.is_set())
+                return;
+            const uint64 pair_key = material.vertex.id.lo * 0x9E3779B97F4A7C15ull
+                                    ^ material.vertex.id.hi ^ ~material.fragment.id.lo
+                                    ^ material.fragment.id.hi * 3ull;
+            const auto cached = state.pipelines_by_shader_pair.find(pair_key);
+            if (cached != state.pipelines_by_shader_pair.end())
+            {
+                if (!cached->second.shader)
+                {
+                    surface.failure = RenderFailure::SHADER_COMPILE;
+                    return;
+                }
+                surface.shader = *cached->second.shader;
+                surface.pipeline = *cached->second.pipeline;
+                return;
+            }
+
+            auto vertex_text = std::string();
+            auto fragment_text = std::string();
+            if (material.vertex.is_set())
+            {
+                const auto source = load_now(context.assets, context.events, material.vertex);
+                if (!source)
+                {
+                    warn_once(state, material.vertex.id, "material vertex shader: " + source.error());
+                    surface.failure = RenderFailure::SHADER_COMPILE;
+                    state.pipelines_by_shader_pair[pair_key] = {};
+                    return;
+                }
+                vertex_text = source->get().text;
+            }
+            else
+                vertex_text = state.pbr_vertex_text;
+            if (material.fragment.is_set())
+            {
+                const auto source = load_now(context.assets, context.events, material.fragment);
+                if (!source)
+                {
+                    warn_once(
+                        state,
+                        material.fragment.id,
+                        "material fragment shader: " + source.error());
+                    surface.failure = RenderFailure::SHADER_COMPILE;
+                    state.pipelines_by_shader_pair[pair_key] = {};
+                    return;
+                }
+                fragment_text = source->get().text;
+            }
+            else
+                fragment_text = state.pbr_fragment_text;
+
+            auto compiled = compile_shader(vertex_text, fragment_text);
+            if (!compiled)
+            {
+                warn_once(
+                    state,
+                    material.fragment.is_set() ? material.fragment.id : material.vertex.id,
+                    "material shader failed: " + compiled.error());
+                surface.failure = RenderFailure::SHADER_COMPILE;
+                state.pipelines_by_shader_pair[pair_key] = {};
+                return;
+            }
+            auto& entry = state.pipelines_by_shader_pair[pair_key];
+            entry.shader = std::move(*compiled);
+            entry.pipeline = make_render_pipeline({.shader = *entry.shader});
+            surface.shader = *entry.shader;
+            surface.pipeline = *entry.pipeline;
+        }
+
+    }
     //// FAILURE FEEDBACK ////
 
     void warn_once(RenderState& state, const Uuid& id, const std::string& message)
@@ -19,84 +102,6 @@ namespace tbx
 
     //// ASSET RESOLUTION ////
 
-    /// @brief
-    /// Purpose: The pipeline for a material's shader stages: either stage may be a custom
-    /// ShaderSource, the other falls back to the builtin pbr stage; pairs cache together.
-    static void resolve_material_shaders(
-        RenderContext& context,
-        RenderState& state,
-        const Material& material,
-        ResolvedSurface& surface)
-    {
-        if (!material.vertex.is_set() && !material.fragment.is_set())
-            return;
-        const uint64 pair_key = material.vertex.id.lo * 0x9E3779B97F4A7C15ull
-                                ^ material.vertex.id.hi ^ ~material.fragment.id.lo
-                                ^ material.fragment.id.hi * 3ull;
-        const auto cached = state.pipelines_by_shader_pair.find(pair_key);
-        if (cached != state.pipelines_by_shader_pair.end())
-        {
-            if (!cached->second.shader)
-            {
-                surface.failure = RenderFailure::SHADER_COMPILE;
-                return;
-            }
-            surface.shader = *cached->second.shader;
-            surface.pipeline = *cached->second.pipeline;
-            return;
-        }
-
-        auto vertex_text = std::string();
-        auto fragment_text = std::string();
-        if (material.vertex.is_set())
-        {
-            const auto source = load_now(context.assets, context.events, material.vertex);
-            if (!source)
-            {
-                warn_once(state, material.vertex.id, "material vertex shader: " + source.error());
-                surface.failure = RenderFailure::SHADER_COMPILE;
-                state.pipelines_by_shader_pair[pair_key] = {};
-                return;
-            }
-            vertex_text = source->get().text;
-        }
-        else
-            vertex_text = state.pbr_vertex_text;
-        if (material.fragment.is_set())
-        {
-            const auto source = load_now(context.assets, context.events, material.fragment);
-            if (!source)
-            {
-                warn_once(
-                    state,
-                    material.fragment.id,
-                    "material fragment shader: " + source.error());
-                surface.failure = RenderFailure::SHADER_COMPILE;
-                state.pipelines_by_shader_pair[pair_key] = {};
-                return;
-            }
-            fragment_text = source->get().text;
-        }
-        else
-            fragment_text = state.pbr_fragment_text;
-
-        auto compiled = compile_shader(vertex_text, fragment_text);
-        if (!compiled)
-        {
-            warn_once(
-                state,
-                material.fragment.is_set() ? material.fragment.id : material.vertex.id,
-                "material shader failed: " + compiled.error());
-            surface.failure = RenderFailure::SHADER_COMPILE;
-            state.pipelines_by_shader_pair[pair_key] = {};
-            return;
-        }
-        auto& entry = state.pipelines_by_shader_pair[pair_key];
-        entry.shader = std::move(*compiled);
-        entry.pipeline = make_render_pipeline({.shader = *entry.shader});
-        surface.shader = *entry.shader;
-        surface.pipeline = *entry.pipeline;
-    }
 
     ResolvedMesh resolve_mesh(RenderContext& context, RenderState& state, const Renderer& renderer)
     {
@@ -220,7 +225,7 @@ namespace tbx
             else
                 surface.roughness_map = roughness_map.texture;
         }
-        resolve_material_shaders(context, state, resolved, surface);
+        internal::resolve_material_shaders(context, state, resolved, surface);
         return surface;
     }
 

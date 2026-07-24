@@ -6,45 +6,50 @@
 
 namespace tbx
 {
+
+    namespace internal
+    {
+        /// @brief
+        /// Purpose: Back-compat: an older .kit stored nested kits in a separate "kits" array of
+        /// {reference, position/rotation/scale}. Read each as a toy wearing a KitInstance block
+        /// positioned by its transform — the same shape serialize_kit now emits. Files migrate to the
+        /// new form on their next save.
+        static void read_legacy_references(Kit& kit, const Json& body)
+        {
+            for (const Json& entry : body.value("kits", Json::array()))
+            {
+                Toy toy = kit.add("KitReference");
+                auto& transform = toy.get_transform();
+                if (entry.contains("position"))
+                    transform.position = Vec3(
+                        entry["position"].at(0).get<float>(),
+                        entry["position"].at(1).get<float>(),
+                        entry["position"].at(2).get<float>());
+                if (entry.contains("rotation"))
+                    transform.rotation = Quat(
+                        entry["rotation"].at(3).get<float>(), // w (stored [x, y, z, w])
+                        entry["rotation"].at(0).get<float>(),
+                        entry["rotation"].at(1).get<float>(),
+                        entry["rotation"].at(2).get<float>());
+                if (entry.contains("scale"))
+                    transform.scale = Vec3(
+                        entry["scale"].at(0).get<float>(),
+                        entry["scale"].at(1).get<float>(),
+                        entry["scale"].at(2).get<float>());
+                auto text = entry.value("reference", std::string());
+                auto stripped = text;
+                std::erase(stripped, '-');
+                const Uuid uuid = Uuid::parse(stripped);
+                toy.with(
+                    KitInstance {
+                        .kit = uuid.is_valid() ? AssetHandle<Kit>(uuid)
+                                               : AssetHandle<Kit>(std::move(text))});
+            }
+        }
+
+    }
     //// JSON BOUNDARY ////
 
-    /// @brief
-    /// Purpose: Back-compat: an older .kit stored nested kits in a separate "kits" array of
-    /// {reference, position/rotation/scale}. Read each as a toy wearing a KitInstance block
-    /// positioned by its transform — the same shape serialize_kit now emits. Files migrate to the
-    /// new form on their next save.
-    static void read_legacy_references(Kit& kit, const Json& body)
-    {
-        for (const Json& entry : body.value("kits", Json::array()))
-        {
-            Toy toy = kit.add("KitReference");
-            auto& transform = toy.get_transform();
-            if (entry.contains("position"))
-                transform.position = Vec3(
-                    entry["position"].at(0).get<float>(),
-                    entry["position"].at(1).get<float>(),
-                    entry["position"].at(2).get<float>());
-            if (entry.contains("rotation"))
-                transform.rotation = Quat(
-                    entry["rotation"].at(3).get<float>(), // w (stored [x, y, z, w])
-                    entry["rotation"].at(0).get<float>(),
-                    entry["rotation"].at(1).get<float>(),
-                    entry["rotation"].at(2).get<float>());
-            if (entry.contains("scale"))
-                transform.scale = Vec3(
-                    entry["scale"].at(0).get<float>(),
-                    entry["scale"].at(1).get<float>(),
-                    entry["scale"].at(2).get<float>());
-            auto text = entry.value("reference", std::string());
-            auto stripped = text;
-            std::erase(stripped, '-');
-            const Uuid uuid = Uuid::parse(stripped);
-            toy.with(
-                KitInstance {
-                    .kit = uuid.is_valid() ? AssetHandle<Kit>(uuid)
-                                           : AssetHandle<Kit>(std::move(text))});
-        }
-    }
 
     //// DISK BOUNDARY (the registered serializer functions) ////
 
@@ -64,7 +69,7 @@ namespace tbx
         {
             if (auto toys = deserialize_toys(kit, body.value("toys", Json::array())); !toys)
                 return std::unexpected(toys.error());
-            read_legacy_references(kit, body); // older .kit "kits" array, if any
+            internal::read_legacy_references(kit, body); // older .kit "kits" array, if any
             const auto bounds = body.value("bounds", Json::object());
             if (bounds.contains("center"))
                 kit.bounds_center = Vec3(

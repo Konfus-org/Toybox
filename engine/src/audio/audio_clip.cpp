@@ -4,21 +4,27 @@
 
 namespace tbx
 {
+
+    namespace internal
+    {
+        static uint32 read_u32(const std::byte* at)
+        {
+            uint32 value = 0;
+            std::memcpy(&value, at, sizeof(value));
+            return value;
+        }
+
+        static uint16 read_u16(const std::byte* at)
+        {
+            uint16 value = 0;
+            std::memcpy(&value, at, sizeof(value));
+            return value;
+        }
+
+    }
     //// WAV PARSING ////
 
-    static uint32 read_u32(const std::byte* at)
-    {
-        uint32 value = 0;
-        std::memcpy(&value, at, sizeof(value));
-        return value;
-    }
 
-    static uint16 read_u16(const std::byte* at)
-    {
-        uint16 value = 0;
-        std::memcpy(&value, at, sizeof(value));
-        return value;
-    }
 
     Result<AudioClip> parse_wav(const std::span<const std::byte> bytes)
     {
@@ -36,17 +42,17 @@ namespace tbx
         while (offset + 8 <= bytes.size())
         {
             const std::byte* chunk = bytes.data() + offset;
-            const uint32 chunk_size = read_u32(chunk + 4);
+            const uint32 chunk_size = internal::read_u32(chunk + 4);
             const std::byte* payload = chunk + 8;
             if (offset + 8 + chunk_size > bytes.size())
                 return fail("truncated WAV chunk");
 
             if (std::memcmp(chunk, "fmt ", 4) == 0 && chunk_size >= 16)
             {
-                format = read_u16(payload);
-                clip.channels = read_u16(payload + 2);
-                clip.sample_rate = static_cast<int>(read_u32(payload + 4));
-                bits_per_sample = read_u16(payload + 14);
+                format = internal::read_u16(payload);
+                clip.channels = internal::read_u16(payload + 2);
+                clip.sample_rate = static_cast<int>(internal::read_u32(payload + 4));
+                bits_per_sample = internal::read_u16(payload + 14);
                 has_format = true;
             }
             else if (std::memcmp(chunk, "data", 4) == 0)
