@@ -147,6 +147,7 @@ namespace tbx
     /// @brief
     /// Purpose: Whether a toy is a kit instance's regenerated content (an ancestor wears a
     /// KitInstance block) — such toys are rebuilt on instantiation, so they are not written.
+    namespace internal {
     static bool is_kit_content(Registry& registry, const ToyId id)
     {
         const auto* info = registry.try_get<ToyInfo>(id);
@@ -171,6 +172,7 @@ namespace tbx
         std::erase(text, '-');
         return Uuid::parse(text);
     }
+    }
 
     Json serialize_toys(const ToyContainer& container)
     {
@@ -178,7 +180,7 @@ namespace tbx
         auto toys = Json::array();
         for (const auto [id, info] : registry.view<ToyInfo>().each())
         {
-            if (is_kit_content(registry, id))
+            if (internal::is_kit_content(registry, id))
                 continue;
             auto toy_json = Json::object();
             toy_json["uuid"] = info.uuid.to_string();
@@ -214,7 +216,7 @@ namespace tbx
             const ToyId id = registry.create();
             auto info = ToyInfo {};
             info.uuid =
-                toy_json.contains("uuid") ? parse_toy_uuid(toy_json["uuid"]) : Uuid::generate();
+                toy_json.contains("uuid") ? internal::parse_toy_uuid(toy_json["uuid"]) : Uuid::generate();
             info.name = toy_json.value("name", std::string("Toy"));
             info.is_enabled = toy_json.value("is_enabled", true);
             if (toy_json.contains("stickers"))
@@ -225,7 +227,7 @@ namespace tbx
             if (const Uuid uuid = registry.get<ToyInfo>(id).uuid; uuid.is_valid())
                 by_uuid[uuid] = id;
             if (toy_json.contains("parent"))
-                parent_links.emplace_back(id, parse_toy_uuid(toy_json["parent"]));
+                parent_links.emplace_back(id, internal::parse_toy_uuid(toy_json["parent"]));
 
             for (const Json& block_json : toy_json.value("blocks", Json::array()))
             {

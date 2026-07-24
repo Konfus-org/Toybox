@@ -11,6 +11,8 @@
 
 namespace tbx
 {
+    namespace internal
+    {
     /// @brief
     /// Purpose: Fire-and-forget coroutine shell: starts immediately and self-destroys at the
     /// end, so the wrapped Task outlives the caller without anyone holding it.
@@ -150,7 +152,7 @@ namespace tbx
 
     //// BOUNDARY ////
 
-    void internal::update_jobs(JobsState& state)
+    void update_jobs(JobsState& state)
     {
         std::vector<std::function<void()>> jobs;
         {
@@ -161,10 +163,11 @@ namespace tbx
         for (auto& job : jobs)
             job();
     }
+    } // namespace internal
 
     size get_worker_count(JobsState& jobs)
     {
-        return ensure_jobs_ready(jobs).workers.size();
+        return internal::ensure_jobs_ready(jobs).workers.size();
     }
 
     ScheduleOn on_main(JobsState& jobs)
@@ -181,7 +184,7 @@ namespace tbx
     {
         if (count == 0)
             return;
-        JobsState& jobs = ensure_jobs_ready(pool);
+        JobsState& jobs = internal::ensure_jobs_ready(pool);
         const size helpers = jobs.workers.size();
         if (count == 1 || helpers == 0)
         {
@@ -190,35 +193,35 @@ namespace tbx
             return;
         }
 
-        auto state = std::make_shared<ParallelForState>();
+        auto state = std::make_shared<internal::ParallelForState>();
         state->action = action;
         state->count = count;
         state->chunk = std::max<size>(1, count / ((helpers + 1) * 4));
 
         for (size i = 0; i < helpers; ++i)
-            post_worker_to(
+            internal::post_worker_to(
                 jobs,
                 [state]
                 {
-                    run_parallel_chunks(state);
+                    internal::run_parallel_chunks(state);
                 });
-        run_parallel_chunks(state); // the calling thread participates — safe from a worker too
+        internal::run_parallel_chunks(state); // the calling thread participates — safe from a worker too
         state->finished.acquire();
     }
 
     void post_main(JobsState& jobs, std::function<void()> job)
     {
-        post_main_to(ensure_jobs_ready(jobs), std::move(job));
+        internal::post_main_to(internal::ensure_jobs_ready(jobs), std::move(job));
     }
 
     void post_worker(JobsState& jobs, std::function<void()> job)
     {
-        post_worker_to(ensure_jobs_ready(jobs), std::move(job));
+        internal::post_worker_to(internal::ensure_jobs_ready(jobs), std::move(job));
     }
 
     void start_detached(Task<void> task)
     {
-        run_detached(std::move(task));
+        internal::run_detached(std::move(task));
     }
 
     JobsState::~JobsState()
@@ -231,16 +234,16 @@ namespace tbx
 
     void ScheduleOn::await_suspend(std::coroutine_handle<> handle) const
     {
-        JobsState& pool = ensure_jobs_ready(jobs.get());
+        JobsState& pool = internal::ensure_jobs_ready(jobs.get());
         if (resume_on_main)
-            post_main_to(
+            internal::post_main_to(
                 pool,
                 [handle]
                 {
                     handle.resume();
                 });
         else
-            post_worker_to(
+            internal::post_worker_to(
                 pool,
                 [handle]
                 {

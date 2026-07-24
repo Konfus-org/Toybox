@@ -6,17 +6,20 @@ namespace tbx
 {
     //// HELPERS ////
 
-    static uint64 random_seed()
+    namespace internal
     {
-        auto device = std::random_device();
-        return (static_cast<uint64>(device()) << 32) ^ device();
+        static uint64 random_seed()
+        {
+            auto device = std::random_device();
+            return (static_cast<uint64>(device()) << 32) ^ device();
+        }
     }
 
     //// UUID ////
 
     Uuid Uuid::generate()
     {
-        thread_local std::mt19937_64 rng(random_seed());
+        thread_local std::mt19937_64 rng(internal::random_seed());
         auto id = Uuid {.hi = rng(), .lo = rng()};
         if (!id.is_valid())
             id.lo = 1;

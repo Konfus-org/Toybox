@@ -11,7 +11,7 @@ namespace tbx
     // Dedicated idempotency latch. Do NOT infer "already ran" from registry emptiness:
     // a caller may register_serializer<T>() before us and pre-populate the registry, which
     // would fool an emptiness check into skipping the generated builtins entirely.
-    static bool g_serializers_initialized = false;
+    namespace internal { static bool g_serializers_initialized = false; }
 
     void internal::register_builtin_serializers()
     {

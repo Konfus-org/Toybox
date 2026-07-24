@@ -7,7 +7,7 @@ namespace tbx
     // Dedicated idempotency latch. Do NOT infer "already ran" from registry emptiness:
     // a caller may register_type<T>() before us and pre-populate the registry, which would
     // fool an emptiness check into skipping the generated builtins entirely.
-    static bool g_reflection_initialized = false;
+    namespace internal { static bool g_reflection_initialized = false; }
 
     void internal::initialize_reflection()
     {
