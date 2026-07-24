@@ -11,11 +11,14 @@
 
 namespace tbx
 {
+    namespace internal
+    {
     // One shared GL context serves every window (SDL makes it current against any of them):
     // created with the first backend, destroyed when the last backend dies. GL-context
     // mirrors are the sanctioned mutable process statics.
     static SDL_GLContext g_gl_context = nullptr;
     static int g_backend_count = 0;
+    }
 
     /// @brief
     /// Purpose: SDL-side window handles; live behind the Window::Backend seam so SDL types
@@ -29,13 +32,13 @@ namespace tbx
         {
             if (window)
                 SDL_DestroyWindow(window);
-            --g_backend_count;
-            if (g_backend_count == 0)
+            --internal::g_backend_count;
+            if (internal::g_backend_count == 0)
             {
-                if (g_gl_context)
+                if (internal::g_gl_context)
                 {
-                    SDL_GL_DestroyContext(g_gl_context);
-                    g_gl_context = nullptr;
+                    SDL_GL_DestroyContext(internal::g_gl_context);
+                    internal::g_gl_context = nullptr;
                 }
                 SDL_Quit();
             }
@@ -57,9 +60,11 @@ namespace tbx
 
     //// BACKEND LIFECYCLE ////
 
+    namespace internal
+    {
     static void open_backend(Window& window)
     {
-        if (g_backend_count == 0)
+        if (internal::g_backend_count == 0)
         {
             if (!SDL_Init(SDL_INIT_VIDEO))
             {
@@ -74,7 +79,7 @@ namespace tbx
         }
 
         auto backend = std::make_unique<Window::Backend>();
-        ++g_backend_count; // paired with the decrement in ~Backend
+        ++internal::g_backend_count; // paired with the decrement in ~Backend
         // The window's mode folds into the creation flags — cheaper and flicker-free vs. creating a
         // plain window and toggling it right after.
         SDL_WindowFlags mode_flags = 0;
@@ -96,17 +101,17 @@ namespace tbx
         backend->applied_title = window.title;
         backend->applied_mode = window.mode;
 
-        if (!g_gl_context)
+        if (!internal::g_gl_context)
         {
-            g_gl_context = SDL_GL_CreateContext(backend->window);
-            if (!g_gl_context)
+            internal::g_gl_context = SDL_GL_CreateContext(backend->window);
+            if (!internal::g_gl_context)
             {
                 TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
                 std::abort();
             }
             internal::initialize_rendering();
         }
-        SDL_GL_MakeCurrent(backend->window, g_gl_context);
+        SDL_GL_MakeCurrent(backend->window, internal::g_gl_context);
         // The swap interval sticks per window surface, not per context.
         SDL_GL_SetSwapInterval(is_vsync_enabled() ? 1 : 0);
         backend->applied_vsync = is_vsync_enabled();
@@ -132,7 +137,7 @@ namespace tbx
         }
         if (is_vsync_enabled() != backend.applied_vsync)
         {
-            SDL_GL_MakeCurrent(backend.window, g_gl_context);
+            SDL_GL_MakeCurrent(backend.window, internal::g_gl_context);
             SDL_GL_SetSwapInterval(is_vsync_enabled() ? 1 : 0);
             backend.applied_vsync = is_vsync_enabled();
         }
@@ -173,9 +178,12 @@ namespace tbx
                 TBX_WARN("window icon: {}", loaded.error());
         }
     }
+    }
 
     //// EVENT ROUTING ////
 
+    namespace internal
+    {
     static std::optional<std::reference_wrapper<Window>> find_window(
         WindowsState& state,
         const SDL_WindowID id)
@@ -192,6 +200,7 @@ namespace tbx
         // shared GL context (and every GPU cache above it) must outlive this frame.
         window.status = WindowStatus::CLOSED;
         SDL_HideWindow(window.backend->window);
+    }
     }
 
     //// WINDOW ////
@@ -222,7 +231,7 @@ namespace tbx
             backend.is_first_frame = false;
             apply_window_data(window, assets, events);
         }
-        if (g_backend_count == 0)
+        if (internal::g_backend_count == 0)
             return; // headless — no OS windows, nothing to pump
 
         // Gameplay asks for a cursor mode through input; the main window owns the OS cursor.
@@ -299,6 +308,6 @@ namespace tbx
     void internal::make_current(const Window& window)
     {
         if (window.backend)
-            SDL_GL_MakeCurrent(window.backend->window, g_gl_context);
+            SDL_GL_MakeCurrent(window.backend->window, internal::g_gl_context);
     }
 }

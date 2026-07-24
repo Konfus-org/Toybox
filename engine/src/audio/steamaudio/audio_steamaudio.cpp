@@ -18,8 +18,11 @@
 
 namespace tbx
 {
+    namespace internal
+    {
     static constexpr int SAMPLE_RATE = 48000;
     static constexpr int FRAME_SIZE = 1024;
+    }
 
     /// @brief
     /// Purpose: Deleter for the Steam Audio binaural effect C handle — release lives here
@@ -90,6 +93,8 @@ namespace tbx
 
     //// DSP (audio thread) ////
 
+    namespace internal
+    {
     static void mix_block(AudioState& audio, const int frame_count)
     {
         AudioState::Backend& state = *audio.backend;
@@ -166,9 +171,12 @@ namespace tbx
             remaining_bytes -= block_bytes;
         }
     }
+    }
 
     //// SETUP ////
 
+    namespace internal
+    {
     static std::optional<std::reference_wrapper<AudioState::Backend>> ensure_audio_ready(
         AudioState& audio)
     {
@@ -221,6 +229,7 @@ namespace tbx
                 TBX_WARN("no audio playback device ({}); spatializer runs silent", SDL_GetError());
         }
         return backend;
+    }
     }
 
     //// BOUNDARY ////

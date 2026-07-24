@@ -10,11 +10,16 @@
 
 namespace tbx
 {
+    namespace internal
+    {
     static constexpr const char* TYPE_KEY = "type";
     static constexpr const char* VERSION_KEY = "version";
+    }
 
     //// FIELD IO ////
 
+    namespace internal
+    {
     static Json write_field(const FieldInfo& field, const std::byte* object)
     {
         const std::byte* at = object + field.offset;
@@ -266,19 +271,20 @@ namespace tbx
         }
         return fail("field '{}' has an unknown kind", field.name);
     }
+    }
 
     //// WALKER ////
 
     Json json_write(const TypeInfo& type, const std::byte* object)
     {
         auto data = Json::object();
-        data[TYPE_KEY] = type.name;
-        data[VERSION_KEY] = type.version;
+        data[internal::TYPE_KEY] = type.name;
+        data[internal::VERSION_KEY] = type.version;
         for (const FieldInfo& field : type.fields)
         {
             if (!field.is_serialized)
                 continue; // reflected-only field ([[tbx::do_not_serialize]]) — never hits disk
-            data[field.name] = write_field(field, object);
+            data[field.name] = internal::write_field(field, object);
         }
         return data;
     }
@@ -289,7 +295,7 @@ namespace tbx
             return fail("'{}' data is not a JSON object", type.name);
 
         // Read straight from the caller's document; only a migration needs a mutable copy.
-        const uint32 stored_version = data.value(VERSION_KEY, 1u);
+        const uint32 stored_version = data.value(internal::VERSION_KEY, 1u);
         const bool needs_migration = stored_version < type.version;
         auto migrated = Json();
         if (needs_migration)
@@ -314,7 +320,7 @@ namespace tbx
                 continue; // missing fields keep their current values
             try
             {
-                auto result = read_field(field, object, *it);
+                auto result = internal::read_field(field, object, *it);
                 if (!result)
                     return result;
             }
@@ -331,6 +337,8 @@ namespace tbx
 {
     //// DISK BOUNDARY (read_write.h) ////
 
+    namespace internal
+    {
     /// @brief
     /// Purpose: Loads and validates one JSON document from disk.
     static Result<Json> parse_json_file(const std::filesystem::path& path)
@@ -342,6 +350,7 @@ namespace tbx
             return fail("'{}' is not valid JSON", path.string());
         return Json::parse(*text);
     }
+    }
 
     Result<void> deserialize_meta_fields(
         const std::filesystem::path& path,
@@ -352,14 +361,14 @@ namespace tbx
         const auto meta_path = std::filesystem::path(path.string() + ".meta");
         if (!std::filesystem::exists(meta_path))
             return ok(); // no sidecar: the routed fields keep their defaults
-        auto sidecar = parse_json_file(meta_path);
+        auto sidecar = internal::parse_json_file(meta_path);
         if (!sidecar)
             return std::unexpected(sidecar.error());
         // Only the routed fields read from the sidecar; its identity fields (id/version/type)
         // belong to the asset system, so a fresh subset stamped with the schema version keeps
         // migration out of the picture.
         auto subset = Json::object();
-        subset[VERSION_KEY] = type.version;
+        subset[internal::VERSION_KEY] = type.version;
         for (const std::string& name : meta_fields)
             if (sidecar->contains(name))
                 subset[name] = sidecar->at(name);
@@ -378,7 +387,7 @@ namespace tbx
         auto sidecar = Json::object();
         if (std::filesystem::exists(meta_path))
         {
-            auto existing = parse_json_file(meta_path);
+            auto existing = internal::parse_json_file(meta_path);
             if (!existing)
                 return std::unexpected(existing.error());
             if (existing->is_object())
@@ -397,7 +406,7 @@ namespace tbx
         std::byte* object,
         std::span<const std::string> meta_fields)
     {
-        const auto data = parse_json_file(path);
+        const auto data = internal::parse_json_file(path);
         if (!data)
             return std::unexpected(data.error());
         if (auto loaded = json_read(type, object, *data); !loaded)

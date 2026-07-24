@@ -191,6 +191,8 @@ namespace tbx
     UiState::UiState(UiState&& other) noexcept = default;
     UiState& UiState::operator=(UiState&& other) noexcept = default;
 
+    namespace internal
+    {
     static constexpr uint64 UNDRAWN_FRAMES_BEFORE_CLOSE = 600;
 
     static std::optional<std::reference_wrapper<UiState::Backend>> ensure_ui_ready(
@@ -213,9 +215,12 @@ namespace tbx
         ui_state.backend = std::move(state);
         return *ui_state.backend;
     }
+    }
 
     //// BINDINGS ////
 
+    namespace internal
+    {
     /// @brief
     /// Purpose: Resolves a document slot to its value — the owning block's own bindings win,
     /// then the global map (engine slots: world-anchor labels, debug overlay). Null when unbound.
@@ -304,11 +309,14 @@ namespace tbx
             }
         }
         for (int child = 0; child < element->GetNumChildren(); ++child)
-            apply_bindings(local, state, element->GetChild(child));
+            internal::apply_bindings(local, state, element->GetChild(child));
+    }
     }
 
     //// DRAW ////
 
+    namespace internal
+    {
     /// @brief
     /// Purpose: The cached (context, document) pair for one document at one drawable size,
     /// created on first draw.
@@ -390,6 +398,7 @@ namespace tbx
         state.renderer.white_texture = state.white.get();
         return true;
     }
+    }
 
     //// BOUNDARY ////
 
@@ -399,14 +408,14 @@ namespace tbx
         const RenderTarget& target,
         const UI* owner)
     {
-        const auto ready = ensure_ui_ready(ui_state);
+        const auto ready = internal::ensure_ui_ready(ui_state);
         if (!ready)
             return;
         UiState::Backend* state = &ready->get();
-        if (!ensure_ui_pipeline(*state))
+        if (!internal::ensure_ui_pipeline(*state))
             return;
 
-        // Evaluate the owning block's live getters once for this draw; apply_bindings resolves a
+        // Evaluate the owning block's live getters once for this draw; internal::apply_bindings resolves a
         // slot from these before the global map. The debug overlay (no owner) sees only globals.
         auto local = std::unordered_map<std::string, std::string> {};
         if (owner)
@@ -426,10 +435,10 @@ namespace tbx
             Vec2(static_cast<float>(target.get_width()), static_cast<float>(target.get_height())));
         const uint64 key = hash(std::string_view(document.text));
         if (DocumentEntry* cached =
-                ensure_document(*state, document, key, target.get_width(), target.get_height()))
+                internal::ensure_document(*state, document, key, target.get_width(), target.get_height()))
         {
             cached->last_drawn_frame = state->frame;
-            apply_bindings(local, ui_state, cached->document);
+            internal::apply_bindings(local, ui_state, cached->document);
             cached->context->Update();
             cached->context->Render();
         }
@@ -439,7 +448,7 @@ namespace tbx
 
     void set_font(UiState& ui_state, const Font& font, const std::string& family)
     {
-        const auto ready = ensure_ui_ready(ui_state);
+        const auto ready = internal::ensure_ui_ready(ui_state);
         if (!ready)
             return;
         UiState::Backend* state = &ready->get();
@@ -469,7 +478,7 @@ namespace tbx
 
     void internal::update_ui(UiState& ui_state, const float delta_time)
     {
-        // Live bindings feed their slots once per frame; apply_bindings diffs per element.
+        // Live bindings feed their slots once per frame; internal::apply_bindings diffs per element.
         for (const auto& [name, binding] : ui_state.live_bindings)
             if (binding.source)
                 ui_state.bindings[binding.name] = binding.source();

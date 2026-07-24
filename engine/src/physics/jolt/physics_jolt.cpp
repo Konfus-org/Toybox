@@ -38,9 +38,12 @@ namespace tbx
 {
     //// LAYERS ////
 
+    namespace internal
+    {
     static constexpr JPH::ObjectLayer LAYER_NON_MOVING = 0;
     static constexpr JPH::ObjectLayer LAYER_MOVING = 1;
     static constexpr uint LAYER_COUNT = 2;
+    }
 
     /// @brief
     /// Purpose: Maps object layers onto Jolt broadphase layers (1:1 — two layers is plenty).
@@ -49,7 +52,7 @@ namespace tbx
       public:
         JPH::uint GetNumBroadPhaseLayers() const override
         {
-            return LAYER_COUNT;
+            return internal::LAYER_COUNT;
         }
 
         JPH::BroadPhaseLayer GetBroadPhaseLayer(const JPH::ObjectLayer layer) const override
@@ -73,7 +76,7 @@ namespace tbx
         bool ShouldCollide(const JPH::ObjectLayer layer, const JPH::BroadPhaseLayer broadphase)
             const override
         {
-            return layer == LAYER_MOVING || broadphase == JPH::BroadPhaseLayer(LAYER_MOVING);
+            return layer == internal::LAYER_MOVING || broadphase == JPH::BroadPhaseLayer(internal::LAYER_MOVING);
         }
     };
 
@@ -84,7 +87,7 @@ namespace tbx
       public:
         bool ShouldCollide(const JPH::ObjectLayer a, const JPH::ObjectLayer b) const override
         {
-            return a == LAYER_MOVING || b == LAYER_MOVING;
+            return a == internal::LAYER_MOVING || b == internal::LAYER_MOVING;
         }
     };
 
@@ -150,6 +153,8 @@ namespace tbx
     PhysicsState::PhysicsState() = default;
     PhysicsState::~PhysicsState() = default;
 
+    namespace internal
+    {
     static PhysicsState::Simulation& ensure_simulation(PhysicsState& state)
     {
         // Jolt's allocator/factory/type registration is inherently process-global; it is set
@@ -167,9 +172,12 @@ namespace tbx
             state.simulation = std::make_unique<PhysicsState::Simulation>();
         return *state.simulation;
     }
+    }
 
     //// CONVERSIONS ////
 
+    namespace internal
+    {
     static JPH::RVec3 to_jolt(const Vec3& v)
     {
         return {v.x, v.y, v.z};
@@ -301,6 +309,7 @@ namespace tbx
             world = compose(world, *it);
         return world;
     }
+    }
 
     //// BOUNDARY ////
 
@@ -339,7 +348,7 @@ namespace tbx
                     rigid_body ? (rigid_body->is_kinematic ? JPH::EMotionType::Kinematic
                                                            : JPH::EMotionType::Dynamic)
                                : JPH::EMotionType::Static,
-                    rigid_body ? LAYER_MOVING : LAYER_NON_MOVING);
+                    rigid_body ? internal::LAYER_MOVING : internal::LAYER_NON_MOVING);
                 settings.mUserData = key;
                 if (rigid_body && !rigid_body->is_kinematic)
                 {
