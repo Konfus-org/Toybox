@@ -1,0 +1,8 @@
+[package]
+name = "hex-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Hex Engine — a game engine written in Rust"
+license = "MIT"
+
+[dependencies]
